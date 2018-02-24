@@ -1,0 +1,761 @@
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Date: Wed, 18 Nov 2015 16:40:02 +0100
+Subject: [PATCH] ARM: Add Siedle ComPanel board support
+
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+---
+ arch/arm/boards/siedle-dcip/board.c    |  17 +-
+ arch/arm/boards/siedle-dcip/lowlevel.c |  25 +-
+ arch/arm/dts/Makefile                  |   1 +
+ arch/arm/dts/imx6q-siedle-companel.dts | 601 +++++++++++++++++++++++++++++++++
+ images/Makefile.imx                    |   7 +
+ 5 files changed, 633 insertions(+), 18 deletions(-)
+ create mode 100644 arch/arm/dts/imx6q-siedle-companel.dts
+
+diff --git a/arch/arm/boards/siedle-dcip/board.c b/arch/arm/boards/siedle-dcip/board.c
+index 7c194eaf1e97..243160e9e482 100644
+--- a/arch/arm/boards/siedle-dcip/board.c
++++ b/arch/arm/boards/siedle-dcip/board.c
+@@ -162,6 +162,9 @@ static int phytec_pfla02_init(void)
+ 		imx6_bbu_internal_mmc_register_handler("mmc2", "/dev/mmc2", 0);
+ 	}
+ 
++	if (of_machine_is_compatible("siedle,imx6q-companel"))
++		barebox_set_hostname("companel");
++
+ 	switch (bootsource_get()) {
+ 	case BOOTSOURCE_MMC:
+ 		environment_path = asprintf("/chosen/environment-sd%d",
+@@ -186,24 +189,16 @@ static int phytec_pfla02_init(void)
+ 
+ 	update_bootcount();
+ 
+-	return 0;
+-}
+-device_initcall(phytec_pfla02_init);
+-
+-static int phytec_pbab0x_init(void)
+-{
+-	if (!of_machine_is_compatible("siedle,dcip"))
+-		return 0;
+-
+ 	defaultenv_append_directory(defaultenv_siedle_dcip);
+ 
+ 	return 0;
+ }
+-device_initcall(phytec_pbab0x_init);
++device_initcall(phytec_pfla02_init);
+ 
+ static int siedle_avp_core_init(void)
+ {
+-	if (!of_machine_is_compatible("siedle,imx6q-avp"))
++	if (!of_machine_is_compatible("siedle,imx6q-avp") &&
++	    !of_machine_is_compatible("siedle,imx6q-companel"))
+ 		return 0;
+ 
+ 	imx6_rmii_init();
+diff --git a/arch/arm/boards/siedle-dcip/lowlevel.c b/arch/arm/boards/siedle-dcip/lowlevel.c
+index 48d148ccae5e..9de6d475ffee 100644
+--- a/arch/arm/boards/siedle-dcip/lowlevel.c
++++ b/arch/arm/boards/siedle-dcip/lowlevel.c
+@@ -24,11 +24,20 @@
+ #include <asm/mmu.h>
+ #include <mach/imx6.h>
+ 
+-static inline void setup_uart(void)
++static inline void setup_uart(int uart_num)
+ {
+ 	void __iomem *iomuxbase = (void *)MX6_IOMUXC_BASE_ADDR;
+ 
+-	writel(0x4, iomuxbase + 0x01f8);
++	switch (uart_num) {
++	case 0:
++		return;
++	case 1:
++		writel(0x4, iomuxbase + 0x0bc);
++		break;
++	case 4:
++		writel(0x4, iomuxbase + 0x01f8);
++		break;
++	}
+ 
+ 	imx6_ungate_all_peripherals();
+ 	imx6_uart_setup_ll();
+@@ -42,7 +51,7 @@ BAREBOX_IMD_TAG_STRING(siedle_dcip_memsize_SZ_512M, IMD_TYPE_PARAMETER, "memsize
+ BAREBOX_IMD_TAG_STRING(siedle_dcip_memsize_SZ_1G, IMD_TYPE_PARAMETER, "memsize=1024", 0);
+ 
+ static void __noreturn start_imx6_phytec_common(uint32_t size,
+-						bool do_early_uart_config,
++						int uart_num,
+ 						void *fdt_blob_fixed_offset)
+ {
+ 	void *fdt;
+@@ -51,21 +60,22 @@ static void __noreturn start_imx6_phytec_common(uint32_t size,
+ 
+ 	arm_setup_stack(0x00920000 - 8);
+ 
+-	if (do_early_uart_config && IS_ENABLED(CONFIG_DEBUG_LL))
+-		setup_uart();
++
++	if (IS_ENABLED(CONFIG_DEBUG_LL))
++		setup_uart(uart_num);
+ 
+ 	fdt = fdt_blob_fixed_offset - get_runtime_offset();
+ 	barebox_arm_entry(0x10000000, size, fdt);
+ }
+ 
+-#define PHYTEC_ENTRY(name, fdt_name, memory_size, do_early_uart_config)	\
++#define PHYTEC_ENTRY(name, fdt_name, memory_size, uart_num)	\
+ 	ENTRY_FUNCTION(name, r0, r1, r2)				\
+ 	{								\
+ 		extern char __dtb_##fdt_name##_start[];			\
+ 									\
+ 		IMD_USED(siedle_dcip_memsize_##memory_size);		\
+ 									\
+-		start_imx6_phytec_common(memory_size, do_early_uart_config, \
++		start_imx6_phytec_common(memory_size, uart_num, \
+ 					 __dtb_##fdt_name##_start);	\
+ 	}
+ 
+@@ -74,3 +84,4 @@ PHYTEC_ENTRY(start_siedle_dcip2_evalboard_1bank, imx6q_siedle_dcip2_evalboard, S
+ PHYTEC_ENTRY(start_siedle_bipg650_0m, imx6q_siedle_bipg650_0m, SZ_1G, 0);
+ PHYTEC_ENTRY(start_siedle_bipg650_0m_1bank, imx6q_siedle_bipg650_0m, SZ_1G, 0);
+ PHYTEC_ENTRY(start_siedle_avp, imx6q_siedle_avp, SZ_512M, 4);
++PHYTEC_ENTRY(start_siedle_companel, imx6q_siedle_companel, SZ_512M, 1);
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index 15ed99438383..7cf6972ab6ca 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -49,6 +49,7 @@ pbl-dtb-$(CONFIG_MACH_PHYTEC_SOM_IMX6) += imx6q-phytec-pbaa03.dtb.o \
+ 				imx6q-phytec-phycore-som-emmc.dtb.o \
+ 				imx6dl-phytec-phycore-som-nand.dtb.o
+ pbl-dtb-$(CONFIG_MACH_SIEDLE_DCIP) += imx6q-siedle-avp.dtb.o imx6q-siedle-dcip2-evalboard.dtb.o imx6q-siedle-bipg650-0m.dtb.o
++pbl-dtb-$(CONFIG_MACH_SIEDLE_DCIP) += imx6q-siedle-companel.dtb.o
+ pbl-dtb-$(CONFIG_MACH_PLATHOME_OPENBLOCKS_AX3) += armada-xp-openblocks-ax3-4-bb.dtb.o
+ pbl-dtb-$(CONFIG_MACH_PLATHOME_OPENBLOCKS_A6) += kirkwood-openblocks_a6-bb.dtb.o
+ pbl-dtb-$(CONFIG_MACH_RADXA_ROCK) += rk3188-radxarock.dtb.o
+diff --git a/arch/arm/dts/imx6q-siedle-companel.dts b/arch/arm/dts/imx6q-siedle-companel.dts
+new file mode 100644
+index 000000000000..5282c08859a7
+--- /dev/null
++++ b/arch/arm/dts/imx6q-siedle-companel.dts
+@@ -0,0 +1,601 @@
++/*
++ * Copyright 2013 Philipp Zabel, Pengutronix
++ *
++ * The code contained herein is licensed under the GNU General Public
++ * License. You may obtain a copy of the GNU General Public License
++ * Version 2 or later at the following locations:
++ *
++ * http://www.opensource.org/licenses/gpl-license.html
++ * http://www.gnu.org/copyleft/gpl.html
++ */
++
++/dts-v1/;
++#include <arm/imx6q.dtsi>
++#include <dt-bindings/gpio/gpio.h>
++#include "imx6q.dtsi"
++
++/ {
++	model = "Siedle ComPanel";
++	compatible = "siedle,imx6q-companel", "siedle,dcip", "fsl,imx6q";
++
++	memory {
++		reg = <0x10000000 0x20000000>;
++	};
++
++	aliases {
++		/* make the 'state' tool happy */
++		state = &state;
++	};
++
++	chosen {
++		linux,stdout-path = &uart2;
++
++		environment-spinor {
++			compatible = "barebox,environment";
++			device-path = &flash, "partname:barebox-environment";
++		};
++	};
++
++	state: state@0 {
++		magic = <0x4d433230>;
++		compatible = "barebox,state";
++		backend-type = "raw";
++		backend = <&statedata>;
++		#address-cells = <1>;
++		#size-cells = <1>;
++
++		active_firmware_slot@0 {
++			reg = <0x0 4>;
++			type = "enum32";
++			names = "none", "slot1", "slot2";
++			default = <0>;
++		};
++
++		next_firmware_slot@4 {
++			reg = <0x4 4>;
++			type = "enum32";
++			names = "none", "slot1", "slot2";
++			default = <0>;
++		};
++
++		content_firmware_slot1@8 {
++			/* content description of slot#1 */
++			reg = <0x8 4>;
++			type = "enum32";
++			names = "empty", "deployed", "invalid", "broken";
++			default = <0>;
++		};
++
++		content_firmware_slot2@c {
++			/* content description of slot#1 */
++			reg = <0xc 4>;
++			type = "enum32";
++			names = "empty", "deployed", "invalid", "broken";
++			default = <0>;
++		};
++	};
++
++	codec_mclk: oscillator {
++		compatible = "fixed-clock";
++		#clock-cells = <1>;
++		clock-frequency = <12288000>;
++	};
++
++	backlight: backlight {
++		compatible = "pwm-backlight";
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_backlight>;
++		pwms = <&pwm1 0 500000 1>;
++		brightness-levels = <1 2 4 8 16 32 64 128 255>;
++		default-brightness-level = <8>;
++		enable-gpios = <&gpio4 5 GPIO_ACTIVE_LOW>;
++	};
++
++	gpio-keys {
++		compatible = "gpio-keys";
++
++		toe {
++			label = "Open Door";
++			gpios = <&gpio5 31 GPIO_ACTIVE_HIGH>;
++			linux,code = <59>; /* KEY_F1 */
++			debounce-interval = <50>;
++		};
++
++		volume-down {
++			label = "Volume Down";
++			gpios = <&gpio1 6 GPIO_ACTIVE_HIGH>;
++			linux,code = <114>; /* KEY_VOLUMEDOWN */
++			debounce-interval = <50>;
++		};
++
++		talk {
++			label = "Talk";
++			gpios = <&gpio1 2 GPIO_ACTIVE_HIGH>;
++			linux,code = <167>; /* KEY_RECORD */
++			debounce-interval = <50>;
++		};
++
++		volume-up {
++			label = "Volume Up";
++			gpios = <&gpio1 9 GPIO_ACTIVE_HIGH>;
++			linux,code = <115>; /* KEY_VOLUMEUP */
++			debounce-interval = <50>;
++		};
++	};
++
++	leds {
++		compatible = "gpio-leds";
++
++		sprechen {
++			label = "avp:amber:talk";
++			gpios = <&gpio6 3 GPIO_ACTIVE_LOW>;
++		};
++
++		toe {
++			label = "avp:amber:open";
++			gpios = <&gpio6 2 GPIO_ACTIVE_LOW>;
++		};
++
++		an2 {
++			label = "avp:amber:an2";
++			gpios = <&gpio5 20 GPIO_ACTIVE_LOW>;
++		};
++	};
++
++	panel {
++		compatible = "dlc,dlc0700yzg-1", "simple-panel";
++		enable-gpios = <&gpio4 14 GPIO_ACTIVE_LOW>;
++		reset-gpios = <&gpio4 15 GPIO_ACTIVE_LOW>;
++
++		backlight = <&backlight>;
++
++		port {
++			panel_in: endpoint {
++				remote-endpoint = <&lvds0_out>;
++			};
++		};
++
++		display-timings {
++			native-mode = <&timing0>;
++			timing0: hsd100pxn1 {
++				clock-frequency = <48960000>;
++				hactive = <1024>;
++				vactive = <600>;
++				hback-porch = <144>;
++				hfront-porch = <40>;
++				vback-porch = <18>;
++				vfront-porch = <1>;
++				hsync-len = <104>;
++				vsync-len = <3>;
++			};
++		};
++	};
++
++        sound {
++		compatible = "fsl,imx6q-siedle-companel-ssm2603",
++			     "fsl,imx-audio-ssm2603";
++		model = "imx6q-siedle-companel-ssm2603";
++		ssi-controller = <&ssi1>;
++		audio-codec = <&codec>;
++		audio-routing =
++			"Int Spk", "LHPOUT",
++			"Int Spk", "RHPOUT",
++			"MICIN", "Mic";
++		fsl,spkr-en-gpios = <&gpio5 18 GPIO_ACTIVE_LOW>;
++		mux-int-port = <1>;
++		mux-ext-port = <3>;
++        };
++};
++
++&audmux {
++	status = "okay";
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_audmux>;
++};
++
++&ecspi4 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_ecspi4>;
++	fsl,spi-num-chipselects = <1>;
++	cs-gpios = <&gpio3 20 GPIO_ACTIVE_HIGH>;
++	status = "okay";
++
++	flash: m25p80@0 {
++		compatible = "m25p80";
++		spi-max-frequency = <20000000>;
++		use-large-blocks; /* barebox: use 64k instead of 4k erase blocks */
++		/* linux: disable CONFIG_MTD_SPI_NOR_USE_4K_SECTORS for this */
++		reg = <0x0>;
++		#address-cells = <1>;
++		#size-cells = <1>;
++
++		/* full size of this SPI NOR flash '25Q128' memory is 16 MiB */
++		partition@0 {
++			label = "barebox";
++			reg = <0x00000000 0x00080000>; /* 512 kiB */
++		};
++
++		partition@80000 {
++			label = "barebox-environment";
++			reg = <0x00080000 0x00010000>; /*  64 kiB */
++		};
++
++		partition@90000 {
++			label = "rescue-rootfs";
++			reg = <0x00090000 0x00f30000>; /* 15,2 MiB */
++		};
++
++		statedata: partition@fc0000 {
++			label = "state";
++			reg = <0x00fc0000 0x00020000>; /* 2 * 64 kiB */
++		};
++
++		/* free space: 0x00fe0000-0x00ffffff = 0x00020000 (128 kiB) */
++	};
++};
++
++&fec {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_enet>;
++	phy-mode = "rmii";
++	phy-reset-gpios = <&gpio7 12 GPIO_ACTIVE_LOW>;
++	status = "okay";
++};
++
++&ldb {
++	status = "okay";
++
++	lvds-channel@0 {
++		fsl,data-mapping = "spwg";
++		fsl,data-width = <24>;
++		status = "okay";
++
++		port@4 {
++			reg = <4>;
++
++			lvds0_out: endpoint {
++				remote-endpoint = <&panel_in>;
++			};
++		};
++	};
++};
++
++&ocotp {
++	barebox,provide-mac-address = <&fec 0x620>;
++};
++
++&gpmi {
++	/* 512 MiB of NAND */
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_gpmi_nand>;
++	nand-on-flash-bbt;
++	status = "okay";
++	#address-cells = <1>;
++	#size-cells = <1>;
++
++	partition@0 {
++		label = "slot1";
++		reg = <0x00000000 0x0dc00000>; /* 220 MiB */
++	};
++
++	partition@dc00000 {
++		label = "slot2";
++		reg = <0x0dc00000 0x0dc00000>; /* 220 MiB */
++	};
++
++	partition@1b800000 {
++		label = "data";
++		reg = <0x1b800000 0x00000000>; /* The rest */
++	};
++};
++
++&i2c1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_i2c1>;
++	status = "okay";
++
++	touchscreen@38 {
++		compatible = "edt,edt-ft5x06";
++		reg = <0x38>;
++		interrupt-parent = <&gpio1>;
++		interrupts = <5 IRQ_TYPE_EDGE_FALLING>;
++		reset-gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;
++		wake-gpios = <&gpio5 21 GPIO_ACTIVE_HIGH>;
++		touchscreen-size-x = <1024>;
++		touchscreen-size-y = <600>;
++	};
++};
++
++&i2c2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_i2c2>;
++	status = "okay";
++
++	ambient-light-sensor@13 {
++		compatible = "vishay,vcnl4000";
++		reg = <0x13>;
++	};
++
++	codec: audio-codec@1b {
++		compatible = "adi,ssm2603";
++		reg = <0x1b>;
++		clocks = <&codec_mclk 0>;
++		startup-delay-us = <146000>;
++	};
++};
++
++&i2c3 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_i2c3>;
++	clock-frequency = <400000>;
++	status = "okay";
++
++	pmic: pfuze100@08 {
++		compatible = "fsl,pfuze100";
++		reg = <0x08>;
++		interrupt-parent = <&gpio6>;
++		interrupts = <18 8>;
++
++		regulators {
++			sw1a_reg: sw1ab {
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1875000>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			sw1c_reg: sw1c {
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1875000>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			sw2_reg: sw2 {
++				regulator-min-microvolt = <800000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			sw3a_reg: sw3a {
++				regulator-min-microvolt = <400000>;
++				regulator-max-microvolt = <1975000>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			sw3b_reg: sw3b {
++				regulator-min-microvolt = <400000>;
++				regulator-max-microvolt = <1975000>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			sw4_reg: sw4 {
++				regulator-min-microvolt = <400000>;
++				regulator-max-microvolt = <1975000>;
++				regulator-always-on;
++			};
++
++			swbst_reg: swbst {
++				regulator-min-microvolt = <5000000>;
++				regulator-max-microvolt = <5150000>;
++				regulator-always-on;
++			};
++
++			snvs_reg: vsnvs {
++				regulator-min-microvolt = <1000000>;
++				regulator-max-microvolt = <3000000>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			vref_reg: vrefddr {
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			vgen1_reg: vgen1 {
++				regulator-min-microvolt = <800000>;
++				regulator-max-microvolt = <1550000>;
++			};
++
++			vgen2_1v2_eth: vgen2 {
++				regulator-min-microvolt = <800000>;
++				regulator-max-microvolt = <1550000>;
++			};
++
++			vdd_high_in: vgen3 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			vgen4_reg: vgen4 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-always-on;
++			};
++
++			vgen5_reg: vgen5 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-always-on;
++			};
++
++			vgen6_reg: vgen6 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-always-on;
++			};
++		};
++	};
++};
++
++&iomuxc {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_hog>;
++
++	audmux {
++		pinctrl_audmux: audmux {
++			fsl,pins = <
++				MX6QDL_PAD_CSI0_DAT4__AUD3_TXC   0x18060	/* BCLK, 10k PU */
++				MX6QDL_PAD_CSI0_DAT5__AUD3_TXD   0x13060	/* PBDAT */
++				MX6QDL_PAD_CSI0_DAT6__AUD3_TXFS  0x1b060	/* PBLRC */
++				MX6QDL_PAD_CSI0_DAT7__AUD3_RXD   0x1b060	/* RECDAT */
++				MX6QDL_PAD_CSI0_DAT10__AUD3_RXC  0x1b060	/* BCLK */
++				MX6QDL_PAD_CSI0_DAT11__AUD3_RXFS 0x1b060	/* RECLRC */
++			>;
++		};
++	};
++
++	backlight {
++		pinctrl_backlight: backlight {
++			fsl,pins = <
++				MX6QDL_PAD_GPIO_9__PWM1_OUT	0x80000000
++				MX6QDL_PAD_GPIO_19__GPIO4_IO05	0x80000000 /* DISP_LED_EN */
++			>;
++		};
++	};
++
++	enet {
++		pinctrl_enet: enetgrp {
++			fsl,pins = <
++				MX6QDL_PAD_ENET_MDIO__ENET_MDIO      0x1b0b0
++				MX6QDL_PAD_ENET_REF_CLK__GPIO1_IO23  0x130b0
++				MX6QDL_PAD_ENET_RX_ER__ENET_RX_ER    0x1b0b0
++				MX6QDL_PAD_ENET_CRS_DV__ENET_RX_EN   0x1b0b0
++				MX6QDL_PAD_ENET_RXD1__ENET_RX_DATA1  0x1b0b0
++				MX6QDL_PAD_ENET_RXD0__ENET_RX_DATA0  0x1b0b0
++				MX6QDL_PAD_ENET_TX_EN__ENET_TX_EN    0x1b0b0
++				MX6QDL_PAD_ENET_TXD0__ENET_TX_DATA0  0x1b0b0
++				MX6QDL_PAD_ENET_TXD1__ENET_TX_DATA1  0x1b0b0
++				MX6QDL_PAD_ENET_MDC__ENET_MDC        0x1b0b0
++				MX6QDL_PAD_GPIO_16__ENET_REF_CLK     0x4001b0b0
++			>;
++		};
++	};
++
++	ecspi4 {
++		pinctrl_ecspi4: ecspi4grp {
++			fsl,pins = <
++				MX6QDL_PAD_EIM_D20__GPIO3_IO20 0x100b1
++				MX6QDL_PAD_EIM_D21__ECSPI4_SCLK 0x100b1
++				MX6QDL_PAD_EIM_D22__ECSPI4_MISO 0x100b1
++				MX6QDL_PAD_EIM_D28__ECSPI4_MOSI 0x100b1
++			>;
++		};
++	};
++
++	gpmi {
++		pinctrl_gpmi_nand: gpmi-nand {
++			fsl,pins = <
++				MX6QDL_PAD_NANDF_CLE__NAND_CLE     0xb0b1
++				MX6QDL_PAD_NANDF_ALE__NAND_ALE     0xb0b1
++				MX6QDL_PAD_NANDF_WP_B__NAND_WP_B   0xb0b1
++				MX6QDL_PAD_NANDF_RB0__NAND_READY_B 0xb000
++				MX6QDL_PAD_NANDF_CS0__NAND_CE0_B   0xb0b1
++				MX6QDL_PAD_NANDF_CS1__NAND_CE1_B   0xb0b1
++				MX6QDL_PAD_NANDF_CS2__NAND_CE2_B   0xb0b1
++				MX6QDL_PAD_NANDF_CS3__NAND_CE3_B   0xb0b1
++				MX6QDL_PAD_SD4_CMD__NAND_RE_B      0xb0b1
++				MX6QDL_PAD_SD4_CLK__NAND_WE_B      0xb0b1
++				MX6QDL_PAD_NANDF_D0__NAND_DATA00   0xb0b1
++				MX6QDL_PAD_NANDF_D1__NAND_DATA01   0xb0b1
++				MX6QDL_PAD_NANDF_D2__NAND_DATA02   0xb0b1
++				MX6QDL_PAD_NANDF_D3__NAND_DATA03   0xb0b1
++				MX6QDL_PAD_NANDF_D4__NAND_DATA04   0xb0b1
++				MX6QDL_PAD_NANDF_D5__NAND_DATA05   0xb0b1
++				MX6QDL_PAD_NANDF_D6__NAND_DATA06   0xb0b1
++				MX6QDL_PAD_NANDF_D7__NAND_DATA07   0xb0b1
++				MX6QDL_PAD_SD4_DAT0__NAND_DQS      0x00b1
++			>;
++		};
++	};
++
++	hog {
++		pinctrl_hog: hoggrp {
++			fsl,pins = <
++				MX6QDL_PAD_CSI0_DATA_EN__GPIO5_IO20	0x80000000 /* LED AN2 */
++				MX6QDL_PAD_CSI0_DAT16__GPIO6_IO02	0x80000000 /* LED TOE */
++				MX6QDL_PAD_CSI0_DAT17__GPIO6_IO03	0x80000000 /* LED Sprechen */
++				MX6QDL_PAD_SD3_CMD__GPIO7_IO02		0x80000000 /* nZAR */
++				MX6QDL_PAD_SD3_DAT5__GPIO7_IO00		0x80000000 /* nETR */
++				MX6QDL_PAD_KEY_COL4__GPIO4_IO14		0x80000000 /* DISP_EN */
++				MX6QDL_PAD_GPIO_7__GPIO1_IO07		0x80000000 /* Touch reset */
++				MX6QDL_PAD_CSI0_VSYNC__GPIO5_IO21	0x80000000 /* Touch wake */
++				MX6QDL_PAD_GPIO_5__GPIO1_IO05		0x80000000 /* Touch interrupt */
++				MX6QDL_PAD_KEY_ROW4__GPIO4_IO15		0x0000f000 /* DISP_RESET */
++				MX6QDL_PAD_SD3_DAT3__GPIO7_IO07		0x80000000 /* DISP_STBY n.c.? */
++				MX6QDL_PAD_CSI0_PIXCLK__GPIO5_IO18	0x0001b060 /* CLASS_D_EN */
++				MX6QDL_PAD_GPIO_17__GPIO7_IO12		0x80000000 /* PHY reset */
++				MX6QDL_PAD_GPIO_1__WDOG2_B		0x0001b060 /* nWDOG2, 100k PU */
++			>;
++		};
++	};
++
++	i2c1 {
++		pinctrl_i2c1: i2c1grp {
++			fsl,pins = <
++				MX6QDL_PAD_CSI0_DAT8__I2C1_SDA 0x4001b8b1
++				MX6QDL_PAD_CSI0_DAT9__I2C1_SCL 0x4001b8b1
++			>;
++		};
++	};
++
++	i2c2 {
++		pinctrl_i2c2: i2c2grp {
++			fsl,pins = <
++				MX6QDL_PAD_KEY_COL3__I2C2_SCL 0x4001b8b1
++				MX6QDL_PAD_KEY_ROW3__I2C2_SDA 0x4001b8b1
++			>;
++		};
++	};
++
++	i2c3 {
++		pinctrl_i2c3: i2c3grp {
++			fsl,pins = <
++				MX6QDL_PAD_EIM_D17__I2C3_SCL 0x4001b8b1
++				MX6QDL_PAD_EIM_D18__I2C3_SDA 0x4001b8b1
++				MX6QDL_PAD_SD3_DAT6__GPIO6_IO18 0x1b0b1 /* PMIC interrupt */
++			>;
++		};
++	};
++
++	uart2 {
++		pinctrl_uart2: uart2grp {
++			fsl,pins = <
++				MX6QDL_PAD_EIM_D26__UART2_TX_DATA 0x1b0b1
++				MX6QDL_PAD_EIM_D27__UART2_RX_DATA 0x1b0b1
++			>;
++		};
++	};
++};
++
++&pwm1 {
++	status = "okay";
++};
++
++&ssi1 {
++	fsl,mode = "i2s-slave";
++	fsl,ssi-asynchronous;
++	status = "okay";
++};
++
++&uart2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_uart2>;
++	status = "okay";
++};
++
++/* AVP-E3: use WDOG2, WDOG2_B via GPIO_1 can pull down PMIC_ON_REQ */
++&wdog1 {
++	status = "disabled";
++};
++
++&wdog2 {
++	status = "okay";
++	fsl,wdog-timeout;
++};
+diff --git a/images/Makefile.imx b/images/Makefile.imx
+index 6cfef7920216..fc319d30162a 100644
+--- a/images/Makefile.imx
++++ b/images/Makefile.imx
+@@ -225,6 +225,13 @@ imximage-$(CONFIG_MACH_SIEDLE_DCIP) += start_siedle_avp.pblx.imximg
+ FILE_barebox-siedle-avp.img = start_siedle_avp.pblx.imximg
+ image-$(CONFIG_MACH_SIEDLE_DCIP) += barebox-siedle-avp.img
+ 
++pblx-$(CONFIG_MACH_SIEDLE_DCIP) += start_siedle_companel
++# Same SDRAM as AVP, reuse Flash Header
++CFG_start_siedle_companel.pblx.imximg = $(board)/siedle-dcip/flash-header-siedle-avp.imxcfg
++imximage-$(CONFIG_MACH_SIEDLE_DCIP) += start_siedle_companel.pblx.imximg
++FILE_barebox-siedle-companel.img = start_siedle_companel.pblx.imximg
++image-$(CONFIG_MACH_SIEDLE_DCIP) += barebox-siedle-companel.img
++
+ pblx-$(CONFIG_MACH_DFI_FS700_M60) += start_imx6dl_dfi_fs700_m60_6s
+ CFG_start_imx6dl_dfi_fs700_m60_6s.pblx.imximg = $(board)/dfi-fs700-m60/flash-header-fs700-m60-6s.imxcfg
+ FILE_barebox-dfi-fs700-m60-6s.img = start_imx6dl_dfi_fs700_m60_6s.pblx.imximg

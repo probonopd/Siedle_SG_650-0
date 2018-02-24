@@ -1,0 +1,23 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 29 Feb 2016 15:15:06 +0100
+Subject: [PATCH] [media] coda: fix CODA960 JPEG NV12 output
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-common.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index 34a1d3c5e176..c7349d5dc859 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -689,7 +689,8 @@ static int coda_s_fmt(struct coda_ctx *ctx, struct v4l2_format *f)
+ 	switch (f->fmt.pix.pixelformat) {
+ 	case V4L2_PIX_FMT_NV12:
+ 		ctx->tiled_map_type = GDI_TILED_FRAME_MB_RASTER_MAP;
+-		if (tiled_output || (!disable_tiling && ctx->use_rot))
++		if (tiled_output ||
++		    (!disable_tiling && ctx->use_bit && ctx->use_rot))
+ 			break;
+ 		/* else fall through */
+ 	case V4L2_PIX_FMT_YUV420:

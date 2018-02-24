@@ -1,0 +1,23 @@
+# config for elf2flt
+
+menuconfig CROSS_ELF2FLT
+	tristate
+	select CROSS_BINUTILS
+	prompt "elf2flt                     "
+	help
+	  FIXME
+
+if CROSS_ELF2FLT
+
+config CROSS_ELF2FLT_VERSION
+	string
+	prompt "elf2flt version"
+	default "20110404-g40f0d17"
+	help
+	  Specify the binutils version here.
+
+config CROSS_ELF2FLT_MD5
+	string
+	prompt "elf2flt source md5sum"
+
+endif

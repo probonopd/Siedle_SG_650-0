@@ -1,0 +1,54 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 12 Aug 2013 14:31:19 +0200
+Subject: [PATCH] [media] tvp5150: Add optional reset control
+
+The reset line is handled using the reset API and usually connected
+to a GPIO.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/i2c/tvp5150.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/drivers/media/i2c/tvp5150.c b/drivers/media/i2c/tvp5150.c
+index 627f8bb58074..d25444fa5f55 100644
+--- a/drivers/media/i2c/tvp5150.c
++++ b/drivers/media/i2c/tvp5150.c
+@@ -13,6 +13,7 @@
+ #include <linux/module.h>
+ #include <linux/regmap.h>
+ #include <linux/of_graph.h>
++#include <linux/reset.h>
+ #include <media/v4l2-async.h>
+ #include <media/v4l2-device.h>
+ #include <media/tvp5150.h>
+@@ -45,6 +46,7 @@ struct tvp5150 {
+ 	struct v4l2_mbus_framefmt format;
+ 	struct v4l2_rect rect;
+ 	struct regmap *regmap;
++	struct reset_control *rstc;
+ 	int irq;
+ 
+ 	v4l2_std_id norm;	/* Current set standard */
+@@ -1491,6 +1493,21 @@ static int tvp5150_probe(struct i2c_client *c,
+ 		return res;
+ #endif
+ 
++	core->rstc = reset_control_get(&c->dev, NULL);
++	if (PTR_ERR(core->rstc) == -EPROBE_DEFER)
++		return -EPROBE_DEFER;
++	if (!IS_ERR(core->rstc)) {
++		/* Assert reset line for at least 500 ns */
++		reset_control_assert(core->rstc);
++		udelay(1);
++		reset_control_deassert(core->rstc);
++		/* Wait 10 ms before I2C register access */
++		usleep_range(10000, 20000);
++		reset_control_put(core->rstc);
++		/* Start microprocessor */
++		regmap_write(map, 0x7f, 0x00);
++	}
++
+ 	/* 
+ 	 * Read consequent registers - TVP5150_MSB_DEV_ID, TVP5150_LSB_DEV_ID,
+ 	 * TVP5150_ROM_MAJOR_VER, TVP5150_ROM_MINOR_VER 

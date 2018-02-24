@@ -1,0 +1,101 @@
+## SECTION=architecture_options
+
+menu "toolchain                     "
+
+config CROSSCHAIN_VENDOR
+	string
+	prompt "check for specific toolchain vendor"
+	default "OSELAS.Toolchain-2013.12"
+	help
+	  Add here an unique vendor string to ensure this project will
+	  be build with the correct toolchain.
+	  Leave this entry empty to omit this check.
+	  To use this feature add a file called 'ptxconfig' to the bin/ folder of
+	  your toolchain. This file should contain at least one variable definition:
+	  PTXCONF_PROJECT="insert-vendor-string-here"
+	  The string defined here will be checked against the string defined in
+	  PTXCONF_PROJECT in file 'ptxconfig' from the toolchain.
+
+config CROSSCHAIN_CHECK
+	string
+	prompt "check for specific gcc version"
+	default "4.8.2"
+	help
+	  PTXdist calls your cross compiler with -dumpversion and
+	  compares the output with this string. This should help
+	  to avoid compilation with the wrong compiler version
+	  when you use your own external toolchain.
+
+choice
+	prompt "c library           "
+	default LIBC_GLIBC
+
+	config LIBC_GLIBC
+		bool
+		prompt "glibc  "
+		help
+		  This menu entry lets you select components from the
+		  standard C library called glibc. It depends on the
+		  system what components are required.
+
+	config LIBC_UCLIBC
+		bool
+		prompt "uClibc "
+endchoice
+
+if LIBC_GLIBC
+config GLIBC_VERSION
+	string
+	prompt "check for specific glibc version"
+	default "2.18"
+	help
+	  Specify the glibc version this BSP shall be built with. This information
+          is used to guess the toolchain path if you use "ptxdist toolchain"
+	  without an argument.
+endif
+
+if LIBC_UCLIBC
+config UCLIBC_VERSION
+	string
+	prompt "check for specific uClibc version"
+	default "0.9.33.2"
+	help
+	  Specify the uClibc version this BSP shall be built with. This information
+          is used to guess the toolchain path if you use "ptxdist toolchain"
+	  without an argument.
+endif
+
+config GNU_TARGET
+	string
+	prompt "gnu target"
+	help
+	  Defines the GNU target for your cross build.
+
+config COMPILER_PREFIX
+	string
+	prompt "compiler prefix"
+	default "${PTXCONF_GNU_TARGET}-"
+	help
+	  This is the prefix used to create the correct cross compiler
+	  name. If the prefix is equal to the GNU Target you can use
+	  "${PTXCONF_GNU_TARGET}-" to use it.
+
+config COMPILER_PREFIX_KERNEL
+	string
+	prompt "compiler prefix (kernel)"
+	default "${PTXCONF_COMPILER_PREFIX}"
+	help
+	  This is the prefix used to create the correct cross compiler
+	  name used to compile the kernel. If the prefix equals the
+	  normal compiler you can use "${PTXCONF_COMPILER_PREFIX}".
+
+config COMPILER_PREFIX_BOOTLOADER
+	string
+	prompt "compiler prefix (bootloader)"
+	default "${PTXCONF_COMPILER_PREFIX}"
+	help
+	  This is the prefix used to create the correct cross compiler
+	  name used to compile the bootloader. If the prefix equals
+	  the normal compiler you can use "${PTXCONF_COMPILER_PREFIX}".
+
+endmenu

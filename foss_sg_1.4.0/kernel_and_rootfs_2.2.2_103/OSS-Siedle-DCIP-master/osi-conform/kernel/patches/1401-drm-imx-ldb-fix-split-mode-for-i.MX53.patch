@@ -1,0 +1,37 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 25 Jun 2013 17:26:14 +0200
+Subject: [PATCH] drm/imx: ldb: fix split mode for i.MX53
+
+On i.MX53, the DI0 clock can only be sourced from ldb_di0, and
+the DI1 clock can only be sourced from ldb_di1. i.MX6q does not
+have this limitation.
+Luckily, in split mode both ldb_di0 and ldb_di1 have to be
+synchronous, so we can choose either one of them as source for
+the display interface. imx_ldb_set_clock is called for both
+ldb_di0 and ldb_di1.
+With this patch we only try to set the parent clock during the
+combination of DI<n> and ldb_di<n> which works on i.MX53.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/drm/imx/imx-ldb.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/drm/imx/imx-ldb.c b/drivers/gpu/drm/imx/imx-ldb.c
+index 9a0347efc520..28fee015f0b5 100644
+--- a/drivers/gpu/drm/imx/imx-ldb.c
++++ b/drivers/gpu/drm/imx/imx-ldb.c
+@@ -167,6 +167,13 @@ static void imx_ldb_set_clock(struct imx_ldb *ldb, int mux, int chno,
+ 	dev_dbg(ldb->dev, "%s after: %ld\n", __func__,
+ 			clk_get_rate(ldb->clk[chno]));
+ 
++	/*
++	 * In split mode, do not try to set the di0 parent clock to ldb_di1,
++	 * or the di1 parent clock to ldb_di0, which is not possible on i.MX53.
++	 */
++	if ((ldb->ldb_ctrl & LDB_SPLIT_MODE_EN) && (mux != chno))
++		return;
++
+ 	/* set display clock mux to LDB input clock */
+ 	ret = clk_set_parent(ldb->clk_sel[mux], ldb->clk[chno]);
+ 	if (ret)

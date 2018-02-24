@@ -1,0 +1,27 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 25 Jan 2016 12:31:35 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: reset timeperframe on pad 1 when
+ setting pad 0
+
+Setting the frame interval on pad 1 can be used to configure the frame
+skipping mechanism. Rather than keep the ratio constant when changing
+the input frame interval, reset it to 1/1.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 02808768e71b..b88760485483 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -1359,6 +1359,8 @@ static int ipucsi_s_frame_interval(struct v4l2_subdev *subdev,
+ 	if (fi->pad == 0) {
+ 		/* Believe what we are told about the input frame rate */
+ 		ipucsi->timeperframe[0] = fi->interval;
++		/* Reset output frame rate to input frame rate */
++		ipucsi->timeperframe[1] = fi->interval;
+ 		return 0;
+ 	}
+ 

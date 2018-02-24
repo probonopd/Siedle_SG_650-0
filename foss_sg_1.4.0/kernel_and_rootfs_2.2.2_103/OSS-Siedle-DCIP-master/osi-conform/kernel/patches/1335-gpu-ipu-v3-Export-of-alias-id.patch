@@ -1,0 +1,39 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 22 Jan 2015 10:59:51 +0100
+Subject: [PATCH] gpu: ipu-v3: Export of-alias id
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-common.c | 6 ++++++
+ include/video/imx-ipu-v3.h      | 1 +
+ 2 files changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-common.c b/drivers/gpu/ipu-v3/ipu-common.c
+index 912e8f9f8d97..53bd75eb67b5 100644
+--- a/drivers/gpu/ipu-v3/ipu-common.c
++++ b/drivers/gpu/ipu-v3/ipu-common.c
+@@ -1236,6 +1236,12 @@ void ipu_dump(struct ipu_soc *ipu)
+ }
+ EXPORT_SYMBOL_GPL(ipu_dump);
+ 
++int ipu_get_id(struct ipu_soc *ipu)
++{
++	return ipu->id;
++}
++EXPORT_SYMBOL_GPL(ipu_get_id);
++
+ static int ipu_probe(struct platform_device *pdev)
+ {
+ 	const struct of_device_id *of_id =
+diff --git a/include/video/imx-ipu-v3.h b/include/video/imx-ipu-v3.h
+index f044af787bdd..76d86534aef0 100644
+--- a/include/video/imx-ipu-v3.h
++++ b/include/video/imx-ipu-v3.h
+@@ -175,6 +175,7 @@ int ipu_idmac_channel_irq(struct ipu_soc *ipu, struct ipuv3_channel *channel,
+ /*
+  * IPU Common functions
+  */
++int ipu_get_id(struct ipu_soc *ipu);
+ void ipu_set_csi_src_mux(struct ipu_soc *ipu, int csi_id, bool mipi_csi2);
+ void ipu_set_ic_src_mux(struct ipu_soc *ipu, int csi_id, bool vdi);
+ void ipu_dump(struct ipu_soc *ipu);

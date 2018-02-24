@@ -1,0 +1,23 @@
+## SECTION=ptxdist_options
+
+config INVISIBLE
+	bool
+	help
+	  don't delete this, it's to keep some menus in shape :)
+
+config ALLYES
+	bool "allyes - don't let busybox block other packages"
+	help
+	  if you select this, you can select all packages, even these
+	  who are blocked by activated busybox applets
+
+comment ""
+	depends on INVISIBLE
+
+config BROKEN
+	bool "support packets known to be broken"
+	depends on !ALLYES
+	help
+	  If this option is checked, even packets are activated which
+	  are known to be broken.
+

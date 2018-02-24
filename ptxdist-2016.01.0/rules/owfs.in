@@ -1,0 +1,49 @@
+## SECTION=system_libraries
+
+comment "owfs conflicts with BusyBox' mount!"
+	depends on BUSYBOX_MOUNT
+
+comment "owfs conflicts with BusyBox' umount!"
+	depends on BUSYBOX_MOUNT
+
+menuconfig OWFS
+	tristate
+	prompt "owfs                          "
+	select LIBC_M
+	select LIBC_PTHREAD
+	select GCCLIBS_GCC_S
+	select FUSE			if OWFS_OWFS
+	select FUSE__LIB		if OWFS_OWFS
+	depends on !BUSYBOX_MOUNT || ALLYES
+	depends on !BUSYBOX_UMOUNT || ALLYES
+	select UTIL_LINUX_NG		if OWFS_OWFS
+	select UTIL_LINUX_NG_MOUNT	if OWFS_OWFS
+	select UTIL_LINUX_NG_UMOUNT	if OWFS_OWFS
+	help
+	  OWFS is the 1-Wire file system. It is used by Dallas 1-Wire and iButton
+	  chips with standard linux commands. Create temperature loggers. Monitor
+	  everything.
+	  To make it work, you must use the 'mount' and 'umount' tools from
+	  the util_linux_ng package. The ones from Busybox do not work.
+	  And also do not forget to enable 'fuse' support in the kernel.
+
+if OWFS
+
+
+config OWFS_OWSHELL
+	bool
+	prompt "owshell"
+
+config OWFS_OWNETLIB
+	bool
+	prompt "ownetlib"
+
+comment "OWFS does not work with busybox's 'mount' and 'umount'"
+	depends on BUSYBOX_MOUNT || BUSYBOX_UMOUNT
+
+config OWFS_OWFS
+	bool
+	depends on !BUSYBOX_MOUNT && !BUSYBOX_UMOUNT || ALLYES
+	prompt "owfs"
+
+endif

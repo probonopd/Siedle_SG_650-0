@@ -1,0 +1,27 @@
+From: Enrico Jorns <ejo@pengutronix.de>
+Date: Tue, 20 Jan 2015 11:56:30 +0100
+Subject: [PATCH] v4l2videoenc: Do not set fixed buffer pool size
+
+Valid bufferpool size should be negotiated already, otherwise something
+went wrong. Thus setting a fixed value should not be required.
+---
+ sys/v4l2/gstv4l2videoenc.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/sys/v4l2/gstv4l2videoenc.c b/sys/v4l2/gstv4l2videoenc.c
+index 4987c77f29a1..a0608a23a880 100644
+--- a/sys/v4l2/gstv4l2videoenc.c
++++ b/sys/v4l2/gstv4l2videoenc.c
+@@ -457,9 +457,11 @@ gst_v4l2_video_enc_handle_frame (GstVideoEncoder * encoder,
+     gst_v4l2_object_set_format (self->v4l2capture, outcaps);
+ 
+     if (!gst_buffer_pool_is_active (pool)) {
++      guint min, max;
+       GstStructure *config = gst_buffer_pool_get_config (pool);
++      gst_buffer_pool_config_get_params (config, NULL, NULL, &min, &max);
+       gst_buffer_pool_config_set_params (config,
+-          self->input_state->caps, self->v4l2output->info.size, 16, 16);
++          self->input_state->caps, self->v4l2output->info.size, min, max);
+ 
+       if (!gst_buffer_pool_set_config (pool, config))
+         goto activate_failed;

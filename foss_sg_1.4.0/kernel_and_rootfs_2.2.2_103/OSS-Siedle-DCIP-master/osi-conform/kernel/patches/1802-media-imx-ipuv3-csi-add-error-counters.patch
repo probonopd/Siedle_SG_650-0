@@ -1,0 +1,253 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 29 Jun 2015 09:22:14 +0200
+Subject: [PATCH] [media] imx-ipuv3-csi: add error counters
+
+Handle error interrupts by incrementing counters
+that can be read from /sys/kernel/dev/ipucsi0.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 156 ++++++++++++++++++++++++++++-
+ 1 file changed, 155 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index d66393c2d443..a9be1fe322e6 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -19,6 +19,7 @@
+ #include <linux/videodev2.h>
+ #include <linux/workqueue.h>
+ #include <linux/version.h>
++#include <linux/debugfs.h>
+ #include <linux/device.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+@@ -172,6 +173,18 @@ struct ipucsi {
+ 	bool				paused;
+ 
+ 	struct delayed_work		pause_work;
++
++	struct dentry			*debug_file;
++	int				done_count;
++	int				skip_count;
++	int				nfb4eof_irq;
++	int				nfb4eof_count;
++	int				pupe_irq;
++	int				pupe_count;
++	int				th_irq;
++	int				th_count;
++	int				frm_lost_irq;
++	int				frm_lost_count;
+ };
+ 
+ static struct ipucsi_buffer *to_ipucsi_vb(struct vb2_buffer *vb)
+@@ -515,6 +528,22 @@ static void ipucsi_v4l2_dev_notify(struct v4l2_subdev *sd,
+ 	}
+ }
+ 
++static irqreturn_t ipucsi_error_handler(int irq, void *context)
++{
++	struct ipucsi *ipucsi = context;
++
++	if (irq == ipucsi->nfb4eof_irq)
++		ipucsi->nfb4eof_count++;
++	else if (irq == ipucsi->pupe_irq)
++		ipucsi->pupe_count++;
++	else if (irq == ipucsi->frm_lost_irq)
++		ipucsi->frm_lost_count++;
++	else if (irq == ipucsi->th_irq)
++		ipucsi->th_count++;
++
++	return IRQ_HANDLED;
++}
++
+ static irqreturn_t ipucsi_new_frame_handler(int irq, void *context)
+ {
+ 	struct ipucsi *ipucsi = context;
+@@ -536,6 +565,7 @@ static irqreturn_t ipucsi_new_frame_handler(int irq, void *context)
+ 
+ 		if (vb2_is_streaming(vb->vb2_buf.vb2_queue) &&
+ 		    list_is_singular(&ipucsi->capture)) {
++			ipucsi->skip_count++;
+ 			pr_debug("%s: reusing 0x%08x\n", __func__,
+ 				vb2_dma_contig_plane_dma_addr(&vb->vb2_buf, 0));
+ 			/* DEBUG: check if buf == EBA(active) */
+@@ -544,11 +574,14 @@ static irqreturn_t ipucsi_new_frame_handler(int irq, void *context)
+ 			list_del_init(&buf->queue);
+ 
+ 			vb2_buffer_done(&vb->vb2_buf, VB2_BUF_STATE_DONE);
++			ipucsi->done_count++;
+ 		}
+ 	}
+ 
+-	if (list_empty(&ipucsi->capture))
++	if (list_empty(&ipucsi->capture)) {
++		ipucsi->skip_count++;
+ 		goto out;
++	}
+ 
+ 	ipucsi->active = list_first_entry(&ipucsi->capture,
+ 					   struct ipucsi_buffer, queue);
+@@ -847,6 +880,41 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 		width, height, pixfmtstr(ipucsi->format.fmt.pix.pixelformat),
+ 		pixfmtstr(ipucsifmt->raw));
+ 
++	ipucsi->nfb4eof_irq = ipu_idmac_channel_irq(ipucsi->ipu, ipucsi->ipuch,
++						    IPU_IRQ_NFB4EOF);
++	ret = request_irq(ipucsi->nfb4eof_irq, ipucsi_error_handler,
++			  IRQF_SHARED, irq_name[ipucsi->id], ipucsi);
++	if (ret) {
++		dev_err(dev, "Failed to request NFB4EOF interrupt: %d\n", ret);
++		goto free_nfack;
++	}
++
++	ipucsi->th_irq = ipu_idmac_channel_irq(ipucsi->ipu, ipucsi->ipuch,
++					       IPU_IRQ_TH);
++	ret = request_irq(ipucsi->th_irq, ipucsi_error_handler,
++			  IRQF_SHARED, irq_name[ipucsi->id], ipucsi);
++	if (ret) {
++		dev_err(dev, "Failed to request TH interrupt: %d\n", ret);
++		goto free_nfb4eof;
++	}
++
++	ipucsi->pupe_irq = ipu_map_irq(ipucsi->ipu, ipucsi->id ?
++				       IPU_IRQ_CSI1_PUPE : IPU_IRQ_CSI0_PUPE);
++	ret = request_irq(ipucsi->pupe_irq, ipucsi_error_handler,
++			  IRQF_SHARED, "PUPE", ipucsi);
++	if (ret) {
++		dev_err(dev, "Failed to request PUPE interrupt: %d\n", ret);
++		goto free_th;
++	}
++
++	ipucsi->frm_lost_irq = ipu_map_irq(ipucsi->ipu, IPU_IRQ_SMFC0_FRM_LOST);
++	ret = request_irq(ipucsi->frm_lost_irq, ipucsi_error_handler,
++			  IRQF_SHARED, "FRM_LOST", ipucsi);
++	if (ret) {
++		dev_err(dev, "Failed to request FRM_LOST interrupt: %d\n", ret);
++		goto free_pupe;
++	}
++
+ 	/*
+ 	 * TODO:
+ 	 * replace set_resolution, set_stride, set_fmt_*, set_yuv_*, set_buffer
+@@ -1035,6 +1103,14 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ stop_pipe:
+ 	media_entity_pipeline_stop(ipucsi->csi_entity);
+ free_irq:
++	free_irq(ipucsi->frm_lost_irq, ipucsi);
++free_pupe:
++	free_irq(ipucsi->pupe_irq, ipucsi);
++free_th:
++	free_irq(ipucsi->th_irq, ipucsi);
++free_nfb4eof:
++	free_irq(ipucsi->nfb4eof_irq, ipucsi);
++free_nfack:
+ 	free_irq(nfack_irq, ipucsi);
+ put_resources:
+ 	ipucsi_put_resources(ipucsi);
+@@ -1058,6 +1134,9 @@ static void ipucsi_videobuf_stop_streaming(struct vb2_queue *vq)
+ 	int nfack_irq = ipu_idmac_channel_irq(ipucsi->ipu, ipucsi->ipuch,
+ 				IPU_IRQ_NFACK);
+ 
++	free_irq(ipucsi->frm_lost_irq, ipucsi);
++	free_irq(ipucsi->pupe_irq, ipucsi);
++	free_irq(ipucsi->nfb4eof_irq, ipucsi);
+ 	free_irq(nfack_irq, ipucsi);
+ 	ipu_csi_disable(ipucsi->csi);
+ 	ipu_idmac_disable_channel(ipucsi->ipuch);
+@@ -2137,6 +2216,78 @@ static int ipucsi_async_init(struct ipucsi *ipucsi, struct device_node *node)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_DEBUG_FS
++static int ipucsi_debug_show(struct seq_file *s, void *data)
++{
++	struct ipucsi *ipucsi = s->private;
++
++	seq_printf(s, "CSI%d counters:\n", ipucsi->id);
++
++	seq_printf(s, "captured frames         = %u\n", ipucsi->done_count);
++	seq_printf(s, "skipped frames          = %u (no buffer available)\n",
++		   ipucsi->skip_count);
++	seq_printf(s, "new frame before EOF    = %u\n", ipucsi->nfb4eof_count);
++	seq_printf(s, "parameter update errors = %u\n", ipucsi->pupe_count);
++	seq_printf(s, "SMFC%d frame lost        = %u\n",
++		   ipucsi->id, ipucsi->frm_lost_count);
++
++	return 0;
++}
++
++static int ipucsi_debug_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, ipucsi_debug_show, inode->i_private);
++}
++
++static ssize_t ipucsi_debug_write(struct file *file,
++				  const char __user *user_buf,
++				  size_t count, loff_t *ppos)
++{
++	struct seq_file *seq = file->private_data;
++	struct ipucsi *ipucsi = seq->private;
++
++	ipucsi->done_count = 0;
++	ipucsi->skip_count = 0;
++	ipucsi->nfb4eof_count = 0;
++	ipucsi->pupe_count = 0;
++	ipucsi->frm_lost_count = 0;
++
++	return count;
++}
++
++static const struct file_operations ipucsi_debug_fops = {
++	.open    = ipucsi_debug_open,
++	.read    = seq_read,
++	.llseek  = seq_lseek,
++	.release = single_release,
++	.write   = ipucsi_debug_write,
++};
++
++static struct dentry *ipucsi_create_debugfs(struct ipucsi *ipucsi)
++{
++	char name[8];
++
++	snprintf(name, sizeof(name), "ipucsi%d\n", ipucsi->id);
++	ipucsi->debug_file = debugfs_create_file(name, 0444, NULL,
++						 ipucsi, &ipucsi_debug_fops);
++
++	return ipucsi->debug_file;
++}
++
++static void ipucsi_remove_debugfs(struct ipucsi *ipucsi)
++{
++	debugfs_remove(ipucsi->debug_file);
++}
++#else
++static inline struct dentry *ipucsi_create_debugfs(struct ipucsi *ipucsi)
++{
++	return NULL;
++}
++static inline void ipucsi_remove_debugfs(struct ipucsi *ipucsi)
++{
++}
++#endif
++
+ static struct device_node *ipucsi_get_port(struct device_node *node, int id)
+ {
+ 	struct device_node *port;
+@@ -2220,6 +2371,8 @@ static int ipucsi_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto failed;
+ 
++	ipucsi_create_debugfs(ipucsi);
++
+ 	dev_info(&pdev->dev, "loaded\n");
+ 
+ 	return 0;
+@@ -2242,6 +2395,7 @@ static int ipucsi_remove(struct platform_device *pdev)
+ {
+ 	struct ipucsi *ipucsi = platform_get_drvdata(pdev);
+ 
++	ipucsi_remove_debugfs(ipucsi);
+ 	video_unregister_device(&ipucsi->vdev);
+ 	ipu_media_entity_remove_link(ipucsi->link);
+ 	media_entity_cleanup(&ipucsi->vdev.entity);

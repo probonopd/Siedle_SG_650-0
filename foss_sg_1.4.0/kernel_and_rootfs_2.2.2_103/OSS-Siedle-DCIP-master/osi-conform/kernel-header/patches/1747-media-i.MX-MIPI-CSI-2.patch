@@ -1,0 +1,730 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 3 Jun 2014 19:04:27 +0200
+Subject: [PATCH] [media] i.MX MIPI CSI-2
+
+Add a v4l2 subdevice driver for the Synopsys DesignWare MIPI CSI-2 host
+controller on i.MX6. Here its output is conneted to the CSI2IPU gasket,
+which distributes the time division multiplexed virtual channels to the
+four parallel IPU CSI inputs.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/Kconfig         |   7 +
+ drivers/media/platform/imx/Makefile        |   1 +
+ drivers/media/platform/imx/imx-mipi-csi2.c | 678 +++++++++++++++++++++++++++++
+ 3 files changed, 686 insertions(+)
+ create mode 100644 drivers/media/platform/imx/imx-mipi-csi2.c
+
+diff --git a/drivers/media/platform/imx/Kconfig b/drivers/media/platform/imx/Kconfig
+index dc9731158361..b4ee7cd9401d 100644
+--- a/drivers/media/platform/imx/Kconfig
++++ b/drivers/media/platform/imx/Kconfig
+@@ -6,6 +6,13 @@ config MEDIA_IMX
+ 	  This driver provides a SoC wide media controller device that all
+ 	  multimedia components in i.MX5 and i.MX6 SoCs can register with.
+ 
++config MEDIA_IMX_MIPI_CSI2
++	tristate "i.MX MIPI CSI-2 Host Controller"
++	depends on VIDEO_V4L2_SUBDEV_API
++	help
++	  This driver provides support for the MIPI CSI-2 Host Controller that
++	  is connected to the IPU CSI input multiplexers on i.MX6 SoCs.
++
+ config MEDIA_IMX_VIDEO_SWITCH
+ 	tristate "i.MX Video Bus Multiplexer"
+ 	depends on VIDEO_V4L2_SUBDEV_API && MEDIA_IMX
+diff --git a/drivers/media/platform/imx/Makefile b/drivers/media/platform/imx/Makefile
+index 20e0c042a11e..56ae7c203891 100644
+--- a/drivers/media/platform/imx/Makefile
++++ b/drivers/media/platform/imx/Makefile
+@@ -1,5 +1,6 @@
+ obj-$(CONFIG_MEDIA_IMX)			+= imx-media.o
+ obj-$(CONFIG_MEDIA_IMX_VIDEO_SWITCH)	+= imx-video-switch.o
++obj-$(CONFIG_MEDIA_IMX_MIPI_CSI2)	+= imx-mipi-csi2.o
+ obj-$(CONFIG_VIDEO_IMX_IPU_COMMON)	+= imx-ipu.o
+ obj-$(CONFIG_VIDEO_IMX_IPU_CSI)		+= imx-ipuv3-csi.o
+ obj-$(CONFIG_VIDEO_IMX_IPU_OVL)		+= imx-ipu-ovl.o
+diff --git a/drivers/media/platform/imx/imx-mipi-csi2.c b/drivers/media/platform/imx/imx-mipi-csi2.c
+new file mode 100644
+index 000000000000..30ee6c3f8a4e
+--- /dev/null
++++ b/drivers/media/platform/imx/imx-mipi-csi2.c
+@@ -0,0 +1,678 @@
++#include <linux/clk.h>
++#include <linux/delay.h>
++#include <linux/io.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/of_graph.h>
++#include <linux/platform_device.h>
++#include <media/v4l2-async.h>
++#include <media/v4l2-of.h>
++#include <media/v4l2-subdev.h>
++
++#define MIPI_CSI2_VERSION	0x00
++#define MIPI_CSI2_N_LANES	0x04
++#define MIPI_CSI2_PHY_SHUTDOWNZ	0x08
++#define MIPI_CSI2_DPHY_RSTZ	0x0c
++#define MIPI_CSI2_CSI2_RESETN	0x10
++#define MIPI_CSI2_PHY_STATE	0x14
++#define MIPI_CSI2_DATA_IDS_1	0x18
++#define MIPI_CSI2_DATA_IDS_2	0x1c
++#define MIPI_CSI2_ERR1		0x20
++#define MIPI_CSI2_ERR2		0x24
++#define MIPI_CSI2_MASK1		0x28
++#define MIPI_CSI2_MASK2		0x2c
++#define MIPI_CSI2_PHY_TST_CTRL0	0x30
++#define MIPI_CSI2_PHY_TST_CTRL1	0x34
++
++#define CSI2IPU_SW_RST		0xf00
++
++#define PHY_RXULPSESC_0		BIT(0)
++#define PHY_RXULPSESC_1		BIT(1)
++#define PHY_RXULPSESC_2		BIT(2)
++#define PHY_RXULPSESC_3		BIT(3)
++#define PHY_STOPSTATEDATA_0	BIT(4)
++#define PHY_STOPSTATEDATA_1	BIT(5)
++#define PHY_STOPSTATEDATA_2	BIT(6)
++#define PHY_STOPSTATEDATA_3	BIT(7)
++#define PHY_RXCLKACTIVEHS	BIT(8)
++#define PHY_RXULPSCLKNOT	BIT(9)
++#define PHY_STOPSTATECLK	BIT(10)
++#define PHY_BYPASS_2ECC_TST	BIT(11)
++
++#define PHY_TESTCLR		BIT(0)
++#define PHY_TESTCLK		BIT(1)
++
++#define PHY_TESTEN		BIT(16)
++
++#define MIPI_CSI2_VERSION_IMX6	0x3130302a
++
++#define CSI2IPU_RGB444_FM	BIT(3)
++#define CSI2IPU_YUV422_8BIT_FM	BIT(2)
++#define CSI2IPU_CLK_SEL		BIT(1)
++
++#define MIPI_CSI2_PADS 5
++
++/* FIXME */
++#include <media/imx.h> /* for ipu_media_entity_create_link */
++
++struct mipi_csi2 {
++	struct v4l2_subdev subdev;
++	struct media_pad pads[MIPI_CSI2_PADS];
++	struct v4l2_mbus_framefmt format;
++	struct v4l2_fract timeperframe;
++	struct device *dev;
++	struct spinlock lock;
++
++	struct clk *pclk;
++	struct clk *cfg_clk;
++	struct clk *ref_clk;
++	struct clk *pixel_clk;
++	void __iomem *regs;
++
++	int max_lanes;
++	int lanes;
++	bool enabled;
++	bool streaming;
++};
++
++struct dphy_pll_testdin_map {
++	u16 max_mbps;
++	u16 testdin;
++};
++
++/* The table is based on 27MHz DPHY pll reference clock. */
++static const struct dphy_pll_testdin_map dptdin_map[] = {
++	{90, 0x00}, {100, 0x20}, {110, 0x40}, {125, 0x02},
++	{140, 0x22}, {150, 0x42}, {160, 0x04}, {180, 0x24},
++	{200, 0x44}, {210, 0x06}, {240, 0x26}, {250, 0x46},
++	{270, 0x08}, {300, 0x28}, {330, 0x48}, {360, 0x2a},
++	{400, 0x4a}, {450, 0x0c}, {500, 0x2c}, {550, 0x0e},
++	{600, 0x2e}, {650, 0x10}, {700, 0x30}, {750, 0x12},
++	{800, 0x32}, {850, 0x14}, {900, 0x34}, {950, 0x54},
++	{1000, 0x74}
++};
++
++static int max_mbps_to_testdin(unsigned int max_mbps)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(dptdin_map); i++)
++		if (dptdin_map[i].max_mbps == max_mbps)
++			return dptdin_map[i].testdin;
++
++	return -EINVAL;
++}
++
++static void mipi_csi2_dphy_write(struct mipi_csi2 *csi2, u8 addr, u8 data)
++{
++	/* Clear PHY test interface */
++	writel(PHY_TESTCLR, csi2->regs + MIPI_CSI2_PHY_TST_CTRL0);
++	writel(0x00000, csi2->regs + MIPI_CSI2_PHY_TST_CTRL1);
++	writel(0, csi2->regs + MIPI_CSI2_PHY_TST_CTRL0);
++
++	/* Raise test interface strobe signal */
++	writel(PHY_TESTCLK, csi2->regs + MIPI_CSI2_PHY_TST_CTRL0);
++
++	/* Configure address write on falling edge and lower strobe signal */
++	writel(PHY_TESTEN | addr, csi2->regs + MIPI_CSI2_PHY_TST_CTRL1);
++	writel(0, csi2->regs + MIPI_CSI2_PHY_TST_CTRL0);
++
++	/* Configure data write on rising edge and raise strobe signal */
++	writel(data, csi2->regs + MIPI_CSI2_PHY_TST_CTRL1);
++	writel(PHY_TESTCLK, csi2->regs + MIPI_CSI2_PHY_TST_CTRL0);
++
++	/* Clear strobe signal */
++	writel(0, csi2->regs + MIPI_CSI2_PHY_TST_CTRL0);
++}
++
++static int mipi_csi2_reset(struct mipi_csi2 *csi2)
++{
++	const u8 addr = 0x44;
++	u8 data = max_mbps_to_testdin(850);
++
++	/* Assert CSI-2 Host Controller and D-PHY resets */
++	writel(0, csi2->regs + MIPI_CSI2_PHY_SHUTDOWNZ);
++	writel(0, csi2->regs + MIPI_CSI2_DPHY_RSTZ);
++	writel(0, csi2->regs + MIPI_CSI2_CSI2_RESETN);
++
++	mipi_csi2_dphy_write(csi2, addr, data);
++
++	/* Deassert resets */
++	writel(1, csi2->regs + MIPI_CSI2_PHY_SHUTDOWNZ);
++	writel(1, csi2->regs + MIPI_CSI2_DPHY_RSTZ);
++	writel(1, csi2->regs + MIPI_CSI2_CSI2_RESETN);
++
++	return 0;
++}
++
++static int mipi_csi2_get_fmt(struct v4l2_subdev *sd,
++			     struct v4l2_subdev_pad_config *cfg,
++			     struct v4l2_subdev_format *sdformat)
++{
++	struct mipi_csi2 *csi2 = container_of(sd, struct mipi_csi2, subdev);
++
++	dev_dbg(csi2->dev, "%s\n", __func__);
++
++	if (sdformat->pad > 4)
++		return -EINVAL;
++
++	sdformat->format = csi2->format;
++
++	return 0;
++}
++
++static unsigned int mipi_csi2_format_bpp(u32 mbus_code)
++{
++	switch (mbus_code) {
++	case MEDIA_BUS_FMT_RGB888_1X24:
++		return 24;
++	case MEDIA_BUS_FMT_UYVY8_1X16:
++	case MEDIA_BUS_FMT_YUYV8_1X16:
++		return 16;
++	default:
++		return 0;
++	}
++}
++
++static unsigned int mipi_csi2_lanes_needed(struct mipi_csi2 *csi2,
++					   struct v4l2_mbus_framefmt *format,
++					   struct v4l2_fract *timeperframe)
++{
++	unsigned int bps_per_lane = 594000000U; /* FIXME */
++	unsigned int bpp = mipi_csi2_format_bpp(format->code);
++	unsigned int bps;
++
++	bps = format->width * format->height * bpp;
++	bps = mult_frac(bps, timeperframe->denominator, timeperframe->numerator);
++	return DIV_ROUND_UP(bps, bps_per_lane);
++}
++
++static int mipi_csi2_set_fmt(struct v4l2_subdev *sd,
++			     struct v4l2_subdev_pad_config *cfg,
++			     struct v4l2_subdev_format *sdformat)
++{
++	struct mipi_csi2 *csi2 = container_of(sd, struct mipi_csi2, subdev);
++	unsigned long flags;
++	u32 val;
++
++	dev_dbg(csi2->dev, "%s\n", __func__);
++
++	if (sdformat->pad > 4)
++		return -EINVAL;
++
++	switch (sdformat->format.code) {
++	case MEDIA_BUS_FMT_RGB888_1X24:
++	case MEDIA_BUS_FMT_UYVY8_1X16:
++	case MEDIA_BUS_FMT_YUYV8_1X16:
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	csi2->format = sdformat->format;
++	csi2->lanes = mipi_csi2_lanes_needed(csi2, &csi2->format,
++					     &csi2->timeperframe);
++
++	spin_lock_irqsave(&csi2->lock, flags);
++	val = readl(csi2->regs + CSI2IPU_SW_RST);
++	switch (csi2->format.code) {
++	case MEDIA_BUS_FMT_UYVY8_1X16:
++		val &= ~CSI2IPU_YUV422_8BIT_FM;
++		break;
++	case MEDIA_BUS_FMT_YUYV8_1X16:
++		val |= CSI2IPU_YUV422_8BIT_FM;
++		break;
++	}
++	writel(val, csi2->regs + CSI2IPU_SW_RST);
++	spin_unlock_irqrestore(&csi2->lock, flags);
++
++        return 0;
++}
++
++static int mipi_csi2_g_frame_interval(struct v4l2_subdev *sd,
++				      struct v4l2_subdev_frame_interval *fi)
++{
++	struct mipi_csi2 *csi2 = container_of(sd, struct mipi_csi2, subdev);
++
++	dev_dbg(csi2->dev, "%s\n", __func__);
++
++	fi->interval = csi2->timeperframe;
++
++	return 0;
++}
++
++static int mipi_csi2_s_frame_interval(struct v4l2_subdev *sd,
++				      struct v4l2_subdev_frame_interval *fi)
++{
++	struct mipi_csi2 *csi2 = container_of(sd, struct mipi_csi2, subdev);
++
++	dev_dbg(csi2->dev, "%s(%d, %d/%d)\n", __func__, fi->pad,
++		fi->interval.numerator, fi->interval.denominator);
++
++	if (fi->pad > 4)
++		return -EINVAL;
++
++	if (fi->pad > 0) {
++		fi->interval = csi2->timeperframe;
++
++		return 0;
++	}
++
++	csi2->timeperframe = fi->interval;
++	csi2->lanes = mipi_csi2_lanes_needed(csi2, &csi2->format,
++					     &csi2->timeperframe);
++
++	return 0;
++}
++
++
++static const struct v4l2_subdev_pad_ops mipi_csi2_pad_ops = {
++	.get_fmt = mipi_csi2_get_fmt,
++	.set_fmt = mipi_csi2_set_fmt,
++};
++
++static int mipi_csi2_g_mbus_config(struct v4l2_subdev *sd,
++			    struct v4l2_mbus_config *cfg)
++{
++	cfg->type = V4L2_MBUS_CSI2;
++	cfg->flags = V4L2_MBUS_CSI2_1_LANE | V4L2_MBUS_CSI2_2_LANE |
++		     V4L2_MBUS_CSI2_3_LANE | V4L2_MBUS_CSI2_4_LANE |
++		     V4L2_MBUS_CSI2_CHANNEL_0 | V4L2_MBUS_CSI2_CHANNEL_1 |
++		     V4L2_MBUS_CSI2_CHANNEL_2 | V4L2_MBUS_CSI2_CHANNEL_3 |
++		     V4L2_MBUS_CSI2_CONTINUOUS_CLOCK |
++		     V4L2_MBUS_CSI2_NONCONTINUOUS_CLOCK;
++
++	return 0;
++}
++
++static int mipi_csi2_enable(struct mipi_csi2 *csi2)
++{
++	if (csi2->enabled)
++		return -EBUSY;
++
++	clk_prepare_enable(csi2->pclk);
++	clk_prepare_enable(csi2->cfg_clk);
++	clk_prepare_enable(csi2->ref_clk);
++	csi2->enabled = true;
++
++	return 0;
++}
++
++static int mipi_csi2_disable(struct mipi_csi2 *csi2)
++{
++	if (!csi2->enabled)
++		return 0;
++
++	clk_disable_unprepare(csi2->ref_clk);
++	clk_disable_unprepare(csi2->cfg_clk);
++	clk_disable_unprepare(csi2->pclk);
++	csi2->enabled = false;
++
++	return 0;
++}
++
++static int mipi_csi2_wait(struct mipi_csi2 *csi2, u8 reg, u32 mask, u32 val)
++{
++	unsigned long timeout = jiffies + msecs_to_jiffies(100);
++	u32 state;
++
++	dev_dbg(csi2->dev, "wait for register 0x%02x & 0x%08x to be 0x%08x\n",
++		reg, mask, val);
++
++	for (;;) {
++		state = readl(csi2->regs + reg);
++		dev_dbg(csi2->dev, "register 0x%02x == 0x%08x\n", reg, state);
++		if ((state & mask) == val)
++			return 0;
++		if (time_after(jiffies, timeout))
++			return -ETIMEDOUT;
++		usleep_range(500, 2000);
++	}
++}
++
++static inline unsigned int mipi_csi2_stop_state(unsigned int lanes)
++{
++	switch (lanes) {
++	case 1:
++		return PHY_STOPSTATEDATA_0 |
++		       PHY_STOPSTATECLK;
++	case 2:
++		return PHY_STOPSTATEDATA_0 |
++		       PHY_STOPSTATEDATA_1 |
++		       PHY_STOPSTATECLK;
++	case 3:
++		return PHY_STOPSTATEDATA_0 |
++		       PHY_STOPSTATEDATA_1 |
++		       PHY_STOPSTATEDATA_2 |
++		       PHY_STOPSTATECLK;
++	case 4:
++		return PHY_STOPSTATEDATA_0 |
++		       PHY_STOPSTATEDATA_1 |
++		       PHY_STOPSTATEDATA_2 |
++		       PHY_STOPSTATEDATA_3 |
++		       PHY_STOPSTATECLK;
++	default:
++		return 0;
++	}
++}
++
++/**
++ * mipi_csi2_prepare_stream - prepare for streaming
++ *
++ * The sender should be configured to put all lanes in PL-11 state (STOPSTATE)
++ * in its prepare_stream(), which must be called prior to this function.
++ * Afterwards, the sender shall start sending data in its s_stream().
++ */
++static int mipi_csi2_prepare_stream(struct v4l2_subdev *sd)
++{
++	struct mipi_csi2 *csi2 = container_of(sd, struct mipi_csi2, subdev);
++	unsigned int stop_state;
++	int ret;
++
++	if (csi2->lanes > csi2->max_lanes) {
++		dev_err(csi2->dev, "%d lanes needed for format, %d supported\n",
++			csi2->lanes, csi2->max_lanes);
++		return -EINVAL;
++	}
++
++	stop_state = mipi_csi2_stop_state(csi2->lanes);
++	if (!stop_state)
++		return -EINVAL;
++
++	if (csi2->enabled) {
++		dev_warn(csi2->dev, "Already enabled, disabling\n");
++		mipi_csi2_disable(csi2);
++		msleep(1);
++	}
++
++	/* Enable clocks */
++	mipi_csi2_enable(csi2);
++
++	/* Set number of lanes */
++	writel(csi2->lanes - 1, csi2->regs + MIPI_CSI2_N_LANES);
++
++	/* Reset D-PHY and host controller */
++	mipi_csi2_reset(csi2);
++
++	/* Wait for STOP state on all used lanes */
++	ret = mipi_csi2_wait(csi2, MIPI_CSI2_PHY_STATE,
++			     stop_state, stop_state);
++	if (ret < 0) {
++		dev_err(csi2->dev,
++			"Timeout waiting for lanes to enter STOP state\n");
++	}
++
++	return ret;
++}
++
++/**
++ * mipi_csi2_s_stream - start streaming
++ *
++ * When enabling streaming, the active lanes must have been detected to be in
++ * stop state in prepare_stream(), and the sender should now be sending data.
++ */
++static int mipi_csi2_s_stream(struct v4l2_subdev *sd, int enable)
++{
++	struct mipi_csi2 *csi2 = container_of(sd, struct mipi_csi2, subdev);
++	int ret;
++
++	if (enable) {
++		/* Wait for PHY lock */
++		ret = mipi_csi2_wait(csi2, MIPI_CSI2_PHY_STATE,
++				     PHY_RXCLKACTIVEHS, PHY_RXCLKACTIVEHS);
++		if (ret < 0) {
++			dev_err(csi2->dev, "Timeout waiting for PHY lock\n");
++			return ret;
++		}
++
++		/* Wait for error free transmission */
++		ret = mipi_csi2_wait(csi2, MIPI_CSI2_ERR1, ~0, 0);
++		if (ret < 0)
++			dev_err(csi2->dev, "Timeout waiting for ERR1 to clear\n");
++
++		clk_prepare_enable(csi2->pixel_clk);
++		csi2->streaming = true;
++	} else {
++		if (csi2->streaming) {
++			clk_disable_unprepare(csi2->pixel_clk);
++			csi2->streaming = false;
++		}
++		mipi_csi2_disable(csi2);
++	}
++
++	return 0;
++}
++
++#ifdef CONFIG_VIDEO_ADV_DEBUG
++static int mipi_csi2_log_status(struct v4l2_subdev *sd)
++{
++	struct mipi_csi2 *csi2 = container_of(sd, struct mipi_csi2, subdev);
++	u32 val;
++	int i;
++
++	v4l2_info(sd, "-----MIPI CSI-2 Host status-----\n");
++	for (i = MIPI_CSI2_VERSION; i < MIPI_CSI2_PHY_TST_CTRL0; i += 4) {
++		val = readl(csi2->regs + i);
++		v4l2_info(sd, "%02x: %08x\n", i, val);
++	}
++
++	v4l2_info(sd, "-----CSI2IPU gasket status------\n");
++	val = readl(csi2->regs + CSI2IPU_SW_RST);
++	v4l2_info(sd, "f00: %08x\n", val);
++
++	return 0;
++}
++
++static int mipi_csi2_g_register(struct v4l2_subdev *sd,
++				struct v4l2_dbg_register *reg)
++{
++	struct mipi_csi2 *csi2 = container_of(sd, struct mipi_csi2, subdev);
++
++	if ((reg->reg % 4) ||
++	    (reg->reg > MIPI_CSI2_PHY_TST_CTRL1 && reg->reg != CSI2IPU_SW_RST))
++		return -EINVAL;
++
++	reg->val = readl(csi2->regs + reg->reg);
++	reg->size = 4;
++
++	return 0;
++}
++
++static int mipi_csi2_s_register(struct v4l2_subdev *sd,
++				const struct v4l2_dbg_register *reg)
++{
++	struct mipi_csi2 *csi2 = container_of(sd, struct mipi_csi2, subdev);
++
++	if ((reg->reg % 4) ||
++	    (reg->reg == MIPI_CSI2_VERSION) ||
++	    (reg->reg > MIPI_CSI2_PHY_TST_CTRL1 && reg->reg != CSI2IPU_SW_RST))
++		return -EINVAL;
++
++	writel(reg->val, csi2->regs + reg->reg);
++
++	return 0;
++}
++#endif
++
++static const struct v4l2_subdev_core_ops mipi_csi2_core_ops = {
++#ifdef CONFIG_VIDEO_ADV_DEBUG
++	.log_status = mipi_csi2_log_status,
++	.g_register = mipi_csi2_g_register,
++	.s_register = mipi_csi2_s_register,
++#endif
++};
++
++static const struct v4l2_subdev_video_ops mipi_csi2_video_ops = {
++	.g_frame_interval = mipi_csi2_g_frame_interval,
++	.s_frame_interval = mipi_csi2_s_frame_interval,
++	.g_mbus_config = mipi_csi2_g_mbus_config,
++	.prepare_stream = mipi_csi2_prepare_stream,
++	.s_stream = mipi_csi2_s_stream,
++};
++
++static struct v4l2_subdev_ops mipi_csi2_subdev_ops = {
++	.core = &mipi_csi2_core_ops,
++	.pad = &mipi_csi2_pad_ops,
++	.video = &mipi_csi2_video_ops,
++};
++
++static int mipi_csi2_link_setup(struct media_entity *entity,
++				const struct media_pad *local,
++				const struct media_pad *remote, u32 flags)
++{
++	return 0;
++}
++
++static struct media_entity_operations mipi_csi2_entity_ops = {
++       .link_setup = mipi_csi2_link_setup,
++};
++
++static int mipi_csi2_probe(struct platform_device *pdev)
++{
++	struct resource *res;
++	struct mipi_csi2 *csi2;
++	struct device_node *ep;
++	unsigned int version;
++	int ret;
++	u32 val;
++
++	csi2 = devm_kzalloc(&pdev->dev, sizeof(*csi2), GFP_KERNEL);
++	if (!csi2)
++		return -ENOMEM;
++
++	spin_lock_init(&csi2->lock);
++
++	csi2->dev = &pdev->dev;
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	csi2->regs = devm_ioremap_resource(csi2->dev, res);
++	if (IS_ERR(csi2->regs))
++		return PTR_ERR(csi2->regs);
++
++	csi2->pclk = devm_clk_get(csi2->dev, "pclk");
++	if (IS_ERR(csi2->pclk))
++		return PTR_ERR(csi2->pclk);
++
++	csi2->cfg_clk = devm_clk_get(csi2->dev, "cfg");
++	if (IS_ERR(csi2->cfg_clk))
++		return PTR_ERR(csi2->cfg_clk);
++
++	csi2->ref_clk = devm_clk_get(csi2->dev, "ref");
++	if (IS_ERR(csi2->ref_clk))
++		return PTR_ERR(csi2->ref_clk);
++
++	csi2->pixel_clk = devm_clk_get(csi2->dev, "pixel");
++	if (IS_ERR(csi2->pixel_clk))
++		return PTR_ERR(csi2->pixel_clk);
++
++	platform_set_drvdata(pdev, csi2);
++
++	v4l2_subdev_init(&csi2->subdev, &mipi_csi2_subdev_ops);
++	snprintf(csi2->subdev.name, sizeof(csi2->subdev.name), "mipi-csi2");
++	csi2->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
++	csi2->subdev.dev = &pdev->dev;
++
++	csi2->pads[0].flags = MEDIA_PAD_FL_SINK;
++	csi2->pads[1].flags = MEDIA_PAD_FL_SOURCE;
++	csi2->pads[2].flags = MEDIA_PAD_FL_SOURCE;
++	csi2->pads[3].flags = MEDIA_PAD_FL_SOURCE;
++	csi2->pads[4].flags = MEDIA_PAD_FL_SOURCE;
++	ret = media_entity_init(&csi2->subdev.entity, MIPI_CSI2_PADS,
++				csi2->pads, 0);
++	if (ret < 0)
++		return ret;
++
++	csi2->subdev.entity.ops = &mipi_csi2_entity_ops;
++
++	clk_prepare_enable(csi2->pclk);
++
++	version = readl(csi2->regs + MIPI_CSI2_VERSION);
++	if (version != MIPI_CSI2_VERSION_IMX6) {
++		dev_err(csi2->dev, "Unknown version: 0x%x\n", version);
++		ret = -ENODEV;
++		goto err;
++	}
++
++	/* Maximal number of data lanes */
++	csi2->max_lanes = readl(csi2->regs + MIPI_CSI2_N_LANES) + 1;
++
++	for_each_endpoint_of_node(pdev->dev.of_node, ep) {
++		struct v4l2_of_endpoint endpoint;
++
++		v4l2_of_parse_endpoint(ep, &endpoint);
++		if (endpoint.base.port != 0)
++			continue;
++
++		if (endpoint.bus_type != V4L2_MBUS_CSI2) {
++			dev_err(csi2->dev, "missing MIPI CSI-2 endpoint\n");
++			ret = -EINVAL;
++			goto err;
++		}
++
++		if (csi2->max_lanes < endpoint.bus.mipi_csi2.num_data_lanes) {
++			dev_warn(csi2->dev, "only %d data lanes supported\n",
++				 csi2->max_lanes);
++		}
++
++		if (endpoint.bus.mipi_csi2.num_data_lanes &&
++		    endpoint.bus.mipi_csi2.num_data_lanes < csi2->max_lanes) {
++			csi2->max_lanes = endpoint.bus.mipi_csi2.num_data_lanes;
++			dev_dbg(csi2->dev, "only using %d data lanes\n",
++				csi2->max_lanes);
++		}
++
++		/* FIXME, this should not be IPU specific */
++		ipu_media_entity_create_link(&csi2->subdev, endpoint.base.port,
++					     ep, 0);
++	}
++
++	csi2->timeperframe.numerator = 1;
++	csi2->timeperframe.denominator = 60;
++	csi2->lanes = csi2->max_lanes;
++
++	/*
++	 * According to the i.MX6 Reference Manual, MIPI CSI-2 has to use
++	 * the 'non-gated' (noncontinuous) clock mode, still the CLK_SEL
++	 * bit in CSI2IPU_SW_RST needs to be cleared (marked as 'gated')
++	 */
++	val = readl(csi2->regs + CSI2IPU_SW_RST);
++	val &= ~CSI2IPU_CLK_SEL;
++	writel(val, csi2->regs + CSI2IPU_SW_RST);
++
++	ret = v4l2_async_register_subdev(&csi2->subdev);
++	if (ret < 0)
++		goto err;
++
++	return 0;
++
++err:
++	media_entity_cleanup(&csi2->subdev.entity);
++	return ret;
++}
++
++static int mipi_csi2_remove(struct platform_device *pdev)
++{
++	return 0;
++}
++
++static const struct of_device_id mipi_csi2_dt_ids[] = {
++	{ .compatible = "fsl,imx6q-mipi-csi2", },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, mipi_csi2_dt_ids);
++
++static struct platform_driver mipi_csi2_driver = {
++	.probe = mipi_csi2_probe,
++	.remove = mipi_csi2_remove,
++	.driver = {
++		.of_match_table = mipi_csi2_dt_ids,
++		.name = "mipi-csi2",
++		.owner = THIS_MODULE,
++	},
++};
++
++module_platform_driver(mipi_csi2_driver);
++
++MODULE_DESCRIPTION("i.MX MIPI CSI-2 Host Controller driver");
++MODULE_AUTHOR("Philipp Zabel, Pengutronix");
++MODULE_LICENSE("GPL");

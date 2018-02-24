@@ -1,0 +1,33 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 15 Aug 2013 17:24:25 +0200
+Subject: [PATCH] [media] ipuv3-csi: Skip 3 lines for NTSC BT.656
+
+TVP5150 creates 480 visible lines, but synchronisation
+signals for 486 visible lines.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index c9b4795e8b0d..5d26b8ab6338 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -695,8 +695,14 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 
+ 	ipu_csi_write(ipucsi, CSI_ACT_FRM_HEIGHT(yres) | CSI_ACT_FRM_WIDTH(xres),
+ 			CSI_ACT_FRM_SIZE);
+-	ipu_csi_write(ipucsi, CSI_OUT_FRM_CTRL_HSC(0) | CSI_OUT_FRM_CTRL_VSC(0),
+-			CSI_OUT_FRM_CTRL);
++	/* FIXME */
++	if (xres == 720 && yres == 480) {
++		ipu_csi_write(ipucsi, CSI_OUT_FRM_CTRL_HSC(0) |
++				CSI_OUT_FRM_CTRL_VSC(3), CSI_OUT_FRM_CTRL);
++	} else {
++		ipu_csi_write(ipucsi, CSI_OUT_FRM_CTRL_HSC(0) |
++				CSI_OUT_FRM_CTRL_VSC(0), CSI_OUT_FRM_CTRL);
++	}
+ 
+ 	ret = media_entity_pipeline_start(&ipucsi->subdev.entity, &ipucsi->pipe);
+ 	if (ret)

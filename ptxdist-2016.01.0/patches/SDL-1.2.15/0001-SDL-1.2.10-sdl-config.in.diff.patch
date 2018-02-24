@@ -1,0 +1,50 @@
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Sat, 29 Oct 2011 18:49:04 +0200
+Subject: [PATCH] SDL-1.2.10-sdl-config.in.diff
+
+Subject teach sdl-config about sysroot
+
+Teach sdl-config the concept of sysroot, but disable manual prefix overwriting.
+
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+ sdl-config.in |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/sdl-config.in b/sdl-config.in
+index e0fcc0c..0159c47 100644
+--- a/sdl-config.in
++++ b/sdl-config.in
+@@ -23,10 +23,10 @@ while test $# -gt 0; do
+ 
+   case $1 in
+     --prefix=*)
+-      prefix=$optarg
+-      if test $exec_prefix_set = no ; then
+-        exec_prefix=$optarg
+-      fi
++#      prefix=$optarg
++#      if test $exec_prefix_set = no ; then
++#        exec_prefix=$optarg
++#      fi
+       ;;
+     --prefix)
+       echo $prefix
+@@ -42,14 +42,14 @@ while test $# -gt 0; do
+       echo @SDL_VERSION@
+       ;;
+     --cflags)
+-      echo -I@includedir@/SDL @SDL_CFLAGS@
++      echo -I${SYSROOT}@includedir@/SDL @SDL_CFLAGS@
+       ;;
+ @ENABLE_SHARED_TRUE@    --libs)
+-@ENABLE_SHARED_TRUE@      echo -L@libdir@ @SDL_RLD_FLAGS@ @SDL_LIBS@
++@ENABLE_SHARED_TRUE@      echo -L${SYSROOT}@libdir@ @SDL_RLD_FLAGS@ @SDL_LIBS@
+ @ENABLE_SHARED_TRUE@      ;;
+ @ENABLE_STATIC_TRUE@@ENABLE_SHARED_TRUE@    --static-libs)
+ @ENABLE_STATIC_TRUE@@ENABLE_SHARED_FALSE@    --libs|--static-libs)
+-@ENABLE_STATIC_TRUE@      echo -L@libdir@ @SDL_RLD_FLAGS@ @SDL_STATIC_LIBS@
++@ENABLE_STATIC_TRUE@      echo -L${SYSROOT}@libdir@ @SDL_RLD_FLAGS@ @SDL_STATIC_LIBS@
+ @ENABLE_STATIC_TRUE@      ;;
+     *)
+       echo "${usage}" 1>&2

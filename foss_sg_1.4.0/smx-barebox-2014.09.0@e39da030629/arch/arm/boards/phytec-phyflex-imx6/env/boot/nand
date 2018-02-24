@@ -1,0 +1,122 @@
+#!/bin/sh
+
+# we want to run a NAND based regular firmware slot
+
+# Kernel and oftree are defined by the boot spec
+# we just have to define the root filesystem slot to be used when booting
+# the kernel
+
+if [ "x$state.next_firmware_slot" != "xnone" ]; then
+	slot_candidate=$state.next_firmware_slot
+else
+	if [ "x$state.active_firmware_slot" != "xnone" ]; then
+		slot_candidate=$state.active_firmware_slot
+	else
+		# we should not reach this point. In this case we should end up in the NOR
+		echo "Error: no firmware slot defined to boot from NAND"
+		exit 1
+	fi
+fi
+
+# check if the automounter can do its job (e.g. the device node exists)
+if [ ! -e "/dev/nand0.$slot_candidate" ]; then
+	echo "Error: no corresponding firmware slot device node exists ('/dev/nand0.$slot_candidate' is missing)"
+	exit 1
+fi
+
+if [ "x$slot_candidate" = "xslot1" ]; then
+	# paranoia
+	if [ "x$state.content_firmware_slot1" != "xdeployed" ]; then
+		echo "Error: firmware 'slot1' is marked inoperative"
+		if [ "x$state.next_firmware_slot" != "xnone" ]; then
+			# don't try this slot again
+			state.next_firmware_slot=none
+		fi
+		if [ "x$state.active_firmware_slot" != "xnone" ]; then
+			# don't try this slot again
+			state.active_firmware_slot=none
+		fi
+		state -s
+		# try again
+		reset
+		# paranoia
+		exit 1
+	fi
+	mtd_boot_part_name=slot1
+else
+	if [ "x$slot_candidate" = "xslot2" ]; then
+		# paranoia
+		if [ "x$state.content_firmware_slot2" != "xdeployed" ]; then
+			echo "Error: firmware 'slot2' is marked inoperative"
+			if [ "x$state.next_firmware_slot" != "xnone" ]; then
+				# don't try this slot again
+				state.next_firmware_slot=none
+			fi
+			if [ "x$state.active_firmware_slot" != "xnone" ]; then
+				# don't try this slot again
+				state.active_firmware_slot=none
+			fi
+			state -s
+			# try again
+			reset
+			# paranoia
+			exit 1
+		fi
+		mtd_boot_part_name=slot2
+	else
+		echo "Error: unexpected content in 'active_firmware_slot' marker: '$state.active_firmware_slot'"
+		if [ "x$state.next_firmware_slot" != "xnone" ]; then
+			# don't try this slot again
+			state.next_firmware_slot=none
+		fi
+		if [ "x$state.active_firmware_slot" != "xnone" ]; then
+			# don't try this slot again
+			state.active_firmware_slot=none
+		fi
+		state -s
+		# try again
+		reset
+		# paranoia
+		exit 1
+	fi
+fi
+
+# forward the correct MTD partition for the root filesystem
+# keep in mind here: we are using a partition name here to identify the
+# root filesystem's slot. So, this name must be declared in the device tree!
+global linux.bootargs.root="ubi.mtd=$mtd_boot_part_name root=ubi0:slot rootfstype=ubifs"
+
+echo "Info: Booting NAND $slot_candidate"
+
+# remaining tasks are done by the automounter and the boot command
+boot /mnt/$slot_candidate
+
+# this command can return which means it failed! For example if the
+# bootspec file defines filenames which do not exists. Reject this slot
+# in this case
+if [ $? -ne 0 ]; then
+	# the slot cannot be booted. If it is new, don't try it again
+	if [ "x$state.next_firmware_slot" != "xnone" ]; then
+		# don't try this slot again
+		echo "Error: Cannot boot next slot. Mark it as broken"
+		state.next_firmware_slot=none
+		state.content_firmware_$slot_candidate=broken
+		state -s
+		# try again
+		reset
+		exit 1
+	fi
+	if [ "x$state.active_firmware_slot" != "xnone" ]; then
+		# don't try this slot again
+		echo "Error: Cannot boot active slot. Mark it as broken"
+		state.active_firmware_slot=none
+		state.content_firmware_$slot_candidate=broken
+		state -s
+		# try again
+		reset
+		exit 1
+	fi
+fi
+
+echo "Error: unknown reason when trying to boot from NAND"
+exit 1

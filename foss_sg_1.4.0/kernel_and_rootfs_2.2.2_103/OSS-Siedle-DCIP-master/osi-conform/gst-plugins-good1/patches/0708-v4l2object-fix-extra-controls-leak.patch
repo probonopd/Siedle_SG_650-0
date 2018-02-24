@@ -1,0 +1,27 @@
+From: Tobias Schneider <tobias.schneider@voiceinterconnect.de>
+Date: Thu, 27 Oct 2016 12:01:55 +0200
+Subject: [PATCH] v4l2object: fix extra-controls leak
+
+Gst struct v4l2object->extra_controls is created if user sets appropriate
+option but it is not freed on destruction of v4l2object.
+
+https://bugzilla.gnome.org/show_bug.cgi?id=773580
+---
+ sys/v4l2/gstv4l2object.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index 49f703d93cdd..10004474b498 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -636,6 +636,10 @@ gst_v4l2_object_destroy (GstV4l2Object * v4l2object)
+     gst_caps_unref (v4l2object->probed_caps);
+   }
+ 
++  if (v4l2object->extra_controls) {
++    gst_structure_free (v4l2object->extra_controls);
++  }
++
+   g_free (v4l2object);
+ }
+ 

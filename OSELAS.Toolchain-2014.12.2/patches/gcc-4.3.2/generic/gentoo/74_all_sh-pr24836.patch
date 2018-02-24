@@ -1,0 +1,34 @@
+http://sourceforge.net/mailarchive/forum.php?thread_id=8959304&forum_id=5348
+http://gcc.gnu.org/PR24836
+
+---
+ gcc/configure    |    2 +-
+ gcc/configure.ac |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+Index: gcc-4.3.1/gcc/configure.ac
+===================================================================
+--- gcc-4.3.1.orig/gcc/configure.ac
++++ gcc-4.3.1/gcc/configure.ac
+@@ -2537,7 +2537,7 @@ foo:	.long	25
+ 	tls_first_minor=14
+ 	tls_as_opt="-m64 -Aesame --fatal-warnings"
+ 	;;
+-  sh-*-* | sh[34]-*-*)
++  sh-*-* | sh[34]*-*-*)
+     conftest_s='
+ 	.section ".tdata","awT",@progbits
+ foo:	.long	25
+Index: gcc-4.3.1/gcc/configure
+===================================================================
+--- gcc-4.3.1.orig/gcc/configure
++++ gcc-4.3.1/gcc/configure
+@@ -14709,7 +14709,7 @@ foo:	.long	25
+ 	tls_first_minor=14
+ 	tls_as_opt="-m64 -Aesame --fatal-warnings"
+ 	;;
+-  sh-*-* | sh[34]-*-*)
++  sh-*-* | sh[34]*-*-*)
+     conftest_s='
+ 	.section ".tdata","awT",@progbits
+ foo:	.long	25

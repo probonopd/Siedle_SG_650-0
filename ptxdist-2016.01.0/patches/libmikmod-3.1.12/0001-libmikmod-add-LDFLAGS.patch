@@ -1,0 +1,24 @@
+From: Wolfram Sang <w.sang@pengutronix.de>
+Date: Wed, 21 Nov 2012 18:56:36 +0100
+Subject: [PATCH] libmikmod: add LDFLAGS
+
+Taken from OpenEmbedded (c7a2bcb77ed92c0731bb696e0909ef3184a568e7)
+
+Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
+---
+ libmikmod/Makefile.in |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libmikmod/Makefile.in b/libmikmod/Makefile.in
+index 634acf4..a0743dd 100644
+--- a/libmikmod/Makefile.in
++++ b/libmikmod/Makefile.in
+@@ -72,7 +72,7 @@ distclean:	clean
+ 	rm -f Makefile
+ 
+ $(LIB): $(OBJ)
+-	$(LIBTOOL) --mode=link $(CC) -version-info 2:4:0 -o $@ $(OBJ) $(LIBRARY_LIB) -rpath $(DESTDIR)$(libdir)
++	$(LIBTOOL) --mode=link $(CC) $(LDFLAGS) -version-info 2:4:0 -o $@ $(OBJ) $(LIBRARY_LIB) -rpath $(DESTDIR)$(libdir)
+ 
+ dl_hpux.lo:	$(top_srcdir)/dlapi/dl_hpux.c \
+ 			$(top_srcdir)/dlapi/dlfcn.h

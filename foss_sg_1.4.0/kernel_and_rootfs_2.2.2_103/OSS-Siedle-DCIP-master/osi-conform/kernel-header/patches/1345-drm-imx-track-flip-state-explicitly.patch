@@ -1,0 +1,83 @@
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Thu, 4 Feb 2016 10:15:10 +0100
+Subject: [PATCH] drm/imx: track flip state explicitly
+
+Start tracking the flip state explicitly, as opposed to inferring
+it from the presence if a new FB. This is a preparatory step to
+introduce an new immediate state, where we can wait for a fence to
+signal.
+
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ drivers/gpu/drm/imx/ipuv3-crtc.c | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/imx/ipuv3-crtc.c b/drivers/gpu/drm/imx/ipuv3-crtc.c
+index 3257ee6a7cb7..5a6a53ca4e12 100644
+--- a/drivers/gpu/drm/imx/ipuv3-crtc.c
++++ b/drivers/gpu/drm/imx/ipuv3-crtc.c
+@@ -31,6 +31,11 @@
+ 
+ #define DRIVER_DESC		"i.MX IPUv3 Graphics"
+ 
++enum ipu_flip_status {
++	IPU_FLIP_NONE,
++	IPU_FLIP_PENDING,
++};
++
+ struct ipu_crtc {
+ 	struct device		*dev;
+ 	struct drm_crtc		base;
+@@ -42,8 +47,8 @@ struct ipu_crtc {
+ 	struct ipu_dc		*dc;
+ 	struct ipu_di		*di;
+ 	int			enabled;
++	enum ipu_flip_status	flip_state;
+ 	struct drm_pending_vblank_event *page_flip_event;
+-	struct drm_framebuffer	*newfb;
+ 	int			irq;
+ 	u32			bus_format;
+ 	int			di_hsync_pin;
+@@ -112,7 +117,7 @@ static int ipu_page_flip(struct drm_crtc *crtc,
+ 	struct ipu_crtc *ipu_crtc = to_ipu_crtc(crtc);
+ 	int ret;
+ 
+-	if (ipu_crtc->newfb)
++	if (ipu_crtc->flip_state != IPU_FLIP_NONE)
+ 		return -EBUSY;
+ 
+ 	ret = imx_drm_crtc_vblank_get(ipu_crtc->imx_crtc);
+@@ -123,8 +128,8 @@ static int ipu_page_flip(struct drm_crtc *crtc,
+ 		return ret;
+ 	}
+ 
+-	ipu_crtc->newfb = fb;
+ 	ipu_crtc->page_flip_event = event;
++	ipu_crtc->flip_state = IPU_FLIP_PENDING;
+ 
+ 	return 0;
+ }
+@@ -227,13 +232,13 @@ static irqreturn_t ipu_irq_handler(int irq, void *dev_id)
+ 
+ 	imx_drm_handle_vblank(ipu_crtc->imx_crtc);
+ 
+-	if (ipu_crtc->newfb) {
++	if (ipu_crtc->flip_state == IPU_FLIP_PENDING) {
+ 		struct ipu_plane *plane = ipu_crtc->plane[0];
+ 
+-		ipu_crtc->newfb = NULL;
+ 		ipu_plane_set_base(plane, ipu_crtc->base.primary->fb,
+ 				   plane->x, plane->y);
+ 		ipu_crtc_handle_pageflip(ipu_crtc);
++		ipu_crtc->flip_state = IPU_FLIP_NONE;
+ 	}
+ 
+ 	return IRQ_HANDLED;
+@@ -290,7 +295,6 @@ static void ipu_disable_vblank(struct drm_crtc *crtc)
+ 	struct ipu_crtc *ipu_crtc = to_ipu_crtc(crtc);
+ 
+ 	ipu_crtc->page_flip_event = NULL;
+-	ipu_crtc->newfb = NULL;
+ }
+ 
+ static int ipu_set_interface_pix_fmt(struct drm_crtc *crtc,

@@ -1,0 +1,11 @@
+## SECTION=multimedia_framebuffer
+
+config FBGRAB
+	select LIBPNG
+	tristate
+	prompt "fbgrab"
+	help
+	  FBGrab is a framebuffer screenshot program, capturing the
+	  linux frambuffer and converting it to a png-picture.
+
+	  For details see: http://hem.bredband.net/gmogmo/fbgrab/

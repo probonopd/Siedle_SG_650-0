@@ -1,0 +1,81 @@
+## SECTION=image
+
+menu "ipkg options                  "
+
+config IMAGE_IPKG_PUSH_TO_REPOSITORY
+	bool
+	prompt "make images: push packets to ipkg-repository"
+	help
+	  If this option is checked the packet files are pushed to
+	  the ipkg-repository (to be specified in .ptxdistrc).
+	  
+	  Please note, that the ipkg-repository is currently a
+	  local directory on your machine.  
+
+config IMAGE_IPKG_FORCED_PUSH
+	depends on IMAGE_IPKG_PUSH_TO_REPOSITORY
+	bool
+	prompt "force ipkg-push"
+	help
+	  Usually the script checks for some previous ipkg-push to
+	  a 'dist' release and requires you to delete a previous
+	  dist directory
+	  
+	  If this option is checked, this is done by default. This
+	  is most useful for development purposes.
+
+menuconfig IMAGE_IPKG_SIGN_OPENSSL
+	depends on IMAGE_IPKG_PUSH_TO_REPOSITORY
+	bool
+	select HOST_OPENSSL
+	prompt "sign ipkg-repository with openssl"
+	help
+	  Use openssl to to sign the Packages file in the package
+	  repository.
+
+
+if IMAGE_IPKG_SIGN_OPENSSL
+
+config IMAGE_IPKG_SIGN_OPENSSL_SIGNER
+	string
+	prompt "signer certificate file"
+	help
+	  signer certificate file to pass to openssl for signing.
+
+config IMAGE_IPKG_SIGN_OPENSSL_KEY
+	string
+	prompt "private key file"
+	help
+	  private key file to pass to openssl.
+
+endif
+
+config IMAGE_INSTALL_FROM_IPKG_REPOSITORY
+	bool
+	select IMAGE_IPKG_PUSH_TO_REPOSITORY
+	select IMAGE_IPKG_FORCED_PUSH
+	prompt "make images: install packets from ipkg-repository"
+	help
+	  If this option is checked the packet files from the
+	  ipkg-repository are used to create the images
+	  
+	  Please note, that the ipkg-repository is currently a
+	  local directory on your machine.
+
+config IMAGE_IPKG_INDEX
+	bool "generate ipkg.index"
+	help
+	  Activating this option generates a ipkg index file
+	  ("Packages") in your PKGDIR. If served by a web or ftp
+	  server it allows ipkg on your target to access your ipkg and
+	  install or update them.
+
+config IMAGE_XPKG_EXTRA_ARGS
+	string
+	prompt "extra arguments passed to ipkg-build/opkg-build"
+	help
+	  If needed you can add extra arguments for
+	  ipkg-build/opkg-build here (e.g. -c if you want ipkg-build
+	  to use tar instead of ar.)
+
+endmenu

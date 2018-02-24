@@ -1,0 +1,44 @@
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 22 Jul 2016 15:56:15 +0200
+Subject: [PATCH] drm/etnaviv: Delete unnecessary checks before two function
+ calls
+
+The functions drm_gem_object_unreference_unlocked() and vunmap() perform
+also input parameter validation.
+Thus the tests around their calls are not needed.
+
+This issue was detected by using the Coccinelle software.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+[seanpaul tweaked subject]
+Signed-off-by: Sean Paul <seanpaul@chromium.org>
+Link: http://patchwork.freedesktop.org/patch/msgid/9638cd74-ffc5-d9ee-a40c-9b60e860ad8b@users.sourceforge.net
+---
+ drivers/gpu/drm/etnaviv/etnaviv_gem.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/etnaviv/etnaviv_gem.c b/drivers/gpu/drm/etnaviv/etnaviv_gem.c
+index ad0c25da7fb3..aab18790b163 100644
+--- a/drivers/gpu/drm/etnaviv/etnaviv_gem.c
++++ b/drivers/gpu/drm/etnaviv/etnaviv_gem.c
+@@ -535,8 +535,7 @@ void etnaviv_gem_describe_objects(struct etnaviv_drm_private *priv,
+ 
+ static void etnaviv_gem_shmem_release(struct etnaviv_gem_object *etnaviv_obj)
+ {
+-	if (etnaviv_obj->vaddr)
+-		vunmap(etnaviv_obj->vaddr);
++	vunmap(etnaviv_obj->vaddr);
+ 	put_pages(etnaviv_obj);
+ }
+ 
+@@ -670,9 +669,7 @@ static struct drm_gem_object *__etnaviv_gem_new(struct drm_device *dev,
+ 	return obj;
+ 
+ fail:
+-	if (obj)
+-		drm_gem_object_unreference_unlocked(obj);
+-
++	drm_gem_object_unreference_unlocked(obj);
+ 	return ERR_PTR(ret);
+ }
+ 

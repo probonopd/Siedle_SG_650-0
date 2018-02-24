@@ -1,0 +1,24 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 12 Feb 2016 14:35:55 +0100
+Subject: [PATCH] drm/imx: ipuv3-plane: enable UYVY and VYUY formats
+
+Advertise the DRM_FORMAT_UYVY and DRM_FORMAT_VYUY formats to userspace.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/drm/imx/ipuv3-plane.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/imx/ipuv3-plane.c b/drivers/gpu/drm/imx/ipuv3-plane.c
+index 2e9214a0e881..4d5540a9cb35 100644
+--- a/drivers/gpu/drm/imx/ipuv3-plane.c
++++ b/drivers/gpu/drm/imx/ipuv3-plane.c
+@@ -38,6 +38,8 @@ static const uint32_t ipu_plane_formats[] = {
+ 	DRM_FORMAT_RGBX8888,
+ 	DRM_FORMAT_BGRA8888,
+ 	DRM_FORMAT_BGRA8888,
++	DRM_FORMAT_UYVY,
++	DRM_FORMAT_VYUY,
+ 	DRM_FORMAT_YUYV,
+ 	DRM_FORMAT_YVYU,
+ 	DRM_FORMAT_YUV420,

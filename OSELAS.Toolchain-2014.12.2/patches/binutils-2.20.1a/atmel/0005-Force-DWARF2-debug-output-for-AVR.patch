@@ -1,0 +1,51 @@
+From 4a561ac6e874ccff6dddab5fc373925875238c7f Mon Sep 17 00:00:00 2001
+From: Stephan Linz <linz@li-pro.net>
+Date: Mon, 18 Apr 2011 22:39:58 +0200
+Subject: [PATCH 5/9] Force DWARF2 debug output for AVR
+
+This patch reduce the DWARF debug output line to 10 entries and
+force DWARF2 output as only can interpreted by AVR Studio. In
+contrast to standard DWARF3 config (13) this cuts the latest three
+entries: DW_LNS_set_prologue_end, DW_LNS_set_epilogue_begin,
+DW_LNS_set_isa
+
+Original ATMEL patch from:
+http://distribute.atmel.no/tools/opensource/avr-gcc/binutils-2.20.1/35-binutils-2.20.1-dwarf2-AVRStudio-workaround.patch
+
+Signed-off-by: Stephan Linz <linz@li-pro.net>
+---
+ gas/dwarf2dbg.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
+
+diff --git a/gas/dwarf2dbg.c b/gas/dwarf2dbg.c
+index 2896b21..c43a093 100644
+--- a/gas/dwarf2dbg.c
++++ b/gas/dwarf2dbg.c
+@@ -112,8 +112,11 @@
+    Note: If you want to change this, you'll have to update the
+    "standard_opcode_lengths" table that is emitted below in
+    out_debug_line().  */
++#ifndef TC_AVR
+ #define DWARF2_LINE_OPCODE_BASE		13
+-
++#else
++#define DWARF2_LINE_OPCODE_BASE		10
++#endif
+ #ifndef DWARF2_LINE_BASE
+   /* Minimum line offset in a special line info. opcode.  This value
+      was chosen to give a reasonable range of values.  */
+@@ -1439,9 +1442,11 @@ out_debug_line (segT line_seg)
+   out_byte (0);			/* DW_LNS_set_basic_block */
+   out_byte (0);			/* DW_LNS_const_add_pc */
+   out_byte (1);			/* DW_LNS_fixed_advance_pc */
++#ifndef TC_AVR
+   out_byte (0);			/* DW_LNS_set_prologue_end */
+   out_byte (0);			/* DW_LNS_set_epilogue_begin */
+   out_byte (1);			/* DW_LNS_set_isa */
++#endif
+ 
+   out_file_list ();
+ 
+-- 
+1.6.0.4
+

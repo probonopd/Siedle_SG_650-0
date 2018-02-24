@@ -1,0 +1,31 @@
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Thu, 10 Nov 2016 12:38:29 +0100
+Subject: [PATCH] mm: alloc_contig: demote PFN busy message to debug level
+
+There are a lot of reasons why a PFN might be busy and unable to be isolated
+some of which can't really be avoided. This message is spamming the logs when
+a lot of CMA allocations are happening, causing isolation to happen quite
+frequently.
+
+Demote the message to log level, as CMA will just retry the allocation, so
+there is no need to have this message in the logs. If someone is interested
+in the failing case, there is a tracepoint to track those failures properly.
+
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ mm/page_alloc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 6a117213feb8..aa14d1555340 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -6785,7 +6785,7 @@ int alloc_contig_range(unsigned long start, unsigned long end,
+ 
+ 	/* Make sure the range is really isolated. */
+ 	if (test_pages_isolated(outer_start, end, false)) {
+-		pr_info("%s: [%lx, %lx) PFNs busy\n",
++		pr_debug("%s: [%lx, %lx) PFNs busy\n",
+ 			__func__, outer_start, end);
+ 		ret = -EBUSY;
+ 		goto done;

@@ -1,0 +1,12 @@
+## SECTION=multimedia_xorg_font_75dpi
+
+config XORG_FONT_ADOBE_UTOPIA_75DPI
+	tristate
+	select XORG_FONTS
+	depends on XORG_FONT_75DPI
+	prompt "Adobe Utopia 75dpi"
+	help
+	  adobe utopia fonts, containing Utopia Regular,
+	  Utopia Italic, Utopia Bold and Utopia Bold Italic.
+	  This package contains only fonts in the ISO 10646-1,
+	  ISO 8859-1 and ISO 8859-15 encodings

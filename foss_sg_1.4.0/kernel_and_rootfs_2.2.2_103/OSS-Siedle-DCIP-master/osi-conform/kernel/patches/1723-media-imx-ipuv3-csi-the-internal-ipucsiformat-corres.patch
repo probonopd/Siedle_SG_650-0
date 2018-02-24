@@ -1,0 +1,24 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 25 Nov 2014 15:41:04 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: the internal ipucsiformat corresponds
+ to pad 1
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 0e43fc3b16ea..2d7b9b7cd036 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -1242,7 +1242,8 @@ static int ipucsi_subdev_set_format(struct v4l2_subdev *sd,
+ 
+ 	sdformat->format = *mbusformat;
+ 
+-	ipucsi->ipucsifmt = *ipucsiformat;
++	if (sdformat->pad == 1)
++		ipucsi->ipucsifmt = *ipucsiformat;
+ 
+ 	return 0;
+ }

@@ -1,0 +1,53 @@
+## SECTION=scientific
+
+menuconfig LIBPV
+	tristate
+	prompt "libpv                         "
+	select LIBC_PTHREAD
+	select LIBC_RT
+	select GCCLIBS_GCC_S
+	select LIBLIST		if !LIBPV_XML_EXPAT
+	select LIBXMLCONFIG	if !LIBPV_XML_EXPAT
+	select EXPAT		if LIBPV_XML_EXPAT
+	select PYTHON		if LIBPV_PYTHON
+	help
+	  libpv.so is a library that implements a user space shared memory for
+	  automation applications. The shared memory is being described by an
+	  XML file, the backing store can live on any mmapable file, for example
+	  on a persistent storage or on a RAM disc.
+
+	  The library has also an integrated JVisu socket server.
+
+if LIBPV
+
+config LIBPV_EVENT
+	bool
+	prompt "event support"
+	help
+	  This switch enables support for the libpv event mechanism. If
+	  enabled it is possible to be notified when process variables have
+	  changed.
+
+config LIBPV_PYTHON
+	bool
+	prompt "Python bindings"
+	help
+	  Install libpv Python bindings, a Python module supporting
+	  PvEngine, PvEngineAttr and Pv.
+
+config LIBPV_PVTOOL
+	bool
+	prompt "install pvtool"
+	help
+	  pvtool is a tool belonging to libpv. It is used to read, write
+	  and manipulate process variables in a standalone manner.
+
+config LIBPV_XML_EXPAT
+	bool
+	prompt "use expat instead of libxmlconfig"
+	default y
+	help
+	  If activated, use expat to parse the xml configuration instead
+	  of libxmlconfig.
+
+endif

@@ -1,0 +1,58 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 2 Feb 2016 11:18:37 +0100
+Subject: [PATCH] net: phy: micrel: Add workaround for bad autoneg
+
+Based on kernel commit d2fd719bcb0e ("net/phy: micrel: Add workaround
+for bad autoneg") by Nathan Sullivan <nathan.sullivan@ni.com>:
+
+    Very rarely, the KSZ9031 will appear to complete autonegotiation, but
+    will drop all traffic afterwards.  When this happens, the idle error
+    count will read 0xFF after autonegotiation completes.  Reset the PHY
+    when in that state.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/net/phy/micrel.c | 23 ++++++++++++++++++++++-
+ 1 file changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 570272ff65f5..e8a566deba74 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -273,6 +273,27 @@ static int ksz8873mll_read_status(struct phy_device *phydev)
+ 	return 0;
+ }
+ 
++static int ksz9031_read_status(struct phy_device *phydev)
++{
++	int err;
++	int regval;
++
++	err = genphy_read_status(phydev);
++	if (err)
++		return err;
++
++	/* Make sure the PHY is not broken. Read idle error count,
++	 * and reset the PHY if it is maxed out.
++	 */
++	regval = phy_read(phydev, MII_STAT1000);
++	if ((regval & 0xff) == 0xff) {
++		phy_init_hw(phydev);
++		phydev->link = 0;
++	}
++
++	return 0;
++}
++
+ static int ksz8873mll_config_aneg(struct phy_device *phydev)
+ {
+ 	return 0;
+@@ -368,7 +389,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.features	= (PHY_GBIT_FEATURES | SUPPORTED_Pause),
+ 	.config_init	= ksz9031_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+-	.read_status	= genphy_read_status,
++	.read_status	= ksz9031_read_status,
+ }, {
+ 	.phy_id		= PHY_ID_KSZ8873MLL,
+ 	.phy_id_mask	= 0x00fffff0,

@@ -1,0 +1,88 @@
+## SECTION=libc
+
+config UCLIBC
+	tristate
+	select BASE if RUNTIME
+
+if UCLIBC
+
+menu "uClibc                        "
+
+comment	"Install options"
+
+config UCLIBC_C
+	bool
+	prompt "Install libc"
+	help
+	  Any Unix-like operating system needs a C library:
+	  the library which defines the "system calls" and
+	  other basic facilities such as open, malloc, printf,
+	  exit...
+
+	  The uClibc library is used as the C library in the
+	  GNU system and embedded systems with the Linux kernel.
+
+	  Better not turn this option off..
+
+config UCLIBC_CRYPT
+	bool
+	prompt "Install libcrypt"
+	help
+	  The encryption/decryption library
+
+config UCLIBC_DL
+	bool
+	prompt "Install libdl"
+	help
+	  The dynamic linking library
+
+config UCLIBC_M
+	bool
+	prompt "Install libm"
+	help
+	  The C math libary
+
+config UCLIBC_NSL
+	bool
+	prompt "Install libnsl"
+	help
+	  The network services library
+
+config UCLIBC_PTHREAD
+	bool
+	prompt "Install libpthread"
+	help
+	  If at least one application on the target uses threads when executed
+	  this library will be required.
+
+config UCLIBC_THREAD_DB
+	bool
+	prompt "Install libthread_db"
+	help
+	  If at least one application on the target uses threads when executed
+	  and you are going to debug this application (also remotely!), this
+	  library will be required. You can omit this library, if you never
+	  intend to debug multithread application on your target.
+
+config UCLIBC_RESOLV
+	bool
+	prompt "Install libresolv"
+	help
+	  The resolver library
+
+config UCLIBC_RT
+	bool
+	prompt "Install librt"
+	help
+	  The rt library
+
+config UCLIBC_UTIL
+	bool
+	prompt "Install libutil"
+	help
+	  Contains code for "standard" functions used in many different Unix
+	  utilities.
+
+endmenu
+
+endif

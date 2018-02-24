@@ -1,0 +1,6 @@
+## SECTION=multimedia_xorg
+
+# xorg proto configuration
+
+source "generated/multimedia_xorg_proto.in"
+

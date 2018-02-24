@@ -1,0 +1,22 @@
+From: Michael Olbrich <m.olbrich@pengutronix.de>
+Date: Tue, 2 Jun 2015 11:28:32 +0200
+Subject: [PATCH] HACK: config.guess: disable build tests to use generic CPU
+ type
+
+Signed-off-by: Michael Olbrich <m.olbrich@pengutronix.de>
+---
+ config.guess | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/config.guess b/config.guess
+index 02b61f45aaf8..6d004f688aef 100755
+--- a/config.guess
++++ b/config.guess
+@@ -2,6 +2,7 @@
+ #
+ # GMP config.guess wrapper.
+ 
++CC_FOR_BUILD=no_compiler_found
+ 
+ # Copyright 2000-2006, 2008, 2011-2014 Free Software Foundation, Inc.
+ #

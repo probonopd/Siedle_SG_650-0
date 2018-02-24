@@ -1,0 +1,50 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 25 Jan 2016 14:05:24 +0100
+Subject: [PATCH] [media] imx-video-switch: add vidsw_set_active
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-video-switch.c | 23 +++++++++++++++--------
+ 1 file changed, 15 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-video-switch.c b/drivers/media/platform/imx/imx-video-switch.c
+index e9610fcd7cab..779ee75b1cec 100644
+--- a/drivers/media/platform/imx/imx-video-switch.c
++++ b/drivers/media/platform/imx/imx-video-switch.c
+@@ -43,6 +43,20 @@ struct vidsw {
+ 
+ #define to_vidsw(sd) container_of(sd, struct vidsw, subdev)
+ 
++static void vidsw_set_active(struct vidsw *vidsw, int active)
++{
++	vidsw->active = active;
++	if (active < 0)
++		return;
++
++	dev_dbg(vidsw->dev, "setting %d active\n", active);
++
++	if (vidsw->field)
++		regmap_field_write(vidsw->field, active);
++	else if (gpio_is_valid(vidsw->gpio))
++		gpio_set_value(vidsw->gpio, active);
++}
++
+ static int vidsw_link_setup(struct media_entity *entity,
+ 		const struct media_pad *local,
+ 		const struct media_pad *remote, u32 flags)
+@@ -89,14 +103,7 @@ static int vidsw_link_setup(struct media_entity *entity,
+ 		}
+ 	}
+ 
+-	vidsw->active = local->index;
+-
+-	dev_dbg(vidsw->dev, "setting %d active\n", vidsw->active);
+-
+-	if (vidsw->field)
+-		regmap_field_write(vidsw->field, vidsw->active);
+-	else if (gpio_is_valid(vidsw->gpio))
+-		gpio_set_value(vidsw->gpio, vidsw->active);
++	vidsw_set_active(vidsw, local->index);
+ 
+ 	return 0;
+ }

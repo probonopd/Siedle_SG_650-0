@@ -1,0 +1,35 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 12 Feb 2016 13:35:34 +0100
+Subject: [PATCH] drm/imx: ipuv3-plane: fix planar YUV 4:2:0 support
+
+The driver already advertises multi-planar YUV support, but
+previously the U/V offset and stride setup was missing.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/drm/imx/ipuv3-plane.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/drivers/gpu/drm/imx/ipuv3-plane.c b/drivers/gpu/drm/imx/ipuv3-plane.c
+index b03219c8038c..3766e8785d3e 100644
+--- a/drivers/gpu/drm/imx/ipuv3-plane.c
++++ b/drivers/gpu/drm/imx/ipuv3-plane.c
+@@ -318,6 +318,18 @@ int ipu_plane_mode_set(struct ipu_plane *ipu_plane, struct drm_crtc *crtc,
+ 	if (interlaced)
+ 		ipu_cpmem_interlaced_scan(ipu_plane->ipu_ch, fb->pitches[0]);
+ 
++	if (fb->pixel_format == DRM_FORMAT_YUV420) {
++		ipu_cpmem_set_yuv_planar_full(ipu_plane->ipu_ch,
++					      ipu_plane->stride[1],
++					      ipu_plane->u_offset,
++					      ipu_plane->v_offset);
++	} else if (fb->pixel_format == DRM_FORMAT_YVU420) {
++		ipu_cpmem_set_yuv_planar_full(ipu_plane->ipu_ch,
++					      ipu_plane->stride[1],
++					      ipu_plane->v_offset,
++					      ipu_plane->u_offset);
++	}
++
+ 	ipu_plane->w = src_w;
+ 	ipu_plane->h = src_h;
+ 

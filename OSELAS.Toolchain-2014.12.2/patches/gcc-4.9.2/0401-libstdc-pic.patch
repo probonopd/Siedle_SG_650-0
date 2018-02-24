@@ -1,0 +1,58 @@
+From: Marc Kleine-Budde <m.kleine-budde@pengutronix.de>
+Date: Tue, 1 Nov 2011 18:25:08 +0100
+Subject: [PATCH] libstdc++ pic
+
+Install libstdc++_pic.a if we have pic objs. Taken from gentoo.
+
+Signed-off-by: Marc Kleine-Budde <m.kleine-budde@pengutronix.de>
+Signed-off-by: Robert Schwebel <r.schwebel@pengutronix.de>
+---
+ libstdc++-v3/src/Makefile.am | 7 +++++++
+ libstdc++-v3/src/Makefile.in | 9 ++++++++-
+ 2 files changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/libstdc++-v3/src/Makefile.am b/libstdc++-v3/src/Makefile.am
+index 6c2d228f844d..a77072802d4f 100644
+--- a/libstdc++-v3/src/Makefile.am
++++ b/libstdc++-v3/src/Makefile.am
+@@ -187,6 +187,13 @@ CXXLINK = \
+ 	$(VTV_CXXLINKFLAGS) \
+ 	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
+ 
++install-exec-local:
++	pic_objs=`sed -n "s:'::g;s:^pic_object=::p" *.lo | grep -v '^none$$'`; \
++	if [ x"$$pic_objs" != x ]; then \
++		$(AR) cru libstdc++_pic.a $$pic_objs $(top_builddir)/libsupc++/*.o || exit 1; \
++		$(INSTALL_DATA) libstdc++_pic.a $(DESTDIR)$(toolexeclibdir) || exit 1; \
++	fi
++
+ # Symbol versioning for shared libraries.
+ if ENABLE_SYMVERS
+ libstdc++-symbols.ver:  ${glibcxx_srcdir}/$(SYMVER_FILE) \
+diff --git a/libstdc++-v3/src/Makefile.in b/libstdc++-v3/src/Makefile.in
+index cd3943b1afc8..b49f2aedb1b9 100644
+--- a/libstdc++-v3/src/Makefile.in
++++ b/libstdc++-v3/src/Makefile.in
+@@ -769,7 +769,7 @@ install-dvi: install-dvi-recursive
+ 
+ install-dvi-am:
+ 
+-install-exec-am: install-toolexeclibLTLIBRARIES
++install-exec-am: install-toolexeclibLTLIBRARIES install-exec-local
+ 
+ install-html: install-html-recursive
+ 
+@@ -963,6 +963,13 @@ install-debug: build-debug
+ 	(cd ${debugdir} && $(MAKE) CXXFLAGS='$(DEBUG_FLAGS)' \
+ 	toolexeclibdir=$(glibcxx_toolexeclibdir)/debug install) ;
+ 
++install-exec-local:
++	pic_objs=`sed -n "s:'::g;s:^pic_object=::p" *.lo | grep -v '^none$$'`; \
++	if [ x"$$pic_objs" != x ]; then \
++		$(AR) cru libstdc++_pic.a $$pic_objs $(top_builddir)/libsupc++/*.o || exit 1; \
++		$(INSTALL_DATA) libstdc++_pic.a $(DESTDIR)$(toolexeclibdir) || exit 1; \
++	fi
++
+ # Tell versions [3.59,3.63) of GNU make to not export all variables.
+ # Otherwise a system limit (for SysV at least) may be exceeded.
+ .NOEXPORT:

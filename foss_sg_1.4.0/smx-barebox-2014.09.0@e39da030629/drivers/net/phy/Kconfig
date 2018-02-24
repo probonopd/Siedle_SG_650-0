@@ -1,0 +1,51 @@
+#
+# PHY Layer Configuration
+#
+
+menu "phylib"
+
+if PHYLIB
+
+comment "MII PHY device drivers"
+
+config AT803X_PHY
+	bool "Driver for Atheros AT803X PHYs"
+	---help---
+	  Currently supports the AT8030, AT8031 and AT8035 PHYs.
+
+config LXT_PHY
+	bool "Driver for the Intel LXT PHYs"
+	---help---
+	  Currently supports the lxt971 PHY.
+
+config MARVELL_PHY
+	tristate "Drivers for Marvell PHYs"
+	---help---
+	  Add support for various Marvell PHYs (e.g. 88E1121R).
+
+config MICREL_PHY
+	bool "Driver for Micrel PHYs"
+	---help---
+	  Supports the KSZ9021, VSC8201, KS8001 PHYs.
+
+config NATIONAL_PHY
+	bool "Driver for National Semiconductor PHYs"
+	---help---
+	  Currently supports the DP83865 PHY.
+
+config SMSC_PHY
+	bool "Drivers for SMSC PHYs"
+	---help---
+	  Currently supports the LAN83C185, LAN8187 and LAN8700 PHYs
+
+comment "MII bus device drivers"
+
+config MDIO_MVEBU
+	bool "Driver for MVEBU SoC MDIO bus"
+	depends on ARCH_MVEBU
+	---help---
+	  Driver for the MDIO bus found on Marvell EBU SoCs.
+
+endif
+
+endmenu

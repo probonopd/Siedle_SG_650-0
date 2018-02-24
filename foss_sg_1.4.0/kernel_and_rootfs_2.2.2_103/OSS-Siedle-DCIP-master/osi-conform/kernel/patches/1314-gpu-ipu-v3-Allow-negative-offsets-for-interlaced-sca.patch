@@ -1,0 +1,33 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 30 Jul 2014 14:03:48 +0200
+Subject: [PATCH] gpu: ipu-v3: Allow negative offsets for interlaced scanning
+
+The IPU also supports interlaced buffers that start with the bottom field.
+To achieve this, the the base address EBA has to be increased by a stride
+length and the interlace offset ILO has to be set to the negative stride.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-cpmem.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-cpmem.c b/drivers/gpu/ipu-v3/ipu-cpmem.c
+index 58d7eed70113..5e04275ceded 100644
+--- a/drivers/gpu/ipu-v3/ipu-cpmem.c
++++ b/drivers/gpu/ipu-v3/ipu-cpmem.c
+@@ -255,8 +255,14 @@ EXPORT_SYMBOL_GPL(ipu_cpmem_set_buffer);
+ 
+ void ipu_cpmem_interlaced_scan(struct ipuv3_channel *ch, int stride)
+ {
++	u32 ilo;
++
+ 	ipu_ch_param_write_field(ch, IPU_FIELD_SO, 1);
+-	ipu_ch_param_write_field(ch, IPU_FIELD_ILO, stride / 8);
++	if (stride >= 0)
++		ilo = stride / 8;
++	else
++		ilo = 0x100000 - (-stride / 8);
++	ipu_ch_param_write_field(ch, IPU_FIELD_ILO, ilo);
+ 	ipu_ch_param_write_field(ch, IPU_FIELD_SLY, (stride * 2) - 1);
+ };
+ EXPORT_SYMBOL_GPL(ipu_cpmem_interlaced_scan);

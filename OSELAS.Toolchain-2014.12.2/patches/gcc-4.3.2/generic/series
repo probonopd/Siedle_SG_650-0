@@ -1,0 +1,37 @@
+# bail out on host includes
+no-host-includes.diff
+
+# ARM big endian and softfloat
+arm-softfloat.diff
+
+# bugfixes
+gcc-43-pr32044.diff
+gcc-43-pr37220.diff
+gcc-43-pr39429.diff
+PR-bootstrap-41180.patch
+gcc-43-pr35965.diff
+
+# from uclibc
+uclibc/100-uclibc-conf.patch
+uclibc/104-gnuhurd-uclibc-conf.patch
+uclibc/301-missing-execinfo_h.patch
+uclibc/302-c99-snprintf.patch
+uclibc/305-libmudflap-susv3-legacy.patch
+uclibc/993-arm_insn-opinit-RTX_CODE-fixup.patch
+uclibc/995-short-enums.diff
+uclibc/998-gcc-4.3.0-fix-header.00.patch
+
+# from gentoo
+gentoo/00_all_gcc-4.1-alpha-mieee-default.patch
+gentoo/00_all_gcc-trampolinewarn.patch
+gentoo/11_all_gcc-netbsd-symbolic.patch
+gentoo/14_all_gcc-sparc64-bsd.patch
+gentoo/18_all_904-flatten-switch-stmt-00.patch
+gentoo/51_all_gcc-3.4-libiberty-pic.patch
+gentoo/53_all_gcc4-superh-default-multilib.patch
+gentoo/54_all_300-libstdc++-pic.patch
+gentoo/61_all_gcc43-pr24170.patch
+gentoo/61_all_gcc4-ia64-noteGNUstack.patch
+gentoo/64_all_gcc43-pr34571.patch
+gentoo/66_all_gcc43-pr25343.patch
+gentoo/74_all_sh-pr24836.patch

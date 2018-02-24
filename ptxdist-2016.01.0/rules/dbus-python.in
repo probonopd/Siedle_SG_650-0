@@ -1,0 +1,10 @@
+## SECTION=python
+
+config DBUS_PYTHON
+	tristate
+	select PYTHON
+	select DBUS
+	select DBUS_GLIB
+	prompt "dbus-python"
+	help
+	  Python bindings for dbus.

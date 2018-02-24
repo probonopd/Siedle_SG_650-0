@@ -1,0 +1,6 @@
+## SECTION=multimedia_xorg
+
+menu "xorg data                     "
+source "generated/multimedia_xorg_data.in"
+endmenu
+

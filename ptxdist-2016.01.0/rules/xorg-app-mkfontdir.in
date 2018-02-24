@@ -1,0 +1,8 @@
+## SECTION=multimedia_xorg_app
+
+config XORG_APP_MKFONTDIR
+	tristate
+	select XORG_APP_MKFONTSCALE
+	prompt "xorg mkfontdir"
+	help
+	  Create an index of scalable font files for X

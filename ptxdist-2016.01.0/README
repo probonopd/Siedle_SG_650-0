@@ -1,0 +1,121 @@
+PTXdist
+=======
+
+Necessary Packages
+------------------
+
+In order to build ptxdist, you need this archive:
+
+	ptxdist-<version>.tgz
+
+Extract this archive into some build directory.
+
+Installation
+------------
+
+To install PTXdist, just run
+
+	./configure --prefix=<installpath>
+
+to configure the packet, then
+
+	make
+
+to build everything and
+
+	make install
+
+to install it. When you start using PTXdist, make sure your $PATH
+environment variable points to <installpath>/bin, because that's where
+the ptxdist frontend program is being installed to.
+
+For developers who want to work with git versions of PTXdist it is only
+necessary to run "./autogen.sh && ./configure && make" and set the PATH
+variable to the bin/ directory inside the PTXdist tree.
+
+
+Quickstart
+----------
+
+Read the "How to become a PTXdist Guru" guide to get an idea how PTXdist works.
+This document can be found here:
+
+http://www.pengutronix.de/software/ptxdist/appnotes/OSELAS.BSP-Pengutronix-Generic-arm-Quickstart.pdf
+
+
+Idea
+----
+
+PTXdist is a tool which can be used to generate a root tree for all
+kinds of Linux systems. It was written with embedded systems in mind,
+but there is no reason why you can't use it to configure your firewall,
+router or whatever dedicated "device" comes to your mind.
+
+The job works like this: you run 'ptxdist menuconfig' and
+"ptxdist platformconfig", configure what you need. Run 'ptxdist go'
+and you'll find a root tree in <you-platform>/root/. Voila.
+
+All magic necessary to do these things in a cross enviroment are written
+into "recipies", living in rules/*.make, and config menues in
+rules/*.in.
+
+
+Directory Layout
+----------------
+
+These files and directories are supposed to be in an empty project
+directory:
+
+configs/		project specific configurations (optional)
+patches/		project specific patches, overwrites the generic
+			ones from PTXdist
+projectroot/		put files here which are to be copied over to
+			the target's root directory, like for example
+			etc files, scripts, ... Note that the copying
+			has to be done explicitly by some project
+			specific rule file.
+ptxconfig		.config file to configure the userland for
+			your project.
+platformconfig		.config file to configure the platform specific
+			part of your project.
+rules/			contains project specific rules
+src -> ...		link to point to your directory containing
+			tarball files for the packets.
+
+Additionally some other directories are being built when you run
+"ptxdist go" or other start other build targets.
+
+<platform>/build-host/	build directory for host tools
+<platform>/build-cross/	build directory for cross tools
+<platform>/build-target/ build directory for target tools
+<platform>/images/	'ptxdist images' creates tarballs and
+			filesystem images in this directory.
+<platform>/sysroot-target/ target related libs and headerfiles are going to
+			this dir
+<platform>/sysroot-cross/ target related tools, but must run on host are
+			going to this dir
+<platform>/sysroot-host/ host related tools are going to this dir
+
+<platform>/root/	root filesystem for the target
+<platform>/state/	state files (show in which state packages
+			currently are during the compilation)
+
+For more details look at the output of 'ptxdist --help' or see the
+PTXdist manual.
+
+Bugs
+----
+
+- search for FIXMEs
+- see TODO
+
+For documentation please refer:
+-------------------------------
+
+http://www.pengutronix.de/software/ptxdist/documentation_en.html
+
+For Patch Tagging please refer:
+-------------------------------
+
+http://dep.debian.net/deps/dep3/
+

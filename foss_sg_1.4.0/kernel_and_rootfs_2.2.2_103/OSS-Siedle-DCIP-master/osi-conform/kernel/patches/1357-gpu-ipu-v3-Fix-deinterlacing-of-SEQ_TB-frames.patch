@@ -1,0 +1,25 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 20 Jan 2017 13:02:21 +0100
+Subject: [PATCH] gpu: ipu-v3: Fix deinterlacing of SEQ_TB frames
+
+Actually check the pix.field value of the incoming image to calculate
+offsets for sequential fields.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-ic.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-ic.c b/drivers/gpu/ipu-v3/ipu-ic.c
+index 7c065847555e..f91519c9d4f3 100644
+--- a/drivers/gpu/ipu-v3/ipu-ic.c
++++ b/drivers/gpu/ipu-v3/ipu-ic.c
+@@ -1296,7 +1296,7 @@ int ipu_image_deinterlace_convert(struct ipu_soc *ipu, struct ipu_image *in_p,
+ 			memcpy(&c->out.rect, &c->in.rect, sizeof(struct v4l2_rect));
+ 			memcpy(&c->in_n.rect, &c->in.rect, sizeof(struct v4l2_rect));
+ 
+-			if (c->in_p.pix.field == V4L2_FIELD_SEQ_TB) {
++			if (in_p->pix.field == V4L2_FIELD_SEQ_TB) {
+ 				/*
+ 				 * We have to move the top offsets for the
+ 				 * previous and next image according to the

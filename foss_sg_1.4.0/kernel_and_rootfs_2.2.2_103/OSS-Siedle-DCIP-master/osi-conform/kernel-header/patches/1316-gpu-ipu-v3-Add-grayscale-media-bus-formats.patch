@@ -1,0 +1,29 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 1 Aug 2014 14:07:41 +0200
+Subject: [PATCH] gpu: ipu-v3: Add grayscale media bus formats
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-csi.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-csi.c b/drivers/gpu/ipu-v3/ipu-csi.c
+index 06631ac61b04..28f45f697678 100644
+--- a/drivers/gpu/ipu-v3/ipu-csi.c
++++ b/drivers/gpu/ipu-v3/ipu-csi.c
+@@ -288,6 +288,7 @@ static int mbus_code_to_bus_cfg(struct ipu_csi_bus_config *cfg, u32 mbus_code)
+ 		cfg->mipi_dt = MIPI_DT_RAW10;
+ 		cfg->data_width = IPU_CSI_DATA_WIDTH_8;
+ 		break;
++	case MEDIA_BUS_FMT_Y10_1X10:
+ 	case MEDIA_BUS_FMT_SBGGR10_1X10:
+ 	case MEDIA_BUS_FMT_SGBRG10_1X10:
+ 	case MEDIA_BUS_FMT_SGRBG10_1X10:
+@@ -296,6 +297,7 @@ static int mbus_code_to_bus_cfg(struct ipu_csi_bus_config *cfg, u32 mbus_code)
+ 		cfg->mipi_dt = MIPI_DT_RAW10;
+ 		cfg->data_width = IPU_CSI_DATA_WIDTH_10;
+ 		break;
++	case MEDIA_BUS_FMT_Y12_1X12:
+ 	case MEDIA_BUS_FMT_SBGGR12_1X12:
+ 	case MEDIA_BUS_FMT_SGBRG12_1X12:
+ 	case MEDIA_BUS_FMT_SGRBG12_1X12:

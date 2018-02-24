@@ -1,0 +1,28 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 7 Nov 2014 15:02:20 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: Fix SMFC burst size for passthrough
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index d212f9560380..0c9464254075 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -779,10 +779,11 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 		ipu_cpmem_set_stride(ipucsi->ipuch, width * ipucsifmt->bytes_per_pixel);
+ 		ipu_cpmem_set_format_passthrough(ipucsi->ipuch, ipucsifmt->bytes_per_sample * 8);
+ 		/*
+-		 * Set SMFC BURST_SIZE to NBP[6:4] according to table
+-		 * 38-317. SMFC Burst Size
++		 * According to table 37-727 (SMFC Burst Size), burstsize should
++		 * be set to NBP[6:4] for PFS == 6. Unfortunately, with a 16-bit
++		 * bus any value below 4 doesn't produce proper images.
+ 		 */
+-		burstsize = 4 / ipucsifmt->bytes_per_sample;
++		burstsize = (64 / ipucsifmt->bytes_per_sample) >> 3;
+ 	} else {
+ 		/*
+ 		 * formats we understand, we can write it in any format not requiring

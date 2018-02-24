@@ -1,0 +1,26 @@
+systemd-hostnamed is started on demand by systemd, e.g. when hostnamectl
+is executed. On a system without (kernel) network namespaces, this leads
+to the error:
+  systemd-hostnamed.service: Failed at step NETWORK spawning /lib/systemd/systemd-hostnamed: Invalid argument
+
+HACK: instead of demanding namespaces on the target, disable the service
+isolation requested via "PrivateNetwork=yes" in the unit service file.
+This absolutely should be fixed in another way, but this one should
+produce the minimal fallout in the moment.
+---
+ units/systemd-hostnamed.service.in |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+Index: b/units/systemd-hostnamed.service.in
+===================================================================
+--- a/units/systemd-hostnamed.service.in
++++ b/units/systemd-hostnamed.service.in
+@@ -17,6 +17,7 @@
+ WatchdogSec=3min
+ PrivateTmp=yes
+ PrivateDevices=yes
+-PrivateNetwork=yes
++# HACK: disabled, so that hostnamectl will work even on systems without (kernel) network namespaces
++#PrivateNetwork=yes
+ ProtectSystem=yes
+ ProtectHome=yes

@@ -1,0 +1,11 @@
+## SECTION=python
+
+config FLUP
+	tristate
+	select PYTHON
+	select PYTHON_HASHLIB
+	prompt "flup"
+	help
+	  A python package that provides a collection of WSGI modules,
+	  including fastcgi.
+

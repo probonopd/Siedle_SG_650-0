@@ -1,0 +1,7 @@
+## SECTION=multimedia_framebuffer
+
+config FBTEST
+	tristate
+	prompt "fbtest"
+	help
+	  fbtest is a program used for framebuffer devices.

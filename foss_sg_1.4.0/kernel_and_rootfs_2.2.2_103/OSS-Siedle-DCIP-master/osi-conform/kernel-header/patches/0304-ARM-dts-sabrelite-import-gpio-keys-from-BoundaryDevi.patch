@@ -1,0 +1,61 @@
+From: Andreas Pretzsch <apr@cn-eng.de>
+Date: Tue, 17 Dec 2013 17:57:17 +0100
+Subject: [PATCH] ARM: dts: sabrelite: import gpio-keys from BoundaryDevices
+ linux-imx6 3.12.0
+
+Signed-off-by: Andreas Pretzsch <apr@cn-eng.de>
+---
+ arch/arm/boot/dts/imx6qdl-sabrelite.dtsi | 40 ++++++++++++++++++++++++++++++++
+ 1 file changed, 40 insertions(+)
+
+diff --git a/arch/arm/boot/dts/imx6qdl-sabrelite.dtsi b/arch/arm/boot/dts/imx6qdl-sabrelite.dtsi
+index 64bf8c56766b..14eafb7908c8 100644
+--- a/arch/arm/boot/dts/imx6qdl-sabrelite.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-sabrelite.dtsi
+@@ -139,6 +139,46 @@
+ 		};
+ 	};
+ 
++	gpio-keys {
++		compatible = "gpio-keys";
++		power {
++			label = "Power Button";
++			gpios = <&gpio2 3 0>;
++			linux,code = <116>; /* KEY_POWER, or search */
++			gpio-key,wakeup;
++		};
++
++		menu {
++			label = "Menu";
++			gpios = <&gpio2 1 0>;
++			linux,code = <139>; /* KEY_MENU */
++		};
++
++		home {
++			label = "Home";
++			gpios = <&gpio2 4 0>;
++			linux,code = <102>; /* KEY_HOME */
++		};
++
++		back {
++			label = "Back";
++			gpios = <&gpio2 2 0>;
++			linux,code = <158>; /* KEY_BACK */
++		};
++
++		volume-up {
++			label = "Volume Up";
++			gpios = <&gpio7 13 0>;
++			linux,code = <115>; /* KEY_VOLUMEUP */
++		};
++
++		volume-down {
++			label = "Volume Down";
++			gpios = <&gpio4 5 0>;
++			linux,code = <114>; /* KEY_VOLUMEDOWN */
++		};
++	};
++
+ 	sound {
+ 		compatible = "fsl,imx6q-sabrelite-sgtl5000",
+ 			     "fsl,imx-audio-sgtl5000";

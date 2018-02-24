@@ -1,0 +1,126 @@
+# -*-makefile-*-
+#
+# Copyright (C) @YEAR@ @AUTHOR@
+#
+# See CREDITS for details about who has contributed to this project.
+#
+# For further information about the PTXdist project and license conditions
+# see the README file.
+#
+
+#
+# We provide this package
+#
+PACKAGES-$(PTXCONF_@PACKAGE@) += @package@
+
+ifdef PTXCONF_@PACKAGE@
+ifneq ($(shell test -h $(PTXDIST_WORKSPACE)/selected_toolchain_stellaris && echo ok),ok)
+    $(warning *** selected_toolchain_stellaris must point to a valid stellaris toolchain)
+    $(error )
+endif
+ifneq ($(shell test -x $(PTXDIST_WORKSPACE)/selected_toolchain_stellaris/$(PTXCONF_STELLARIS_CC) && echo ok),ok)
+    $(warning *** $(PTXDIST_WORKSPACE)/selected_toolchain_stellaris/$(PTXCONF_STELLARIS_CC) not found)
+    $(error )
+endif
+endif
+
+#
+# Paths and names
+#
+@PACKAGE@_VERSION	:= @VERSION@
+@PACKAGE@		:= @package@-$(@PACKAGE@_VERSION)
+@PACKAGE@_URL		:= file://$(PTXDIST_WORKSPACE)/local_src/@package@
+@PACKAGE@_DIR		:= $(BUILDDIR)/$(@PACKAGE@)
+@PACKAGE@_BUILD_OOT	:= YES
+@PACKAGE@_LICENSE	:= unknown
+
+# ----------------------------------------------------------------------------
+# Get
+# ----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
+# Extract
+# ----------------------------------------------------------------------------
+
+$(STATEDIR)/@package@.extract: $(STATEDIR)/autogen-tools
+
+$(STATEDIR)/@package@.extract:
+	@$(call targetinfo)
+	@$(call clean, $(@PACKAGE@_DIR))
+	@$(call extract, @PACKAGE@)
+	cd $(@PACKAGE@_DIR) && [ -f configure ] || sh autogen.sh
+	@$(call patchin, @PACKAGE@)
+	@$(call touch)
+
+# ----------------------------------------------------------------------------
+# Prepare
+# ----------------------------------------------------------------------------
+
+@PACKAGE@_PATH	:= \
+	PATH=$(PTXDIST_WORKSPACE)/selected_toolchain_stellaris:$$PATH
+
+#
+# autoconf
+#
+@PACKAGE@_CONF_ENV	:= CC=$(PTXCONF_STELLARIS_CC)
+@PACKAGE@_CONF_TOOL	:= autoconf
+@PACKAGE@_CONF_OPT	= \
+	--host=$(PTXCONF_STELLARIS_GNU_TARGET) \
+	--build=$(GNU_HOST) \
+	--with-stellaris-sdk=$(SW_EK_LM3S3748_DIR) \
+	--with-dfuwrap=$(SW_EK_LM3S3748_DIR)/tools/dfuwrap/dfuwrap
+
+#$(STATEDIR)/@package@.prepare:
+#	@$(call targetinfo)
+#	@$(call world/prepare, @PACKAGE@)
+#	@$(call touch)
+
+# ----------------------------------------------------------------------------
+# Compile
+# ----------------------------------------------------------------------------
+
+#$(STATEDIR)/@package@.compile:
+#	@$(call targetinfo)
+#	@$(call world/compile, @PACKAGE@)
+#	@$(call touch)
+
+# ----------------------------------------------------------------------------
+# Install
+# ----------------------------------------------------------------------------
+
+#$(STATEDIR)/@package@.install:
+#	@$(call targetinfo)
+#	@$(call world/install, @PACKAGE@)
+#	@$(call touch)
+
+# ----------------------------------------------------------------------------
+# Target-Install
+# ----------------------------------------------------------------------------
+
+$(STATEDIR)/@package@.targetinstall:
+	@$(call targetinfo)
+
+	@$(call install_init,  @package@)
+	@$(call install_fixup, @package@, PRIORITY, optional)
+	@$(call install_fixup, @package@, SECTION, base)
+	@$(call install_fixup, @package@, AUTHOR, "@AUTHOR@")
+	@$(call install_fixup, @package@, DESCRIPTION, missing)
+
+	@$(call install_copy, @package@, 0, 0, 0644, \
+		$(@PACKAGE@_PKGDIR)/@package@.dfu, \
+		/lib/firmware/@package@.dfu)
+
+	@$(call install_finish, @package@)
+
+	@$(call touch)
+
+# ----------------------------------------------------------------------------
+# Clean
+# ----------------------------------------------------------------------------
+
+#$(STATEDIR)/@package@.clean:
+#	@$(call targetinfo)
+#	@$(call clean_pkg, @PACKAGE@)
+
+
+# vim: syntax=make

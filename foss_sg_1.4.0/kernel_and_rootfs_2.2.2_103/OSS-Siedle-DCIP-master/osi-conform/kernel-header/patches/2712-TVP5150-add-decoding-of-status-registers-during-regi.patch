@@ -1,0 +1,137 @@
+From: Andreas Pretzsch <apr@cn-eng.de>
+Date: Thu, 13 Mar 2014 12:25:18 +0100
+Subject: [PATCH] TVP5150: add decoding of status registers during register
+ dump
+
+---
+ drivers/media/i2c/tvp5150.c | 110 +++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 104 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/media/i2c/tvp5150.c b/drivers/media/i2c/tvp5150.c
+index 0516b3396a08..80acd2534225 100644
+--- a/drivers/media/i2c/tvp5150.c
++++ b/drivers/media/i2c/tvp5150.c
+@@ -99,6 +99,109 @@ static void dump_reg_range(struct v4l2_subdev *sd, char *s, u8 init,
+ 	printk("\n");
+ }
+ 
++static void tvp5150_dump_status_1(u8 r)
++{
++	printk( "tvp5150: Status #1: 0x%02x\n"
++		"\tpeak white: %s\n"
++		"\tline alternating: %s\n"
++		"\tfield rate: %s\n"
++		"\tlost lock since last read: %s\n"
++		"\tcolor subcarrier: %s\n"
++		"\tvertical sync: %s\n"
++		"\thorizontal sync: %s\n"
++		"\tTV/VCR: %s\n",
++		r,
++		(r & 1<<7) ? "detected" : "not detected",
++		(r & 1<<6) ? "yes" : "no",
++		(r & 1<<5) ? "50Hz" : "60Hz",
++		(r & 1<<4) ? "yes" : "no",
++		(r & 1<<3) ? "locked" : "not locked",
++		(r & 1<<2) ? "locked" : "not locked",
++		(r & 1<<1) ? "locked" : "not locked",
++		(r & 1<<0) ? "VCR" : "TV"
++	);
++}
++
++static void tvp5150_dump_status_2(u8 r)
++{
++	printk( "tvp5150: Status #2: 0x%02x\n"
++		"\tweak signal: %s\n"
++		"\tPAL switch polarity: %s\n"
++		"\tfield sequence status: %s\n"
++		"\tAGC and offset: %s\n"
++		"\tMacrovision: %s\n",
++		r,
++		(r & 1<<6) ? "yes" : "no",
++		(r & 1<<5) ? "1" : "0",
++		(r & 1<<4) ? "odd" : "even",
++		(r & 1<<3) ? "frozen" : "not frozen",
++		(r & 0x07) ? "yes (variant: reg & 0x07)" : "no"
++	);
++}
++
++static void tvp5150_dump_status_3(u8 r)
++{
++	printk( "tvp5150: Status #3: 0x%02x\n"
++		"\tanalog gain: %u\n"
++		"\tdigital gain: %u\n",
++		r,
++		r >> 4,
++		r & 0x0f
++	);
++}
++
++static void tvp5150_dump_status_4(u8 r)
++{
++	printk( "tvp5150: Status #4: 0x%02x\n"
++		"\tsubcarrier to horizontal phase: %u (units: 360 degrees / 256)\n",
++		r,
++		r
++	);
++}
++
++static void tvp5150_dump_status_5(u8 r)
++{
++	const char *mode;
++	switch (r & 0x0f) {
++	case 0x01: mode = "NTSC ITU-R BT.601 (M,J)"; break;
++	case 0x03: mode = "PAL ITU-R BT.601 (B,D,G,H,I,N)"; break;
++	case 0x05: mode = "PAL ITU-R BT.601 (M)"; break;
++	case 0x07: mode = "PAL-Nc ITU-R BT.601"; break;
++	case 0x09: mode = "NTSC 4.43 ITU-R BT.601"; break;
++	case 0x0b: mode = "SECAM ITU-R BT.601"; break;
++	default:   mode = "unknown/reserved (reg & 0x0F)"; break;
++	}
++	printk( "tvp5150: Status #5: 0x%02x\n"
++		"\tautoswitch: %s\n"
++		"\tmode: %s\n",
++		r,
++		(r & 1<<7) ? "yes" : "no",
++		mode
++	);
++}
++
++static void tvp5150_dump_status_regs(struct v4l2_subdev *sd, int decode)
++{
++	u8 s1, s2, s3, s4, s5;
++
++	s1 = tvp5150_read(sd, TVP5150_STATUS_REG_1);
++	s2 = tvp5150_read(sd, TVP5150_STATUS_REG_2);
++	s3 = tvp5150_read(sd, TVP5150_STATUS_REG_3);
++	s4 = tvp5150_read(sd, TVP5150_STATUS_REG_4);
++	s5 = tvp5150_read(sd, TVP5150_STATUS_REG_5);
++	printk("tvp5150: Status regs #1 to #5 = %02x %02x %02x %02x %02x\n",
++		s1, s2, s3, s4, s5);
++
++	if (!decode)
++		return;
++
++	tvp5150_dump_status_1(s1);
++	tvp5150_dump_status_2(s2);
++	tvp5150_dump_status_3(s3);
++	tvp5150_dump_status_4(s4);
++	tvp5150_dump_status_5(s5);
++}
++
+ static int tvp5150_log_status(struct v4l2_subdev *sd)
+ {
+ 	printk("tvp5150: Video input source selection #1 = 0x%02x\n",
+@@ -176,12 +279,7 @@ static int tvp5150_log_status(struct v4l2_subdev *sd)
+ 			tvp5150_read(sd, TVP5150_INT_STATUS_REG_B));
+ 	printk("tvp5150: Interrupt active register B = 0x%02x\n",
+ 			tvp5150_read(sd, TVP5150_INT_ACTIVE_REG_B));
+-	printk("tvp5150: Status regs #1 to #5 = %02x %02x %02x %02x %02x\n",
+-			tvp5150_read(sd, TVP5150_STATUS_REG_1),
+-			tvp5150_read(sd, TVP5150_STATUS_REG_2),
+-			tvp5150_read(sd, TVP5150_STATUS_REG_3),
+-			tvp5150_read(sd, TVP5150_STATUS_REG_4),
+-			tvp5150_read(sd, TVP5150_STATUS_REG_5));
++	tvp5150_dump_status_regs(sd, 1);
+ 
+ 	dump_reg_range(sd, "Teletext filter 1",   TVP5150_TELETEXT_FIL1_INI,
+ 			TVP5150_TELETEXT_FIL1_END, 8);

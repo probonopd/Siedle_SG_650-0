@@ -1,0 +1,284 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 8 Dec 2014 18:14:32 +0100
+Subject: [PATCH] drm/imx: imx-ldb:  Implement mode_valid and mode_fixup
+
+If the desired pixel clock can't be reached due to LDB DI input clock
+limitations, fix up the mode with the actual rate. If the connected
+panel has valid timing ranges, try to adjust the blanking to better
+approximate the mode's vertical refresh rate.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/drm/imx/imx-ldb.c | 210 +++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 208 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/imx/imx-ldb.c b/drivers/gpu/drm/imx/imx-ldb.c
+index 28fee015f0b5..11d83bb7e37f 100644
+--- a/drivers/gpu/drm/imx/imx-ldb.c
++++ b/drivers/gpu/drm/imx/imx-ldb.c
+@@ -28,6 +28,7 @@
+ #include <video/of_videomode.h>
+ #include <linux/regmap.h>
+ #include <linux/videodev2.h>
++#include <video/display_timing.h>
+ 
+ #include "imx-drm.h"
+ 
+@@ -63,6 +64,7 @@ struct imx_ldb_channel {
+ 	void *edid;
+ 	int edid_len;
+ 	struct drm_display_mode mode;
++	unsigned long serial_clk;
+ 	int mode_valid;
+ 	int bus_format;
+ };
+@@ -128,6 +130,30 @@ static int imx_ldb_connector_get_modes(struct drm_connector *connector)
+ 	return num_modes;
+ }
+ 
++static int imx_ldb_get_panel_timing(struct drm_panel *panel,
++				    struct display_timing *timing)
++{
++	if (panel == NULL || panel->funcs->get_timings == NULL)
++		return 0;
++
++	return panel->funcs->get_timings(panel, 1, timing);
++}
++
++static enum drm_mode_status imx_ldb_connector_mode_valid(
++						struct drm_connector *connector,
++						struct drm_display_mode *mode)
++{
++	struct imx_ldb_channel *imx_ldb_ch = con_to_imx_ldb_ch(connector);
++	struct display_timing timing;
++	int num_timings;
++
++	num_timings = imx_ldb_get_panel_timing(imx_ldb_ch->panel, &timing);
++	if (num_timings > 0)
++		return drm_mode_valid_display_timing(mode, &timing);
++
++	return MODE_OK;
++}
++
+ static struct drm_encoder *imx_ldb_connector_best_encoder(
+ 		struct drm_connector *connector)
+ {
+@@ -140,13 +166,192 @@ static void imx_ldb_encoder_dpms(struct drm_encoder *encoder, int mode)
+ {
+ }
+ 
++static void imx_ldb_mode_adjust_timing(const struct drm_display_mode *mode,
++				       struct drm_display_mode *adjusted_mode,
++				       const struct display_timing *timing,
++				       unsigned long pixelclock)
++{
++	unsigned int h, htotal = mode->htotal;
++	unsigned int v, vtotal = mode->vtotal;
++	int hfront_porch, hsync_len, hback_porch;
++	int vfront_porch, vsync_len, vback_porch;
++	unsigned int hmin = timing->hfront_porch.min + timing->hsync_len.min +
++			    timing->hback_porch.min + mode->hdisplay;
++	unsigned int hmax = timing->hfront_porch.max + timing->hsync_len.max +
++			    timing->hback_porch.max + mode->hdisplay;
++	unsigned int vmin = timing->vfront_porch.min + timing->vsync_len.min +
++			    max(2U, timing->vback_porch.min) + mode->vdisplay;
++	unsigned int vmax = timing->vfront_porch.max + timing->vsync_len.max +
++			    timing->vback_porch.max + mode->vdisplay;
++	unsigned long min_diff = pixelclock;
++	unsigned long err;
++
++	for (v = vmin; v <= vmax; v++) {
++		for (h = hmin; h <= hmax; h++) {
++			unsigned long pclk = h * v * mode->vrefresh;
++			unsigned long diff = (pclk > pixelclock) ?
++					     (pclk - pixelclock) :
++					     (pixelclock - pclk);
++
++			if (diff > min_diff)
++				continue;
++
++			min_diff = diff;
++			htotal = h;
++			vtotal = v;
++		}
++	}
++
++	err = min_diff * 10000 / pixelclock;
++	pr_debug("%s: changing total from %d x %d to %d x %d\n"
++		 "%u Hz vrefresh from %lu Hz pixel clock (error: %lu.%02lu%%)\n",
++		 __func__, mode->htotal, mode->vtotal, htotal, vtotal,
++		 mode->vrefresh, pixelclock, err / 100, err % 100);
++
++	/* First adjust horizontal front porch */
++	hfront_porch = mode->hsync_start - mode->hdisplay +
++		       htotal - mode->htotal;
++	hfront_porch = clamp_val(hfront_porch, timing->hfront_porch.min,
++					       timing->hfront_porch.max);
++	adjusted_mode->hsync_start = hfront_porch + mode->hdisplay;
++	adjusted_mode->hsync_end = adjusted_mode->hsync_start +
++				   mode->hsync_end - mode->hsync_start;
++	adjusted_mode->htotal = adjusted_mode->hsync_end +
++				mode->htotal - mode->hsync_end;
++
++	/* Then adjust the horizontal sync pulse length */
++	hsync_len = mode->hsync_end - mode->hsync_start +
++		    htotal - adjusted_mode->htotal;
++	hsync_len = clamp_val(hsync_len, timing->hsync_len.min,
++					 timing->hsync_len.max);
++	adjusted_mode->hsync_end = adjusted_mode->hsync_end +
++				   hsync_len - (mode->hsync_end -
++				   mode->hsync_start);
++	adjusted_mode->htotal = adjusted_mode->htotal + hsync_len -
++				(mode->hsync_end - mode->hsync_start);
++
++	/* Finally, adjust the horizontal back porch */
++	hback_porch = mode->htotal - mode->hsync_end +
++		      htotal - adjusted_mode->htotal;
++	hback_porch = clamp_val(hback_porch, timing->hback_porch.min,
++					     timing->hback_porch.max);
++	adjusted_mode->htotal = adjusted_mode->htotal + hback_porch -
++				(mode->htotal - mode->hsync_end);
++
++	/* First adjust vertical front porch */
++	vfront_porch = mode->vsync_start - mode->vdisplay +
++		       vtotal - mode->vtotal;
++	vfront_porch = clamp_val(vfront_porch, timing->vfront_porch.min,
++					       timing->vfront_porch.max);
++	adjusted_mode->vsync_start = vfront_porch + mode->vdisplay;
++	adjusted_mode->vsync_end = adjusted_mode->vsync_start +
++				   mode->vsync_end - mode->vsync_start;
++	adjusted_mode->vtotal = adjusted_mode->vsync_end +
++				mode->vtotal - mode->vsync_end;
++
++	/* Then adjust the vertical sync pulse length */
++	vsync_len = mode->vsync_end - mode->vsync_start +
++		    vtotal - adjusted_mode->vtotal;
++	vsync_len = clamp_val(vsync_len, timing->vsync_len.min,
++					 timing->vsync_len.max);
++	adjusted_mode->vsync_end = adjusted_mode->vsync_end +
++				   vsync_len - (mode->vsync_end -
++				   mode->vsync_start);
++	adjusted_mode->vtotal = adjusted_mode->vtotal + vsync_len -
++				(mode->vsync_end - mode->vsync_start);
++
++	/* Finally, adjust the vertical back porch */
++	vback_porch = mode->vtotal - mode->vsync_end +
++		      vtotal - adjusted_mode->vtotal;
++	vback_porch = clamp_val(vback_porch, max(2U, timing->vback_porch.min),
++					     timing->vback_porch.max);
++	adjusted_mode->vtotal = adjusted_mode->vtotal + vback_porch -
++				(mode->vtotal - mode->vsync_end);
++
++	adjusted_mode->vrefresh = DIV_ROUND_CLOSEST(pixelclock,
++						    adjusted_mode->htotal *
++						    adjusted_mode->vtotal);
++}
++
+ static bool imx_ldb_encoder_mode_fixup(struct drm_encoder *encoder,
+ 			   const struct drm_display_mode *mode,
+ 			   struct drm_display_mode *adjusted_mode)
+ {
++	struct imx_ldb_channel *imx_ldb_ch = enc_to_imx_ldb_ch(encoder);
++	struct imx_ldb *ldb = imx_ldb_ch->ldb;
++	bool dual = ldb->ldb_ctrl & LDB_SPLIT_MODE_EN;
++	unsigned long serial_clk;
++	struct display_timing timing;
++	int num_timings;
++
++	if (dual)
++		serial_clk = 3500UL * mode->clock;
++	else
++		serial_clk = 7000UL * mode->clock;
++	clk_set_rate(ldb->clk_pll[imx_ldb_ch->chno], serial_clk);
++	/* clk_round_rate does not know about vetoes by other clock consumers */
++	imx_ldb_ch->serial_clk = clk_get_rate(ldb->clk_pll[imx_ldb_ch->chno]);
++
++	num_timings = imx_ldb_get_panel_timing(imx_ldb_ch->panel, &timing);
++	if (num_timings > 0) {
++		unsigned long clk_max;
++
++		clk_max = timing.pixelclock.max * 7;
++		if (dual)
++			clk_max /= 2;
++		clk_set_rate(ldb->clk_pll[imx_ldb_ch->chno], clk_max);
++		clk_max = clk_get_rate(ldb->clk_pll[imx_ldb_ch->chno]);
++
++		if (abs((signed)serial_clk - imx_ldb_ch->serial_clk) >
++		    abs((signed)serial_clk - clk_max))
++			imx_ldb_ch->serial_clk = clk_max;
++	}
++
++	if (dual)
++		adjusted_mode->clock = imx_ldb_ch->serial_clk / 3500;
++	else
++		adjusted_mode->clock = imx_ldb_ch->serial_clk / 7000;
++
++	/*
++	 * If we can't get the correct pixel clock, try to
++	 * vary blanking to reach the desired frame rate.
++	 */
++	if (num_timings && mode->clock != adjusted_mode->clock) {
++		unsigned long pixelclock;
++
++		pixelclock = imx_ldb_ch->serial_clk;
++		if (dual)
++			pixelclock *= 2;
++		pixelclock /= 7;
++
++		imx_ldb_mode_adjust_timing(mode, adjusted_mode, &timing,
++					   pixelclock);
++
++		dev_dbg(ldb->dev, "mode fixup: %d %d %d %d x %d %d %d %d -> "
++			"%d %d %d %d x %d %d %d %d\n",
++			mode->hdisplay, mode->hsync_start, mode->hsync_end,
++			mode->htotal, mode->vdisplay, mode->vsync_start,
++			mode->vsync_end, mode->vtotal,
++			adjusted_mode->hdisplay, adjusted_mode->hsync_start,
++			adjusted_mode->hsync_end, adjusted_mode->htotal,
++			adjusted_mode->vdisplay, adjusted_mode->vsync_start,
++			adjusted_mode->vsync_end, adjusted_mode->vtotal);
++	}
++
+ 	return true;
+ }
+ 
++static void imx_ldb_clk_set_rate_closest(struct clk *clk, unsigned long rate)
++{
++	unsigned long rounded = clk_round_rate(clk, rate);
++	unsigned long diff = rate - rounded;
++
++	rounded = clk_round_rate(clk, rate + diff);
++	if (rounded > rate && rounded - rate < diff)
++			rate = rounded;
++	clk_set_rate(clk, rate);
++}
++
+ static void imx_ldb_set_clock(struct imx_ldb *ldb, int mux, int chno,
+ 		unsigned long serial_clk, unsigned long di_clk)
+ {
+@@ -154,7 +359,7 @@ static void imx_ldb_set_clock(struct imx_ldb *ldb, int mux, int chno,
+ 
+ 	dev_dbg(ldb->dev, "%s: now: %ld want: %ld\n", __func__,
+ 			clk_get_rate(ldb->clk_pll[chno]), serial_clk);
+-	clk_set_rate(ldb->clk_pll[chno], serial_clk);
++	imx_ldb_clk_set_rate_closest(ldb->clk_pll[chno], serial_clk);
+ 
+ 	dev_dbg(ldb->dev, "%s after: %ld\n", __func__,
+ 			clk_get_rate(ldb->clk_pll[chno]));
+@@ -162,7 +367,7 @@ static void imx_ldb_set_clock(struct imx_ldb *ldb, int mux, int chno,
+ 	dev_dbg(ldb->dev, "%s: now: %ld want: %ld\n", __func__,
+ 			clk_get_rate(ldb->clk[chno]),
+ 			(long int)di_clk);
+-	clk_set_rate(ldb->clk[chno], di_clk);
++	imx_ldb_clk_set_rate_closest(ldb->clk[chno], di_clk);
+ 
+ 	dev_dbg(ldb->dev, "%s after: %ld\n", __func__,
+ 			clk_get_rate(ldb->clk[chno]));
+@@ -375,6 +580,7 @@ static struct drm_connector_funcs imx_ldb_connector_funcs = {
+ 
+ static struct drm_connector_helper_funcs imx_ldb_connector_helper_funcs = {
+ 	.get_modes = imx_ldb_connector_get_modes,
++	.mode_valid = imx_ldb_connector_mode_valid,
+ 	.best_encoder = imx_ldb_connector_best_encoder,
+ };
+ 

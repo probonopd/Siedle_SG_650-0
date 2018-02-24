@@ -1,0 +1,52 @@
+#
+# Submitted-By: Marc Kleine-Budde
+# Committed-By: Robert Schwebel
+#
+# Error:
+#
+# no error
+#
+# Description:
+#
+# Link assembler softfloat functions into gcc. As the functions are
+# there in that case anyway, don't add switches for float lib.
+#
+# State:
+#
+# upstream will not fix this because oabi is dead
+#
+
+---
+ gcc/config/arm/linux-elf.h |    2 +-
+ gcc/config/arm/t-linux     |    5 ++++-
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+Index: gcc-4.3.1/gcc/config/arm/linux-elf.h
+===================================================================
+--- gcc-4.3.1.orig/gcc/config/arm/linux-elf.h
++++ gcc-4.3.1/gcc/config/arm/linux-elf.h
+@@ -60,7 +60,7 @@
+    %{shared:-lc} \
+    %{!shared:%{profile:-lc_p}%{!profile:-lc}}"
+ 
+-#define LIBGCC_SPEC "%{msoft-float:-lfloat} %{mfloat-abi=soft*:-lfloat} -lgcc"
++#define LIBGCC_SPEC "-lgcc"
+ 
+ #define GLIBC_DYNAMIC_LINKER "/lib/ld-linux.so.2"
+ 
+Index: gcc-4.3.1/gcc/config/arm/t-linux
+===================================================================
+--- gcc-4.3.1.orig/gcc/config/arm/t-linux
++++ gcc-4.3.1/gcc/config/arm/t-linux
+@@ -3,7 +3,10 @@
+ TARGET_LIBGCC2_CFLAGS = -fomit-frame-pointer -fPIC
+ 
+ LIB1ASMSRC = arm/lib1funcs.asm
+-LIB1ASMFUNCS = _udivsi3 _divsi3 _umodsi3 _modsi3 _dvmd_lnx
++LIB1ASMFUNCS = _udivsi3 _divsi3 _umodsi3 _modsi3 _dvmd_lnx \
++	_negdf2 _addsubdf3 _muldivdf3 _cmpdf2 _unorddf2 _fixdfsi _fixunsdfsi \
++	_truncdfsf2 _negsf2 _addsubsf3 _muldivsf3 _cmpsf2 _unordsf2 \
++	_fixsfsi _fixunssfsi _floatdidf _floatdisf
+ 
+ # MULTILIB_OPTIONS = mhard-float/msoft-float
+ # MULTILIB_DIRNAMES = hard-float soft-float

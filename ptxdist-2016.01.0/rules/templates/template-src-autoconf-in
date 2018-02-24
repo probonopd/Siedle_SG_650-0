@@ -1,0 +1,7 @@
+## SECTION=@section@
+
+config @PACKAGE@
+	bool
+	prompt "@package@"
+	help
+	  FIXME

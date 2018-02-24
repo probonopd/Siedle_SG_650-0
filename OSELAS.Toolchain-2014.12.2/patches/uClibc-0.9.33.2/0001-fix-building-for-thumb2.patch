@@ -1,0 +1,42 @@
+From: Michael Olbrich <m.olbrich@pengutronix.de>
+Date: Mon, 3 Dec 2012 19:55:51 +0100
+Subject: [PATCH] fix building for thumb2
+
+Signed-off-by: Michael Olbrich <m.olbrich@pengutronix.de>
+---
+ libc/sysdeps/linux/arm/bits/arm_asm.h | 4 ++++
+ libc/sysdeps/linux/arm/clone.S        | 1 +
+ 2 files changed, 5 insertions(+)
+
+diff --git a/libc/sysdeps/linux/arm/bits/arm_asm.h b/libc/sysdeps/linux/arm/bits/arm_asm.h
+index 921c9a3..57cf778 100644
+--- a/libc/sysdeps/linux/arm/bits/arm_asm.h
++++ b/libc/sysdeps/linux/arm/bits/arm_asm.h
+@@ -2,6 +2,8 @@
+ #ifndef _ARM_ASM_H
+ #define _ARM_ASM_H
+ 
++#ifdef __ASSEMBLER__
++
+ #ifdef __thumb2__
+ .thumb
+ .syntax unified
+@@ -32,4 +34,6 @@
+ # endif /* ARCH level */
+ #endif /* __USE_BX__ */
+ 
++#endif /* __ASSEMBLER__ */
++
+ #endif /* _ARM_ASM_H */
+diff --git a/libc/sysdeps/linux/arm/clone.S b/libc/sysdeps/linux/arm/clone.S
+index fdc05b8..6ec84a2 100644
+--- a/libc/sysdeps/linux/arm/clone.S
++++ b/libc/sysdeps/linux/arm/clone.S
+@@ -112,6 +112,7 @@ __clone:
+ 	DO_CALL (clone)
+ 	movs	a1, a1
+ 	blt	__error
++	IT(t, ne)
+ 	ldmnefd	sp!, {r4}
+ 	IT(t, ne)
+ #if defined(__USE_BX__)

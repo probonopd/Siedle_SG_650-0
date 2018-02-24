@@ -1,0 +1,129 @@
+From: Peter Seiderer <ps.report@gmx.net>
+Date: Wed, 4 Mar 2015 10:29:58 +0100
+Subject: [PATCH] v4l2: add min-buffers for mem2mem devices (enc/dec)
+
+---
+ sys/v4l2/gstv4l2object.c   | 26 ++++++++++++++++++++++++++
+ sys/v4l2/gstv4l2object.h   |  2 ++
+ sys/v4l2/gstv4l2videodec.c | 16 ++++++++++++----
+ 3 files changed, 40 insertions(+), 4 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index 1676c0848a25..fea3c6da49d8 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -490,12 +490,22 @@ gst_v4l2_object_install_m2m_properties_helper (GObjectClass * gobject_class)
+           GST_TYPE_V4L2_IO_MODE, DEFAULT_PROP_IO_MODE,
+           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ 
++  g_object_class_install_property (gobject_class, PROP_OUTPUT_MIN_BUFFERS,
++      g_param_spec_int ("output-min-buffers", "Output minimum allocated buffers",
++          "Output minimum allocated buffers value",
++          0, G_MAXINT, 2, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
++
+   g_object_class_install_property (gobject_class, PROP_CAPTURE_IO_MODE,
+       g_param_spec_enum ("capture-io-mode", "Capture IO mode",
+           "Capture I/O mode (matches src pad)",
+           GST_TYPE_V4L2_IO_MODE, DEFAULT_PROP_IO_MODE,
+           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ 
++  g_object_class_install_property (gobject_class, PROP_CAPTURE_MIN_BUFFERS,
++      g_param_spec_int ("capture-min-buffers", "Capture minimum allocated buffers",
++          "Capture minimum allocated buffers value",
++          0, G_MAXINT, 2, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
++
+   g_object_class_install_property (gobject_class, PROP_EXTRA_CONTROLS,
+       g_param_spec_boxed ("extra-controls", "Extra Controls",
+           "Extra v4l2 controls (CIDs) for the device",
+@@ -840,10 +850,18 @@ gst_v4l2_object_set_property_helper (GstV4l2Object * v4l2object,
+       g_return_val_if_fail (!V4L2_TYPE_IS_OUTPUT (v4l2object->type), FALSE);
+       v4l2object->req_mode = g_value_get_enum (value);
+       break;
++    case PROP_CAPTURE_MIN_BUFFERS:
++      g_return_val_if_fail (!V4L2_TYPE_IS_OUTPUT (v4l2object->type), FALSE);
++      v4l2object->custom_min_buffers = g_value_get_int (value);
++      break;
+     case PROP_OUTPUT_IO_MODE:
+       g_return_val_if_fail (V4L2_TYPE_IS_OUTPUT (v4l2object->type), FALSE);
+       v4l2object->req_mode = g_value_get_enum (value);
+       break;
++    case PROP_OUTPUT_MIN_BUFFERS:
++      g_return_val_if_fail (V4L2_TYPE_IS_OUTPUT (v4l2object->type), FALSE);
++      v4l2object->custom_min_buffers = g_value_get_int (value);
++      break;
+     case PROP_EXTRA_CONTROLS:{
+       const GstStructure *s = gst_value_get_structure (value);
+ 
+@@ -999,10 +1017,18 @@ gst_v4l2_object_get_property_helper (GstV4l2Object * v4l2object,
+       g_return_val_if_fail (!V4L2_TYPE_IS_OUTPUT (v4l2object->type), FALSE);
+       g_value_set_enum (value, v4l2object->req_mode);
+       break;
++    case PROP_CAPTURE_MIN_BUFFERS:
++      g_return_val_if_fail (!V4L2_TYPE_IS_OUTPUT (v4l2object->type), FALSE);
++      g_value_set_int (value, v4l2object->custom_min_buffers);
++      break;
+     case PROP_OUTPUT_IO_MODE:
+       g_return_val_if_fail (V4L2_TYPE_IS_OUTPUT (v4l2object->type), FALSE);
+       g_value_set_enum (value, v4l2object->req_mode);
+       break;
++    case PROP_OUTPUT_MIN_BUFFERS:
++      g_return_val_if_fail (V4L2_TYPE_IS_OUTPUT (v4l2object->type), FALSE);
++      g_value_set_int (value, v4l2object->custom_min_buffers);
++      break;
+     case PROP_EXTRA_CONTROLS:
+       gst_value_set_structure (value, v4l2object->extra_controls);
+       break;
+diff --git a/sys/v4l2/gstv4l2object.h b/sys/v4l2/gstv4l2object.h
+index 9f6cd17cc83b..cb282bab1a2e 100644
+--- a/sys/v4l2/gstv4l2object.h
++++ b/sys/v4l2/gstv4l2object.h
+@@ -196,7 +196,9 @@ GType gst_v4l2_object_get_type (void);
+     PROP_IO_MODE,             \
+     PROP_MIN_BUFFERS,         \
+     PROP_OUTPUT_IO_MODE,      \
++    PROP_OUTPUT_MIN_BUFFERS,  \
+     PROP_CAPTURE_IO_MODE,     \
++    PROP_CAPTURE_MIN_BUFFERS, \
+     PROP_EXTRA_CONTROLS,      \
+     PROP_PIXEL_ASPECT_RATIO,  \
+     PROP_FORCE_ASPECT_RATIO,  \
+diff --git a/sys/v4l2/gstv4l2videodec.c b/sys/v4l2/gstv4l2videodec.c
+index c767a29cfb49..aad97a2b7a31 100644
+--- a/sys/v4l2/gstv4l2videodec.c
++++ b/sys/v4l2/gstv4l2videodec.c
+@@ -59,12 +59,18 @@ gst_v4l2_video_dec_set_property (GObject * object,
+ 
+   switch (prop_id) {
+     case PROP_OUTPUT_IO_MODE:
+-      gst_v4l2_object_set_property_helper (self->v4l2output, prop_id, value,
+-          pspec);
++    case PROP_OUTPUT_MIN_BUFFERS:
++      if (!gst_v4l2_object_set_property_helper (self->v4l2output,
++              prop_id, value, pspec)) {
++        G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
++      }
+       break;
+     case PROP_CAPTURE_IO_MODE:
+-      gst_v4l2_object_set_property_helper (self->v4l2capture, prop_id, value,
+-          pspec);
++    case PROP_CAPTURE_MIN_BUFFERS:
++      if (!gst_v4l2_object_set_property_helper (self->v4l2capture,
++              prop_id, value, pspec)) {
++        G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
++      }
+       break;
+ 
+       /* By default, only set on output */
+@@ -85,10 +91,12 @@ gst_v4l2_video_dec_get_property (GObject * object,
+ 
+   switch (prop_id) {
+     case PROP_OUTPUT_IO_MODE:
++    case PROP_OUTPUT_MIN_BUFFERS:
+       gst_v4l2_object_get_property_helper (self->v4l2output, prop_id, value,
+           pspec);
+       break;
+     case PROP_CAPTURE_IO_MODE:
++    case PROP_CAPTURE_MIN_BUFFERS:
+       gst_v4l2_object_get_property_helper (self->v4l2capture, prop_id, value,
+           pspec);
+       break;

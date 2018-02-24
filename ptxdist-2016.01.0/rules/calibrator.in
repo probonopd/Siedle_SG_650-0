@@ -1,0 +1,12 @@
+## SECTION=test_suites
+
+config CALIBRATOR
+	tristate
+	prompt "calibrator"
+	select LIBC_M
+	help
+	  The Calibrator is a Cache-Memory and TLB Calibration Tool
+
+	  See http://homepages.cwi.nl/~manegold/Calibrator/ for details.
+
+# vim: syntax=kconfig

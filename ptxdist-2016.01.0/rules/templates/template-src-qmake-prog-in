@@ -1,0 +1,8 @@
+## SECTION=@section@
+
+config @PACKAGE@
+	bool
+	prompt "@package@"
+	select QT4
+	help
+	  FIXME

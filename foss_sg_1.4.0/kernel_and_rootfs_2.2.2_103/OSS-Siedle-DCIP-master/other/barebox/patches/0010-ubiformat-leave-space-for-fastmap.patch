@@ -1,0 +1,35 @@
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Date: Fri, 17 Oct 2014 13:47:46 +0200
+Subject: [PATCH] ubiformat: leave space for fastmap
+
+This makes ubiformat compatible with fastmap. ubiformat continuously
+writes UBI images to the mtd device. This is incompatible with fastmap
+which needs a free eraseblock in the beginning of the device to write
+a fastmap anchor. To make the fastmap code happy just skip the first
+block when writing images.
+
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+---
+ commands/ubiformat.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/commands/ubiformat.c b/commands/ubiformat.c
+index e876accb04b6..bb60bb6f7daf 100644
+--- a/commands/ubiformat.c
++++ b/commands/ubiformat.c
+@@ -474,6 +474,15 @@ static int flash_image(const struct mtd_dev_info *mtd,
+ 			normsg_cont("eraseblock %d: erase", eb);
+ 		}
+ 
++		if (eb == 0) {
++			err = format(mtd, ui, si, 0, 0, 1);
++			if (err) {
++				sys_errmsg("Cannot format eraseblock 0\n");
++				goto out_close;
++			}
++			continue;
++		}
++
+ 		err = libmtd_erase(mtd, args.node_fd, eb);
+ 		if (err) {
+ 			if (!args.quiet)

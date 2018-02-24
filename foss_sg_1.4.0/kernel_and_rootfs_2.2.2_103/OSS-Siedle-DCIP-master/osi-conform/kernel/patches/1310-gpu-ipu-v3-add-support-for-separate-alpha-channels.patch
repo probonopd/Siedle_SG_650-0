@@ -1,0 +1,164 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 9 Jan 2015 11:03:13 +0100
+Subject: [PATCH] gpu: ipu-v3: add support for separate alpha channels
+
+The IPUv3 can read 8-bit alpha values from a separate IDMAC channel driven
+by the Alpha Transparency Controller (ATC) for the graphics IDMAC channels.
+This allows to reduce memory bandwidth via a conditional read mechanism or
+to support planar YUV formats with alpha transparency.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-common.c |  6 +++++
+ drivers/gpu/ipu-v3/ipu-cpmem.c  | 57 +++++++++++++++++++++++++++++++++++++++++
+ include/video/imx-ipu-v3.h      | 22 ++++++++++++++++
+ 3 files changed, 85 insertions(+)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-common.c b/drivers/gpu/ipu-v3/ipu-common.c
+index 99dcacf05b99..2a4286874e71 100644
+--- a/drivers/gpu/ipu-v3/ipu-common.c
++++ b/drivers/gpu/ipu-v3/ipu-common.c
+@@ -75,6 +75,12 @@ enum ipu_color_space ipu_drm_fourcc_to_colorspace(u32 drm_fourcc)
+ 	case DRM_FORMAT_ABGR8888:
+ 	case DRM_FORMAT_RGBA8888:
+ 	case DRM_FORMAT_BGRA8888:
++	case DRM_FORMAT_RGB565_A8:
++	case DRM_FORMAT_BGR565_A8:
++	case DRM_FORMAT_RGB888_A8:
++	case DRM_FORMAT_BGR888_A8:
++	case DRM_FORMAT_RGBX8888_A8:
++	case DRM_FORMAT_BGRX8888_A8:
+ 		return IPUV3_COLORSPACE_RGB;
+ 	case DRM_FORMAT_YUYV:
+ 	case DRM_FORMAT_UYVY:
+diff --git a/drivers/gpu/ipu-v3/ipu-cpmem.c b/drivers/gpu/ipu-v3/ipu-cpmem.c
+index 63eb16bf2cf0..58d7eed70113 100644
+--- a/drivers/gpu/ipu-v3/ipu-cpmem.c
++++ b/drivers/gpu/ipu-v3/ipu-cpmem.c
+@@ -572,6 +572,43 @@ static const struct ipu_rgb def_bgra_16 = {
+ #define UV2_OFFSET(pix, x, y)	((pix->width * pix->height) +	\
+ 				 (pix->width * y) + (x))
+ 
++#define NUM_ALPHA_CHANNELS	7
++
++/* See Table 37-12. Alpha channels mapping. */
++static int ipu_channel_albm(int ch_num)
++{
++	switch (ch_num) {
++	case IPUV3_CHANNEL_G_MEM_IC_PRP_VF:	return 0;
++	case IPUV3_CHANNEL_G_MEM_IC_PP:		return 1;
++	case IPUV3_CHANNEL_MEM_FG_SYNC:		return 2;
++	case IPUV3_CHANNEL_MEM_FG_ASYNC:	return 3;
++	case IPUV3_CHANNEL_MEM_BG_SYNC:		return 4;
++	case IPUV3_CHANNEL_MEM_BG_ASYNC:	return 5;
++	case IPUV3_CHANNEL_MEM_VDI_PLANE1_COMB: return 6;
++	default:
++		return -EINVAL;
++	}
++}
++
++static void ipu_cpmem_set_separate_alpha(struct ipuv3_channel *ch)
++{
++	struct ipu_soc *ipu = ch->ipu;
++	int albm;
++	u32 val;
++
++	albm = ipu_channel_albm(ch->num);
++	if (albm < 0)
++		return;
++
++	ipu_ch_param_write_field(ch, IPU_FIELD_ALU, 1);
++	ipu_ch_param_write_field(ch, IPU_FIELD_ALBM, albm);
++	ipu_ch_param_write_field(ch, IPU_FIELD_CRE, 1);
++
++	val = ipu_idmac_read(ipu, IDMAC_SEP_ALPHA);
++	val |= BIT(ch->num);
++	ipu_idmac_write(ipu, val, IDMAC_SEP_ALPHA);
++}
++
+ int ipu_cpmem_set_fmt(struct ipuv3_channel *ch, u32 drm_fourcc)
+ {
+ 	switch (drm_fourcc) {
+@@ -627,22 +664,28 @@ int ipu_cpmem_set_fmt(struct ipuv3_channel *ch, u32 drm_fourcc)
+ 		break;
+ 	case DRM_FORMAT_RGBA8888:
+ 	case DRM_FORMAT_RGBX8888:
++	case DRM_FORMAT_RGBX8888_A8:
+ 		ipu_cpmem_set_format_rgb(ch, &def_rgbx_32);
+ 		break;
+ 	case DRM_FORMAT_BGRA8888:
+ 	case DRM_FORMAT_BGRX8888:
++	case DRM_FORMAT_BGRX8888_A8:
+ 		ipu_cpmem_set_format_rgb(ch, &def_bgrx_32);
+ 		break;
+ 	case DRM_FORMAT_BGR888:
++	case DRM_FORMAT_BGR888_A8:
+ 		ipu_cpmem_set_format_rgb(ch, &def_bgr_24);
+ 		break;
+ 	case DRM_FORMAT_RGB888:
++	case DRM_FORMAT_RGB888_A8:
+ 		ipu_cpmem_set_format_rgb(ch, &def_rgb_24);
+ 		break;
+ 	case DRM_FORMAT_RGB565:
++	case DRM_FORMAT_RGB565_A8:
+ 		ipu_cpmem_set_format_rgb(ch, &def_rgb_16);
+ 		break;
+ 	case DRM_FORMAT_BGR565:
++	case DRM_FORMAT_BGR565_A8:
+ 		ipu_cpmem_set_format_rgb(ch, &def_bgr_16);
+ 		break;
+ 	case DRM_FORMAT_ARGB1555:
+@@ -664,6 +707,20 @@ int ipu_cpmem_set_fmt(struct ipuv3_channel *ch, u32 drm_fourcc)
+ 		return -EINVAL;
+ 	}
+ 
++	switch (drm_fourcc) {
++	case DRM_FORMAT_RGB565_A8:
++	case DRM_FORMAT_BGR565_A8:
++	case DRM_FORMAT_RGB888_A8:
++	case DRM_FORMAT_BGR888_A8:
++	case DRM_FORMAT_RGBX8888_A8:
++	case DRM_FORMAT_BGRX8888_A8:
++		ipu_ch_param_write_field(ch, IPU_FIELD_WID3, 7);
++		ipu_cpmem_set_separate_alpha(ch);
++		break;
++	default:
++		break;
++	}
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(ipu_cpmem_set_fmt);
+diff --git a/include/video/imx-ipu-v3.h b/include/video/imx-ipu-v3.h
+index c8529ce28a3f..df81ed13bcbd 100644
+--- a/include/video/imx-ipu-v3.h
++++ b/include/video/imx-ipu-v3.h
+@@ -119,6 +119,28 @@ enum ipu_channel_irq {
+ #define IPUV3_CHANNEL_ROT_PP_MEM		50
+ #define IPUV3_CHANNEL_MEM_BG_SYNC_ALPHA		51
+ 
++static inline int ipu_channel_alpha_channel(int ch_num)
++{
++	switch (ch_num) {
++	case IPUV3_CHANNEL_G_MEM_IC_PRP_VF:
++		return IPUV3_CHANNEL_G_MEM_IC_PRP_VF_ALPHA;
++	case IPUV3_CHANNEL_G_MEM_IC_PP:
++		return IPUV3_CHANNEL_G_MEM_IC_PP_ALPHA;
++	case IPUV3_CHANNEL_MEM_FG_SYNC:
++		return IPUV3_CHANNEL_MEM_FG_SYNC_ALPHA;
++	case IPUV3_CHANNEL_MEM_FG_ASYNC:
++		return IPUV3_CHANNEL_MEM_FG_ASYNC_ALPHA;
++	case IPUV3_CHANNEL_MEM_BG_SYNC:
++		return IPUV3_CHANNEL_MEM_BG_SYNC_ALPHA;
++	case IPUV3_CHANNEL_MEM_BG_ASYNC:
++		return IPUV3_CHANNEL_MEM_BG_ASYNC_ALPHA;
++	case IPUV3_CHANNEL_MEM_VDI_PLANE1_COMB:
++		return IPUV3_CHANNEL_MEM_VDI_PLANE1_COMB_ALPHA;
++	default:
++		return -EINVAL;
++	}
++}
++
+ int ipu_map_irq(struct ipu_soc *ipu, int irq);
+ int ipu_idmac_channel_irq(struct ipu_soc *ipu, struct ipuv3_channel *channel,
+ 		enum ipu_channel_irq irq);

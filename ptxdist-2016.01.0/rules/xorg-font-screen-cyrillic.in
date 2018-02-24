@@ -1,0 +1,8 @@
+## SECTION=multimedia_xorg_font_cyrillic
+
+config XORG_FONT_SCREEN_CYRILLIC
+	bool
+	select XORG_FONTS
+	prompt "Screen cyrillic"
+	help
+	  FIXME

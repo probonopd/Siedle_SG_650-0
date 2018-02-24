@@ -1,0 +1,34 @@
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Thu, 18 Jun 2015 18:07:51 +0200
+Subject: [PATCH] [media] imx-ipuv3-csi: fix memory corruption if CSI isn't the
+ first subdev in graph
+
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 7469ae57c4ad..fdef92c52cf1 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -428,7 +428,7 @@ static void ipucsi_v4l2_dev_notify(struct v4l2_subdev *sd,
+ 		/* Find the CSI (first subdevice entity of the graph) */
+ 		media_entity_graph_walk_start(&graph, &sd->entity);
+ 		while ((entity = media_entity_graph_walk_next(&graph)) &&
+-		       media_entity_type(entity) != MEDIA_ENT_T_V4L2_SUBDEV);
++		       ((strstr(entity->name, "CSI") - entity->name) != 5));
+ 		if (!entity)
+ 			return;
+ 		sd = media_entity_to_v4l2_subdev(entity);
+@@ -1781,8 +1781,8 @@ static int ipucsi_subdev_init(struct ipucsi *ipucsi, struct device_node *node)
+ 
+ 	ipucsi->subdev.ctrl_handler = &ipucsi->ctrls;
+ 
+-	snprintf(ipucsi->subdev.name, sizeof(ipucsi->subdev.name), "%s",
+-			node->full_name);
++	snprintf(ipucsi->subdev.name, sizeof(ipucsi->subdev.name), "%s%d %s%d",
++			"IPU", ipu_get_id(ipucsi->ipu), "CSI", ipucsi->id);
+ 
+ 	endpoint = of_get_next_child(node, NULL);
+ 	if (endpoint)

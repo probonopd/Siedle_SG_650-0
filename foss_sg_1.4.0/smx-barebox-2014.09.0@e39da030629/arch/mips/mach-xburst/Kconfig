@@ -1,0 +1,40 @@
+if MACH_MIPS_XBURST
+
+config ARCH_TEXT_BASE
+	hex
+	default 0xa0800000
+
+config CPU_JZ4755
+	bool
+	select WATCHDOG
+	select WATCHDOG_JZ4740
+
+choice
+	prompt "Board type"
+
+config BOARD_RZX50
+	bool "Ritmix RZX-50"
+	select HAS_POWEROFF
+	select CPU_JZ4755
+
+endchoice
+
+if DEBUG_LL
+if CPU_JZ4755
+choice
+	prompt "DEBUG_LL port"
+
+config JZ4750D_DEBUG_LL_UART0
+	bool "UART0"
+
+config JZ4750D_DEBUG_LL_UART1
+	bool "UART1"
+
+config JZ4750D_DEBUG_LL_UART2
+	bool "UART2"
+
+endchoice
+endif # CPU_JZ4755
+endif # DEBUG_LL
+
+endif

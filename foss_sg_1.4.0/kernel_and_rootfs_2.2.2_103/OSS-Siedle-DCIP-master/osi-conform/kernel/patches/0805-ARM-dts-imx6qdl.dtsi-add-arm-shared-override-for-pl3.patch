@@ -1,0 +1,30 @@
+From: Peter Chen <peter.chen@nxp.com>
+Date: Wed, 24 Aug 2016 10:47:25 +0200
+Subject: [PATCH] ARM: dts: imx6qdl.dtsi: add "arm, shared-override" for pl310
+
+The imx6 SMP system has the same DMA memory coherency issue [1] with
+pl310 L2 controller. With this shared override bit set, the customer
+reports the DMA coherency issue is gone. Besides, I have tested
+the performance using USB ethernet with/without this bit, it shows
+no difference.
+
+[1] http://patchwork.ozlabs.org/patch/469362/
+
+Signed-off-by: Peter Chen <peter.chen@nxp.com>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ arch/arm/boot/dts/imx6qdl.dtsi | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm/boot/dts/imx6qdl.dtsi b/arch/arm/boot/dts/imx6qdl.dtsi
+index 356485702624..2825e194ff47 100644
+--- a/arch/arm/boot/dts/imx6qdl.dtsi
++++ b/arch/arm/boot/dts/imx6qdl.dtsi
+@@ -164,6 +164,7 @@
+ 			cache-level = <2>;
+ 			arm,tag-latency = <4 2 3>;
+ 			arm,data-latency = <4 2 3>;
++			arm,shared-override;
+ 		};
+ 
+ 		pcie: pcie@0x01000000 {

@@ -1,0 +1,9 @@
+Package:	@PACKAGE@
+Priority:	@PRIORITY@
+Version:	@VERSION@
+Section:  	@SECTION@
+Architecture:	@ARCH@
+Maintainer:	@AUTHOR@
+Depends:	@DEPENDS@
+Source: 	http://www.ptxdist.org/
+Description:	@DESCRIPTION@

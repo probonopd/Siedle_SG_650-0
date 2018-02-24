@@ -1,0 +1,27 @@
+From: Enrico Jorns <ejo@pengutronix.de>
+Date: Tue, 20 Jan 2015 11:54:18 +0100
+Subject: [PATCH] v4l2videodec: Do not set fixed buffer pool size
+
+Valid bufferpool size should be negotiated already, otherwise something
+went wrong. Thus setting a fixed value should not be required.
+---
+ sys/v4l2/gstv4l2videodec.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/sys/v4l2/gstv4l2videodec.c b/sys/v4l2/gstv4l2videodec.c
+index 8ca5e38f2f6b..044fa7d96749 100644
+--- a/sys/v4l2/gstv4l2videodec.c
++++ b/sys/v4l2/gstv4l2videodec.c
+@@ -563,9 +563,11 @@ gst_v4l2_video_dec_handle_frame (GstVideoDecoder * decoder,
+ 
+     /* Ensure input internal pool is active */
+     if (!gst_buffer_pool_is_active (pool)) {
++      guint min, max;
+       GstStructure *config = gst_buffer_pool_get_config (pool);
++      gst_buffer_pool_config_get_params (config, NULL, NULL, &min, &max);
+       gst_buffer_pool_config_set_params (config, self->input_state->caps,
+-          self->v4l2output->info.size, 2, 2);
++          self->v4l2output->info.size, min, max);
+ 
+       /* There is no reason to refuse this config */
+       if (!gst_buffer_pool_set_config (pool, config))

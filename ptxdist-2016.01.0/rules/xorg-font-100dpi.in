@@ -1,0 +1,9 @@
+## SECTION=multimedia_xorg_font
+
+menuconfig XORG_FONT_100DPI
+	prompt  "xorg 100 dpi fonts            "
+	bool
+	depends on MENU_XORG_FONTS
+
+source "generated/multimedia_xorg_font_100dpi.in"
+

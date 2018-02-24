@@ -1,0 +1,5 @@
+0001-merge-core-armv7-improved-armv6-support.patch
+0002-merge-make-armv7-support.patch
+0003-merge-armv7-inform-the-assembler-about-thumb.patch
+0004-arm7-no-strict-aliasing.patch
+0005-arm7-broaden-gcc-detection-for-above-gcc-4-5.patch

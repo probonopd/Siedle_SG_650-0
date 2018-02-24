@@ -1,0 +1,184 @@
+/*
+ * Copyright 2013 Christian Hemp, Phytec Messtechnik GmbH
+ *
+ * The code contained herein is licensed under the GNU General Public
+ * License. You may obtain a copy of the GNU General Public License
+ * Version 2 or later at the following locations:
+ *
+ * http://www.opensource.org/licenses/gpl-license.html
+ * http://www.gnu.org/copyleft/gpl.html
+ */
+
+/dts-v1/;
+#include <dt-bindings/gpio/gpio.h>
+#include "imx6q-phytec-pfla02.dtsi"
+
+/ {
+	model = "Siedle BIPG650";
+	compatible = "siedle,imx6q-bipg650-0m", "phytec,imx6q-pfla02", "fsl,imx6q";
+
+	aliases {
+		/* make the 'state' tool happy */
+		state = &state;
+	};
+
+	chosen {
+		linux,stdout-path = &uart1;
+
+		environment@0 {
+			compatible = "barebox,environment";
+			device-path = &flash, "partname:barebox-environment";
+		};
+	};
+
+	soc {
+		leds {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_led_pfla02 &pinctrl_led_dcip2>;
+			compatible = "gpio-leds";
+
+			pfla02_green {
+				label = "phyflex:green";
+				gpios = <&gpio1 30 GPIO_ACTIVE_HIGH>;
+			};
+			pfla02_red {
+				label = "phyflex:red";
+				gpios = <&gpio2 31 GPIO_ACTIVE_HIGH>;
+				// linux,default-trigger = "heartbeat";
+			};
+			dcip2_ld201-green {
+				label = "status_led:green";
+				gpios = <&gpio1 21 GPIO_ACTIVE_LOW>;
+			};
+			dcip2_ld201-red {
+				label = "status_led:red";
+				gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;
+			};
+			dcip2_ld202 {
+				label = "ih_link_led";
+				gpios = <&gpio3 20 GPIO_ACTIVE_LOW>;
+			};
+		};
+	};
+
+	state: state@0 {
+		magic = <0x4d433230>;
+		compatible = "barebox,state";
+		backend-type = "raw";
+		backend = &flash, "partname:state";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		active_firmware_slot@1 {
+			reg = <0 4>;
+			type = "enum32";
+			names = "none", "slot1", "slot2";
+			default = <0>;
+		};
+
+		next_firmware_slot@2 {
+			reg = <4 4>;
+			type = "enum32";
+			names = "none", "slot1", "slot2";
+			default = <0>;
+		};
+
+		content_firmware_slot1@3 {
+			/* content description of slot#1 */
+			reg = <8 4>;
+			type = "enum32";
+			names = "empty", "deployed", "invalid", "broken";
+			default = <0>;
+		};
+
+		content_firmware_slot2@4 {
+			/* content description of slot#1 */
+			reg = <12 4>;
+			type = "enum32";
+			names = "empty", "deployed", "invalid", "broken";
+			default = <0>;
+		};
+	};
+};
+
+&fec {
+	status = "okay";
+	phy-handle = <&phy0>;
+
+	fec_mdio: mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		phy0: ethernet-phy@0 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <0>;
+			max-speed = <100>;
+		};
+	};
+};
+
+&iomuxc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hog &pinctrl_hog_dcip2>;
+
+	hog-dcip2 {
+		pinctrl_hog_dcip2: hoggrp-dcip2 {
+			fsl,pins = <
+				MX6QDL_PAD_GPIO_17__GPIO7_IO12    0x80000000 /* SD slot power */
+			>;
+		};
+	};
+
+	uart {
+		pinctrl_uart1_2: uart1grp-2 {
+			fsl,pins = <
+				MX6QDL_PAD_SD3_DAT6__UART1_RX_DATA 0x1b0b1
+				MX6QDL_PAD_SD3_DAT7__UART1_TX_DATA 0x1b0b1
+			>;
+		};
+	};
+
+	usdhc1 {
+		pinctrl_usdhc1_1: usdhc1grp-1 {
+			fsl,pins = <
+				MX6QDL_PAD_SD1_CMD__SD1_CMD    0x17059
+				MX6QDL_PAD_SD1_CLK__SD1_CLK    0x10059
+				MX6QDL_PAD_SD1_DAT0__SD1_DATA0 0x17059
+				MX6QDL_PAD_SD1_DAT1__SD1_DATA1 0x17059
+				MX6QDL_PAD_SD1_DAT2__SD1_DATA2 0x17059
+				MX6QDL_PAD_SD1_DAT3__SD1_DATA3 0x17059
+			>;
+		};
+	};
+
+	leds {
+		pinctrl_led_pfla02: ledpfla02grp-1 {
+			fsl,pins = <
+				MX6QDL_PAD_ENET_TXD0__GPIO1_IO30 0x80000000 /* phyFLEX-i.MX6: Green LED */
+				MX6QDL_PAD_EIM_EB3__GPIO2_IO31   0x80000000 /* phyFLEX-i.MX6: Red LED */
+			>;
+		};
+		pinctrl_led_dcip2: leddcip2grp-1 {
+			fsl,pins = <
+				MX6QDL_PAD_SD1_DAT3__GPIO1_IO21 0x1b0b0 /* #STATUS_LED_GN */
+				MX6QDL_PAD_GPIO_7__GPIO1_IO07   0x1b0b0 /* #STATUS_LED_RD */
+				MX6QDL_PAD_EIM_D20__GPIO3_IO20  0x1b0b0 /* #IH_LINK_LED */
+			>;
+		};
+	};
+};
+
+&uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart1_2>;
+	status = "okay";
+};
+
+&uart4 {
+	status = "okay";
+};
+
+&usdhc1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usdhc1_1>;
+	status = "okay";
+};

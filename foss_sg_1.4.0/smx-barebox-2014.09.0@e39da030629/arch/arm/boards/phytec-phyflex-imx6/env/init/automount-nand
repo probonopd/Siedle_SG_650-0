@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# slot #1 firmware (results into 'ubi0' if called first!)
+mkdir /mnt/slot1
+automount -d /mnt/slot1 'ubiattach /dev/nand0.slot1 && mount /dev/ubi0.slot /mnt/slot1'
+
+# slot #2 firmware (results into 'ubi0' if called first!)
+mkdir /mnt/slot2
+automount -d /mnt/slot2 'ubiattach /dev/nand0.slot2 && mount /dev/ubi0.slot /mnt/slot2'

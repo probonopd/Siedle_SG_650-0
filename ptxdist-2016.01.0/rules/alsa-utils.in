@@ -1,0 +1,58 @@
+## SECTION=multimedia_sound
+
+menuconfig ALSA_UTILS
+	tristate
+	prompt "alsa utils                    "
+	select NCURSES if ALSA_UTILS_ALSAMIXER
+	select ALSA_LIB
+# alsa-utils fails with the salsa-lib
+	select ALSA_LIB_FULL
+# all tools from this package rely on special parts in the library:
+	select ALSA_LIB_MIXER
+	select ALSA_LIB_PCM
+	select ALSA_LIB_RAWMIDI
+	select ALSA_LIB_SEQ
+	select ALSA_LIB_UCM
+	select LIBC_PTHREAD
+	help
+	  Some utils to handle the Advanced Linux Sound Architecture.
+	  With these utils you can control your sound device, for
+	  playback and recording of sounds.
+
+if ALSA_UTILS
+
+config ALSA_UTILS_STARTSCRIPT
+	bool
+	default y
+	prompt "install /etc/init.d/alsa-utils"
+
+config ALSA_UTILS_SYSTEMD_UNIT
+	bool
+	default y
+	depends on SYSTEMD
+	prompt "install systemd unit files"
+
+config ALSA_UTILS_ASOUND_STATE
+	bool
+	prompt "install /etc/asound.state from projectroot"
+	help
+	  install a default asound.state file from the projectroot
+
+config ALSA_UTILS_ALSAMIXER
+	bool
+	prompt "alsamixer"
+	select NCURSES_FORM
+	select NCURSES_MENU
+	select NCURSES_PANEL
+	help
+	  Build the alsamixer tool.
+
+config ALSA_UTILS_ALSALOOP
+	bool
+	prompt "alsaloop"
+	help
+	  alsaloop allows create a PCM loopback between a PCM capture
+	  device and a PCM playback device.
+
+endif
+

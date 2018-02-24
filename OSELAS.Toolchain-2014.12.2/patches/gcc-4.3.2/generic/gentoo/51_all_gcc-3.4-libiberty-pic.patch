@@ -1,0 +1,16 @@
+---
+ libiberty/Makefile.in |    1 +
+ 1 file changed, 1 insertion(+)
+
+Index: gcc-4.3.1/libiberty/Makefile.in
+===================================================================
+--- gcc-4.3.1.orig/libiberty/Makefile.in
++++ gcc-4.3.1/libiberty/Makefile.in
+@@ -225,6 +225,7 @@ $(TARGETLIB): $(REQUIRED_OFILES) $(EXTRA
+ 	  $(AR) $(AR_FLAGS) $(TARGETLIB) \
+ 	    $(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS); \
+ 	  $(RANLIB) $(TARGETLIB); \
++	  cp $(TARGETLIB) ../ ; \
+ 	  cd ..; \
+ 	else true; fi
+ 

@@ -1,0 +1,30 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 7 Aug 2014 18:42:46 +0200
+Subject: [PATCH] gpu: ipu-v3: do not reset unhandled fields in
+ ipu_csi_init_interface
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-csi.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-csi.c b/drivers/gpu/ipu-v3/ipu-csi.c
+index 28f45f697678..2cfec860eea4 100644
+--- a/drivers/gpu/ipu-v3/ipu-csi.c
++++ b/drivers/gpu/ipu-v3/ipu-csi.c
+@@ -367,11 +367,14 @@ int ipu_csi_init_interface(struct ipu_csi *csi,
+ {
+ 	struct ipu_csi_bus_config cfg;
+ 	unsigned long flags;
+-	u32 data = 0;
++	u32 data;
+ 
+ 	fill_csi_bus_cfg(&cfg, mbus_cfg, mbus_fmt);
+ 
++	data = ipu_csi_read(csi, CSI_SENS_CONF);
++
+ 	/* Set the CSI_SENS_CONF register remaining fields */
++	data &= ~(0xff7f | BIT(CSI_SENS_CONF_DATA_EN_POL_SHIFT));
+ 	data |= cfg.data_width << CSI_SENS_CONF_DATA_WIDTH_SHIFT |
+ 		cfg.data_fmt << CSI_SENS_CONF_DATA_FMT_SHIFT |
+ 		cfg.data_pol << CSI_SENS_CONF_DATA_POL_SHIFT |

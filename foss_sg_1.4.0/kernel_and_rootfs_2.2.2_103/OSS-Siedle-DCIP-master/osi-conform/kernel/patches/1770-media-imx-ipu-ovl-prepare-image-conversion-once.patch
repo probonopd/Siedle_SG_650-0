@@ -1,0 +1,60 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 7 Mar 2016 17:49:50 +0100
+Subject: [PATCH] [media] imx-ipu-ovl: prepare image conversion once
+
+Call ipu_image_convert_prepare() once, remember the conversion context
+template, and then only call ipu_image_convert_run() for subsequent
+scaling operations.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipu-ovl.c | 20 ++++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipu-ovl.c b/drivers/media/platform/imx/imx-ipu-ovl.c
+index 0438c7d9c112..90733cc82fcd 100644
+--- a/drivers/media/platform/imx/imx-ipu-ovl.c
++++ b/drivers/media/platform/imx/imx-ipu-ovl.c
+@@ -103,6 +103,8 @@ struct vout_data {
+ 	int			opened;
+ 	int			dma;
+ 
++	struct image_convert_ctx *icc;
++	int			num_tiles;
+ };
+ 
+ static int vidioc_querycap(struct file *file, void  *priv,
+@@ -647,10 +649,22 @@ static void vout_videobuf_queue(struct vb2_buffer *vb)
+ 
+ 		trace_vout_scale_run(&vout->vfd, q->vb);
+ 
++		if (!vout->num_tiles) {
++			kfree(vout->icc);
++			vout->icc = ipu_image_convert_prepare(vout->ipu,
++						&vout->in_image, image,
++						IPU_IMAGE_SCALE_PIXELPERFECT,
++						&vout->num_tiles);
++			if (IS_ERR(vout->icc)) {
++				vout->icc = NULL;
++				spin_unlock_irqrestore(&vout->lock, flags);
++				return;
++			}
++		}
+ 		spin_unlock_irqrestore(&vout->lock, flags);
+ 
+-		ipu_image_convert(vout->ipu, &vout->in_image, image,
+-			vout_scaler_complete, q, IPU_IMAGE_SCALE_PIXELPERFECT);
++		ipu_image_convert_run(vout->ipu, &vout->in_image, image, vout->icc,
++				      vout->num_tiles, vout_scaler_complete, q);
+ 		return;
+ 	}
+ out:
+@@ -815,6 +829,8 @@ static int mxc_v4l2out_open(struct file *file)
+ 	INIT_LIST_HEAD(&vout->scale_list);
+ 	INIT_LIST_HEAD(&vout->show_list);
+ 
++	vout->num_tiles = 0;
++
+ 	q->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+ 	q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
+ 	q->drv_priv = vout;

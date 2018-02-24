@@ -1,0 +1,24 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 31 Jul 2015 10:41:26 +0200
+Subject: [PATCH] [media] coda: add YUV422P to list of non-tiled formats
+
+Since NV12 is the only format in which tiling can be used,
+setting YUV422P must disable tiling.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-common.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index 2cf056914828..c5bdce35c506 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -670,6 +670,7 @@ static int coda_s_fmt(struct coda_ctx *ctx, struct v4l2_format *f)
+ 		/* else fall through */
+ 	case V4L2_PIX_FMT_YUV420:
+ 	case V4L2_PIX_FMT_YVU420:
++	case V4L2_PIX_FMT_YUV422P:
+ 		ctx->tiled_map_type = GDI_LINEAR_FRAME_MAP;
+ 		break;
+ 	case V4L2_PIX_FMT_CM12:

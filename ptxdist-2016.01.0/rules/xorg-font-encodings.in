@@ -1,0 +1,15 @@
+## SECTION=multimedia_xorg_font_base
+
+config XORG_FONT_ENCODINGS
+	tristate
+	select XORG_FONTS
+	prompt "encodings"
+	help
+	  contains encoding files used by fontenc layer to 
+	  re-encode fonts other than iso10646-1, iso8859-1,
+	  -2, -3, -4, -5, -6, -7, -9, -10, -15, 
+	  koi8-r, -ru, -u, uni, -e, microsoft-symbol and 
+	  apple-roman.
+	  You might most probbably want this if you intend
+	  to use i.E. asian language.
+	  For more details see xorg documentation.

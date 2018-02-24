@@ -1,0 +1,129 @@
+menuconfig NAND
+	bool "NAND support"
+	select MTD_NAND_IDS
+	help
+	  This enables support for accessing all type of NAND flash
+	  devices. For further information see
+	  <http://www.linux-mtd.infradead.org/doc/nand.html>.
+
+if NAND
+
+config NAND_ECC_SOFT
+	bool
+	default y
+	prompt "Support software ecc"
+
+config NAND_ECC_BCH
+	select BCH
+	bool
+	prompt "Support software BCH ecc"
+
+config NAND_ECC_HW
+	bool
+	default y
+	prompt "Support hardware ecc"
+
+config NAND_ECC_HW_OOB_FIRST
+	bool
+	prompt "Support hardware ecc (oob first)"
+
+config NAND_ECC_HW_SYNDROME
+	bool
+	default y
+	prompt "Support syndrome hardware ecc controllers"
+
+config NAND_ECC_HW_NONE
+	bool
+	default y
+	prompt "Support skipping ecc support"
+
+config NAND_INFO
+	bool
+	default y
+	prompt "Nand vendor/size information"
+	help
+	  Show informational strings about the vendor and nand flash type
+	  during startup
+
+config NAND_READ_OOB
+	bool
+
+config NAND_BBT
+	bool
+	select NAND_READ_OOB
+	default y
+	prompt "support bad block tables"
+	help
+	  Say y here to include support for bad block tables. This speeds
+	  up the process of checking for bad blocks
+
+config NAND_ALLOW_ERASE_BAD
+	bool
+	depends on MTD_WRITE
+	prompt "Add device parameter to allow erasing bad blocks"
+	help
+	  This adds a 'erasebad' device parameter to nand devices. When set
+	  to '1' it will be allowed to erase bad blocks. This is a potientially
+	  dangerous operation, so if unsure say no to this option.
+
+config NAND_IMX
+	bool
+	prompt "i.MX NAND driver"
+	depends on ARCH_IMX
+
+config NAND_IMX_BBM
+	bool
+	depends on NAND_BBT
+	depends on NAND_IMX
+	prompt "i.MX NAND flash bbt creation command"
+
+config NAND_MXS
+	bool
+	select NAND_BBT
+	prompt "i.MX23/28/6 NAND driver"
+	depends on MXS_APBH_DMA
+
+config NAND_OMAP_GPMC
+	tristate "NAND Flash Support for GPMC based OMAP platforms"
+	depends on OMAP_GPMC
+	help
+	  Support for NAND flash using GPMC. GPMC is a common memory
+	  interface found on Texas Instrument's OMAP platforms
+
+config NAND_ATMEL
+	bool
+	prompt "Atmel (AT91SAM9xxx) NAND driver"
+	depends on ARCH_AT91
+
+config NAND_ATMEL_PMECC
+	bool
+	prompt "PMECC support"
+	depends on NAND_ATMEL
+	select NAND_ECC_HW
+	help
+	  Support for PMECC present on the SoC sam9x5 and sam9n12
+
+config NAND_S3C24XX
+	bool
+	prompt "Samsung S3C24XX NAND driver"
+	depends on ARCH_S3C24xx
+	help
+	  Add support for processor's NAND device controller.
+
+config MTD_NAND_ECC_SMC
+	bool "NAND ECC Smart Media byte order"
+	default n
+	help
+	  Software ECC according to the Smart Media Specification.
+	  The original Linux implementation had byte 0 and 1 swapped.
+
+config MTD_NAND_IDS
+	tristate
+
+config MTD_NAND_NOMADIK
+	tristate "ST Nomadik 8815 NAND support"
+	depends on ARCH_NOMADIK
+	help
+	  Driver for the NAND flash controller on the Nomadik, with ECC.
+
+endif

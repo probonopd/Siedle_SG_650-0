@@ -1,0 +1,41 @@
+http://gcc.gnu.org/PR34571
+
+2007-12-26  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	PR target/34571
+	* config/alpha/alpha.c (alpha_cannot_force_const_mem): Use
+	symbolic_operand.
+	* varasm.c (output_constant_pool_1): Fix typo.
+
+---
+ gcc/config/alpha/alpha.c |    3 +--
+ gcc/varasm.c             |    2 +-
+ 2 files changed, 2 insertions(+), 3 deletions(-)
+
+Index: gcc-4.3.1/gcc/config/alpha/alpha.c
+===================================================================
+--- gcc-4.3.1.orig/gcc/config/alpha/alpha.c
++++ gcc-4.3.1/gcc/config/alpha/alpha.c
+@@ -1113,8 +1113,7 @@ alpha_legitimize_address (rtx x, rtx scr
+ static bool
+ alpha_cannot_force_const_mem (rtx x)
+ {
+-  enum rtx_code code = GET_CODE (x);
+-  return code == SYMBOL_REF || code == LABEL_REF || code == CONST;
++  return symbolic_operand (x, GET_MODE (x));
+ }
+ 
+ /* We do not allow indirect calls to be optimized into sibling calls, nor
+Index: gcc-4.3.1/gcc/varasm.c
+===================================================================
+--- gcc-4.3.1.orig/gcc/varasm.c
++++ gcc-4.3.1/gcc/varasm.c
+@@ -3710,7 +3710,7 @@ output_constant_pool_1 (struct constant_
+       /* FALLTHRU  */
+ 
+     case LABEL_REF:
+-      tmp = XEXP (x, 0);
++      tmp = XEXP (tmp, 0);
+       gcc_assert (!INSN_DELETED_P (tmp));
+       gcc_assert (!NOTE_P (tmp)
+ 		  || NOTE_KIND (tmp) != NOTE_INSN_DELETED);

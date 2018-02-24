@@ -1,0 +1,74 @@
+## SECTION=scripting_languages
+
+menuconfig PYTHON
+	tristate "python                        "
+	select LIBC_DL
+	select LIBC_UTIL
+	select LIBC_PTHREAD
+	select HOST_PYTHON
+	select GCCLIBS_CXX
+	select NCURSES		if PYTHON_NCURSES
+	select SQLITE		if PYTHON_SQLITE
+	select BZIP2		if PYTHON_BZ2
+	select BZIP2_LIBBZ2	if PYTHON_BZ2
+	select ZLIB		if PYTHON_ZLIB
+	select READLINE		if PYTHON_READLINE
+	select DB		if PYTHON_DB
+	select OPENSSL		if PYTHON_HASHLIB
+	help
+	  Python is a dynamic object-oriented programming
+	  language that can be used for many kinds of
+	  software development. It offers strong support
+	  for integration with other languages and tools,
+	  comes with extensive standard libraries, and
+	  can be learned in a few days.
+
+if PYTHON
+
+config PYTHON_NCURSES
+	bool "ncurses bindings"
+
+config PYTHON_SQLITE
+	bool "sqlite bindings"
+
+config PYTHON_BZ2
+	bool "libbz2 bindings"
+
+config PYTHON_ZLIB
+	bool "zlib bindings"
+
+config PYTHON_READLINE
+	bool "readline bindings"
+
+config PYTHON_DB
+	bool "db bindings"
+
+config PYTHON_SYMLINK
+	bool
+	prompt "install symbolic link /usr/bin/python"
+	default y
+
+config PYTHON_LIBTK
+	bool
+	prompt "Include lib-tk packages"
+
+config PYTHON_IDLELIB
+	bool
+	prompt "Include idlelib packages"
+	help
+	  IDLE, an Integrated Development Environment for Python written in
+	  100% Python
+
+config PYTHON_DISTUTILS
+	bool
+	prompt "Include distutils packages"
+
+config PYTHON_HASHLIB
+	bool
+	prompt "Include hashlib package"
+
+endif
+
+menu "python Extra Modules          "
+source "generated/python.in"
+endmenu

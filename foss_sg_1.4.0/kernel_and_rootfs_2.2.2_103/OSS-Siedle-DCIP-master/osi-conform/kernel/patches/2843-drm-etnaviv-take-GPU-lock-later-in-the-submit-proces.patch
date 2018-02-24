@@ -1,0 +1,69 @@
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Thu, 28 Jul 2016 11:50:48 +0200
+Subject: [PATCH] drm/etnaviv: take GPU lock later in the submit process
+
+Both the fence and event alloc are safe to be done without holding the GPU
+lock, as they either don't need any locking (fences) or are protected by
+their own lock (events).
+
+This solves a bad locking interaction between the submit path and the
+recover worker. If userspace manages to exhaust all available events while
+the GPU is hung, the submit will wait for events to become available
+holding the GPU lock. The recover worker waits for this lock to become
+available before trying to recover the GPU which frees up the allocated
+events. Essentially both paths are deadlocked until the submit path
+times out waiting for available events, failing the submit that could
+otherwise be handled just fine if the recover worker had the chance to
+bring the GPU back in a working state.
+
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+Reviewed-by: Christian Gmeiner <christian.gmeiner@gmail.com>
+---
+ drivers/gpu/drm/etnaviv/etnaviv_gpu.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/etnaviv/etnaviv_gpu.c b/drivers/gpu/drm/etnaviv/etnaviv_gpu.c
+index f2a8ac83b0eb..3464a5a09941 100644
+--- a/drivers/gpu/drm/etnaviv/etnaviv_gpu.c
++++ b/drivers/gpu/drm/etnaviv/etnaviv_gpu.c
+@@ -1333,8 +1333,6 @@ int etnaviv_gpu_submit(struct etnaviv_gpu *gpu,
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	mutex_lock(&gpu->lock);
+-
+ 	/*
+ 	 * TODO
+ 	 *
+@@ -1348,16 +1346,18 @@ int etnaviv_gpu_submit(struct etnaviv_gpu *gpu,
+ 	if (unlikely(event == ~0U)) {
+ 		DRM_ERROR("no free event\n");
+ 		ret = -EBUSY;
+-		goto out_unlock;
++		goto out_pm_put;
+ 	}
+ 
+ 	fence = etnaviv_gpu_fence_alloc(gpu);
+ 	if (!fence) {
+ 		event_free(gpu, event);
+ 		ret = -ENOMEM;
+-		goto out_unlock;
++		goto out_pm_put;
+ 	}
+ 
++	mutex_lock(&gpu->lock);
++
+ 	gpu->event[event].fence = fence;
+ 	submit->fence = fence->seqno;
+ 	gpu->active_fence = submit->fence;
+@@ -1395,9 +1395,9 @@ int etnaviv_gpu_submit(struct etnaviv_gpu *gpu,
+ 	hangcheck_timer_reset(gpu);
+ 	ret = 0;
+ 
+-out_unlock:
+ 	mutex_unlock(&gpu->lock);
+ 
++out_pm_put:
+ 	etnaviv_gpu_pm_put(gpu);
+ 
+ 	return ret;

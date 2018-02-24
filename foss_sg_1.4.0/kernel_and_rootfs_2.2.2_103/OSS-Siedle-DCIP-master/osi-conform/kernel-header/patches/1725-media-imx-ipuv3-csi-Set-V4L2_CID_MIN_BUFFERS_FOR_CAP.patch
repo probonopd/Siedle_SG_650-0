@@ -1,0 +1,23 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 8 Dec 2014 18:13:47 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: Set V4L2_CID_MIN_BUFFERS_FOR_CAPTURE
+ control to 2
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 373d66bb0982..46c1b9c48ee0 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -1677,6 +1677,8 @@ static int ipucsi_create_controls(struct ipucsi *ipucsi)
+ 			&ipucsi_subdev_ctrl_ops, V4L2_CID_TEST_PATTERN,
+ 			ARRAY_SIZE(ipucsi_test_pattern_menu) - 1, 0, 0,
+ 			ipucsi_test_pattern_menu);
++	v4l2_ctrl_new_std(handler, &ipucsi_subdev_ctrl_ops,
++			V4L2_CID_MIN_BUFFERS_FOR_CAPTURE, 2, 2, 1, 2);
+ 
+ 	return ipucsi->ctrl_test_pattern ? 0 : -ENOMEM;
+ }

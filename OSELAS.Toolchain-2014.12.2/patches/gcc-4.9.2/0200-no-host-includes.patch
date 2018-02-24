@@ -1,0 +1,55 @@
+From: Marc Kleine-Budde <m.kleine-budde@pengutronix.de>
+Date: Tue, 1 Nov 2011 18:25:06 +0100
+Subject: [PATCH] no host includes
+
+With this patch gcc bails out if you include a host include path into
+the searchlist (-I). This patch is not intended for upstream and was
+inspired by
+
+http://www.openembedded.org/repo/org.openembedded.dev/packages/gcc/gcc-4.1.1/zecke-no-host-includes.patch
+
+Signed-off-by: Marc Kleine-Budde <m.kleine-budde@pengutronix.de>
+Signed-off-by: Robert Schwebel <r.schwebel@pengutronix.de>
+---
+ gcc/incpath.c | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/gcc/incpath.c b/gcc/incpath.c
+index f495c0a7fc0c..d3fb24a525c8 100644
+--- a/gcc/incpath.c
++++ b/gcc/incpath.c
+@@ -450,6 +450,34 @@ add_path (char *path, int chain, int cxx_aware, bool user_supplied_p)
+   p->construct = 0;
+   p->user_supplied_p = user_supplied_p;
+ 
++#ifdef CROSS_COMPILE
++    /* A common error when cross compiling is including
++    host headers. This code below will try to fail fast
++    for cross compiling. Currently we consider /usr/include,
++    /opt/include and /sw/include as harmful.  */
++	{
++		unsigned int i;
++		const char *bad_path[] = {
++			"/usr/include",
++			"/usr/local/include",
++			"/sw/include",
++			"/opt/include",
++		};
++
++		for (i = 0; i < sizeof(bad_path)/sizeof(bad_path[0]); i++) {
++			if( strstr(p->name, bad_path[i]) == p->name ) {
++				fprintf(stderr,_("\n"
++						 "CROSS COMPILE Badness: %s in INCLUDEPATH: %s\n"
++						 "\n"),
++
++				      bad_path[i], p->name);
++
++				exit (FATAL_EXIT_CODE);
++			}
++		}
++	}
++#endif
++
+   add_cpp_dir_path (p, chain);
+ }
+ 

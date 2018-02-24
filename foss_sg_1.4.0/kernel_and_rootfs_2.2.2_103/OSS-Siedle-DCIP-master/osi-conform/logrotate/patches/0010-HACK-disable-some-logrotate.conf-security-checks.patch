@@ -1,0 +1,46 @@
+On a NFS system, checking if config files (like /etc/logrotate.conf
+and included like /etc/logrotate.d/*) are owned by root might fail.
+Same applies for permission checks (mode 0644 resp. 0444).
+HACK: disable this check for now, until we see a better solution.
+---
+ config.c |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+Index: b/config.c
+===================================================================
+--- a/config.c
++++ b/config.c
+@@ -785,11 +785,16 @@
+ 
+ 	if (getuid() == ROOT_UID) {
+ 		if ((sb.st_mode & 07533) != 0400) {
++/*
+ 			message(MESS_ERROR,
+ 				"Ignoring %s because of bad file mode - must be 0644 or 0444.\n",
+ 				configFile);
+ 			close(fd);
+ 			return 0;
++*/
++			message(MESS_VERBOSE,
++				"Warning: %s has bad file mode - must be 0644 or 0444. HACK: using anyway.\n",
++				configFile);
+ 		}
+ 
+ 		if ((pw = getpwuid(ROOT_UID)) == NULL) {
+@@ -803,11 +808,16 @@
+ 		if (sb.st_uid != ROOT_UID && (pw == NULL ||
+ 				sb.st_uid != pw->pw_uid ||
+ 				pw->pw_uid != ROOT_UID)) {
++/*
+ 			message(MESS_DEBUG,
+ 				"Ignoring %s because the file owner is wrong (should be root or user with uid 0).\n",
+ 				configFile);
+ 			close(fd);
+ 			return 0;
++*/
++			message(MESS_VERBOSE,
++				"Warning: %s should be owned by root or user with uid 0). HACK: using anyway.\n",
++				configFile);
+ 		}
+ 	}
+ 

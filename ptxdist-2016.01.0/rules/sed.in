@@ -1,0 +1,18 @@
+## SECTION=shell_and_console
+
+config SED
+	tristate
+	select GCCLIBS_GCC_S
+	depends on !BUSYBOX_SED || ALLYES
+	prompt "sed"
+	help
+	  The GNU sed stream editor
+
+	  sed reads the specified files or the standard input if no
+	  files are specified, makes editing changes according to a
+	  list of commands, and writes the results to the standard
+	  output.
+
+comment "BusyBox' sed selected"
+	depends on BUSYBOX_SED
+

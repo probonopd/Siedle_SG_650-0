@@ -1,0 +1,34 @@
+From: Robert Schwebel <r.schwebel@pengutronix.de>
+Date: Sat, 7 Dec 2013 23:21:23 +0100
+Subject: [PATCH] add DESTDIR support for wireless-tools
+
+The Makefile is not DESTDIR aware. Fix it.
+
+Signed-off-by: Robert Schwebel <r.schwebel@pengutronix.de>
+---
+
+#20091205: rsc: mailed patch to the upstream maintainer:
+#          Jean Tourrilhes <jt@hpl.hp.com>
+
+ Makefile | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 0078324..ce0a352 100644
+--- a/Makefile
++++ b/Makefile
+@@ -73,10 +73,10 @@ endif
+ DYNAMIC_LINK= libiw.so
+ 
+ # Install directories
+-INSTALL_DIR= $(PREFIX)/sbin
+-INSTALL_LIB= $(PREFIX)/lib
+-INSTALL_INC= $(PREFIX)/include
+-INSTALL_MAN= $(PREFIX)/man
++INSTALL_DIR= $(DESTDIR)$(PREFIX)/sbin
++INSTALL_LIB= $(DESTDIR)$(PREFIX)/lib
++INSTALL_INC= $(DESTDIR)$(PREFIX)/include
++INSTALL_MAN= $(DESTDIR)$(PREFIX)/man
+ 
+ # Various commands
+ RM = rm -f

@@ -1,0 +1,12 @@
+98600c99b0f4d151eaa3a6a85220a179  0001-port-to-linux-with-libsd.patch
+5b1b4f09e3449175162fe2988aad409d  0002-connect-timeout.patch
+613dba351b36fefa130cfa52276eb1d0  0003-get-sev-by-name.patch
+e9ae2f76993ffead08dcc0f82ac7dfd7  0004-poll-hup.patch
+b6955f69b8ee80ae865be3f734e123ca  0005-send-crlf.patch
+51face45a3f5f890198cf839c263e3f8  0006-quit-timer.patch
+6af425812b2951468aa0113e0613ff61  0007-udp-scan-timeout.patch
+9e9099e902933043a536400a845b9fd7  0008-verbose-numeric-port.patch
+86f8fb1f9509abe308d229bd6b61b157  0009-dccp-support.patch
+61a1ac6137545d87b082f2a52b9c4547  0010-serialized-handling-multiple-clients.patch
+def4a66e837e0136bb89220fa529a9e8  0011-misc-failures-and-features.patch
+63ae803f7f720fd4eb8ddb13b3fe26ee  series

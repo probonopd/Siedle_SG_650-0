@@ -1,0 +1,31 @@
+
+mainmenu "PTXdist $COLLECTION_VERSION_DEFAULT"
+
+config COLLECTION_VERSION_DEFAULT
+	string
+	option env="PTXDIST_VERSION_FULL"
+
+config _collectionconfig_MAGIC__
+	bool
+	default y
+
+choice
+	prompt "select packages"
+	default COLLECTION_MANUAL
+
+config COLLECTION_NONE
+	tristate
+	prompt "none  "
+
+config COLLECTION_MANUAL
+	tristate
+	prompt "manual"
+
+config COLLECTION_ALL
+	tristate
+	prompt "all   "
+
+endchoice
+
+source "generated/ptx_collection.in"
+

@@ -1,0 +1,38 @@
+## SECTION=networking
+comment "OpenNTPD conflicts with NTP"
+	depends on NTP && OPENNTPD
+
+menuconfig OPENNTPD
+	tristate
+	prompt "openntpd                      "
+	select ROOTFS_VAR_RUN
+	select OPENSSL		if OPENNTPD_ARC4RANDOM
+	depends on !BUSYBOX_NTPD || ALLYES
+	help
+	  This will install the BSD Open NTPD Daemon
+	  OpenNTPD is a FREE, easy to use implementation of the
+	  Network Time Protocol. It provides the ability to sync
+	  the local clock to remote NTP servers and can act as NTP
+	  server itself, redistributing the local clock.
+	  See http://www.openntpd.org/ for details
+
+if OPENNTPD
+
+config  OPENNTPD_ARC4RANDOM
+	bool
+	prompt "Use builtin arc4random rather than OpenSSL's"
+	default y
+	help
+	  Enabled by default - if unsure, say YES
+	  Say NO and install OpenSSL as alternative.
+
+config OPENNTPD_STARTSCRIPT
+	bool
+	default y
+	prompt "install /etc/init.d/openntpd"
+
+endif
+
+comment "BusyBox' ntpd is selected!"
+	depends on BUSYBOX_NTPD
+

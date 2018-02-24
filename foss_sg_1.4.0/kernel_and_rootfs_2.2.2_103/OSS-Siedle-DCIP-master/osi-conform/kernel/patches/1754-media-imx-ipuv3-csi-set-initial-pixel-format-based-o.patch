@@ -1,0 +1,43 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 7 Dec 2015 16:18:26 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: set initial pixel format based on
+ subdev output format
+
+After setting the CSI output pad format, initialize the capture device format
+using compatible values.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 3fd3e3a66b7e..43d6d3970346 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -1282,9 +1282,24 @@ static int ipucsi_subdev_set_format(struct v4l2_subdev *sd,
+ 
+ 	sdformat->format = *mbusformat;
+ 
+-	if (sdformat->pad == 1)
++	if (sdformat->pad == 1) {
++		struct v4l2_pix_format *pix = &ipucsi->format.fmt.pix;
++
+ 		ipucsi->ipucsifmt = *ipucsiformat;
+ 
++		ipucsi->format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
++		pix->width = width;
++		pix->height = height;
++		pix->pixelformat = ipucsiformat->fourcc;
++		pix->field = V4L2_FIELD_NONE;
++		pix->bytesperline = width * ipucsiformat->bytes_per_pixel;
++		pix->sizeimage = pix->bytesperline * height;
++		pix->colorspace = V4L2_COLORSPACE_SRGB;
++		pix->ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
++		pix->quantization = V4L2_QUANTIZATION_DEFAULT;
++		pix->xfer_func = V4L2_XFER_FUNC_DEFAULT;
++	}
++
+ 	return 0;
+ }
+ 

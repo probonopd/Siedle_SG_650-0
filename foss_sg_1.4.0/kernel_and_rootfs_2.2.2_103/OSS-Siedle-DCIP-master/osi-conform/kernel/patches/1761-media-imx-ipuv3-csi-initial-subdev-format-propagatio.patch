@@ -1,0 +1,133 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 25 Jan 2016 17:03:51 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: initial subdev format propagation
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 104 ++++++++++++++++++++++++++++-
+ 1 file changed, 103 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index b88760485483..f402c02288ca 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -1552,6 +1552,103 @@ disable:
+ 	return ret;
+ }
+ 
++int ipu_csi_propagate_subdev(struct v4l2_subdev *sd)
++{
++	struct media_entity *entity = &sd->entity;
++	struct v4l2_subdev_format fmt;
++	struct media_link *link;
++	struct media_pad *sink = NULL, *source = NULL;
++	int i, ret;
++	u32 pad;
++
++	/* Find the first active sink and source pads */
++	for (i = 0; i < entity->num_links; i++) {
++		link = &entity->links[i];
++
++		if (!link->flags & MEDIA_LNK_FL_ENABLED)
++			continue;
++
++		if (!sink && (link->sink->entity == entity))
++			sink = link->sink;
++		if (!source && (link->source->entity == entity))
++			source = link->source;
++	}
++
++	if (!source)
++		return 0;
++
++	/* For source only devices call set_fmt, too, for verification */
++	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
++	fmt.pad = pad = sink ? sink->index : source->index;
++
++	ret = v4l2_subdev_call(sd, pad, get_fmt, NULL, &fmt);
++	if (ret < 0)
++		return ret;
++
++	fmt.pad = pad = source->index;
++
++	return v4l2_subdev_call(sd, pad, set_fmt, NULL, &fmt);
++}
++
++int ipu_csi_propagate_subdev_link(struct v4l2_subdev *sd,
++				  struct media_link *link)
++{
++	struct v4l2_subdev_format fmt;
++	struct v4l2_subdev *remote_sd;
++	int ret;
++	u32 pad;
++
++	if (media_entity_type(link->sink->entity) != MEDIA_ENT_T_V4L2_SUBDEV)
++		return 0;
++
++	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
++	fmt.pad = pad = link->source->index;
++
++	ret = v4l2_subdev_call(sd, pad, get_fmt, NULL, &fmt);
++	if (ret < 0)
++		return ret;
++
++	remote_sd = media_entity_to_v4l2_subdev(link->sink->entity);
++	fmt.pad = pad = link->sink->index;
++
++	return v4l2_subdev_call(remote_sd, pad, set_fmt, NULL, &fmt);
++}
++
++int ipu_csi_propagate_formats(struct ipucsi *ipucsi)
++{
++	struct media_entity *entity = &ipucsi->subdev.entity;
++	struct media_entity_graph graph;
++	struct v4l2_subdev *sd;
++	int ret = 0;
++	int i;
++
++	media_entity_graph_walk_start(&graph, entity);
++
++	while (!ret && (entity = media_entity_graph_walk_next(&graph))) {
++		if (media_entity_type(entity) != MEDIA_ENT_T_V4L2_SUBDEV)
++			continue;
++
++		sd = media_entity_to_v4l2_subdev(entity);
++
++		/* Propagate between a subdevice's active input and output */
++		ipu_csi_propagate_subdev(sd);
++
++		/* For each active outgoing link, propagate downstream */
++		for (i = 0; i < entity->num_links; i++) {
++			struct media_link *link = &entity->links[i];
++
++			if (!(link->flags & MEDIA_LNK_FL_ENABLED) ||
++			    (link->source->entity != entity))
++				continue;
++
++			/* Propagate between two linked subdevices */
++			ipu_csi_propagate_subdev_link(sd, link);
++		}
++	}
++
++	return 0;
++}
++
+ static void ipucsi_create_links(struct ipucsi *ipucsi)
+ {
+ 	int i, ret;
+@@ -1607,9 +1704,14 @@ static int ipucsi_open(struct file *file)
+ 	if (ret)
+ 		goto out;
+ 
+-	if (v4l2_fh_is_singular_file(file))
++	if (v4l2_fh_is_singular_file(file)) {
++		struct v4l2_pix_format *pix = &ipucsi->format.fmt.pix;
++
+ 		ret = v4l2_media_subdev_s_power(ipucsi, 1);
+ 
++		if (!pix->width || !pix->height)
++			ipu_csi_propagate_formats(ipucsi);
++	}
+ out:
+ 	mutex_unlock(&ipucsi->mutex);
+ 	return ret;

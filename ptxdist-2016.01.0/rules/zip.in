@@ -1,0 +1,27 @@
+## SECTION=disk_and_file
+menuconfig ZIP
+	tristate
+	prompt "zip                           "
+	help
+	  zip is a compression and file packaging utility for Unix, VMS, MSDOS,
+	  OS/2, Windows NT, Minix, Atari and Macintosh, Amiga and Acorn RISC OS.
+
+	  It is analogous to a combination of the UNIX commands tar(1) and com-
+	  press(1) and is compatible with PKZIP (Phil Katz's ZIP for MSDOS sys-
+	  tems).
+
+if ZIP
+
+config ZIP_ZIP
+	bool "zip"
+
+config ZIP_ZIPCLOAK
+	bool "zipcloak"
+
+config ZIP_ZIPNOTE
+	bool "zipnote"
+
+config ZIP_ZIPSPLIT
+	bool "zipsplit"
+
+endif

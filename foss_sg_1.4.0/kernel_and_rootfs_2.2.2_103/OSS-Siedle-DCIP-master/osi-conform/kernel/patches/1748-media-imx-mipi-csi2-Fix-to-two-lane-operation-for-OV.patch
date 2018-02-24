@@ -1,0 +1,37 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 1 Apr 2015 18:30:11 +0200
+Subject: [PATCH] [media] imx-mipi-csi2: Fix to two-lane operation for OV5640
+
+This is a temporary hack until there is a proper way to negotiate link
+speed and lane count between MIPI CSI-2 sensor and host subdevices.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-mipi-csi2.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/imx/imx-mipi-csi2.c b/drivers/media/platform/imx/imx-mipi-csi2.c
+index 30ee6c3f8a4e..4bd39466621e 100644
+--- a/drivers/media/platform/imx/imx-mipi-csi2.c
++++ b/drivers/media/platform/imx/imx-mipi-csi2.c
+@@ -182,10 +182,19 @@ static unsigned int mipi_csi2_lanes_needed(struct mipi_csi2 *csi2,
+ 	unsigned int bps_per_lane = 594000000U; /* FIXME */
+ 	unsigned int bpp = mipi_csi2_format_bpp(format->code);
+ 	unsigned int bps;
++	unsigned int lanes;
+ 
+ 	bps = format->width * format->height * bpp;
+ 	bps = mult_frac(bps, timeperframe->denominator, timeperframe->numerator);
+-	return DIV_ROUND_UP(bps, bps_per_lane);
++	lanes = DIV_ROUND_UP(bps, bps_per_lane);
++
++	/* FIXME - this needs to be negotiated with the source */
++	if (csi2->max_lanes == 2) {
++		dev_dbg(csi2->dev, "%s: set lanes to 2\n", __func__);
++		lanes = 2;
++	}
++
++	return lanes;
+ }
+ 
+ static int mipi_csi2_set_fmt(struct v4l2_subdev *sd,

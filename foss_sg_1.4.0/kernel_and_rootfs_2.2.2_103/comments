@@ -1,0 +1,4 @@
+libblkid: Virtual fake package (spawned from util-linux)
+libuuid: Virtual fake package (spawned from util-linux)
+udev: provided as part of and by systemd
+gcclibs, ldd, glibc: provided by toolchain

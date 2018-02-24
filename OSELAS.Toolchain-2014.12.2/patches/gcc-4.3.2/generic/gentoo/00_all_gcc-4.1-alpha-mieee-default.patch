@@ -1,0 +1,40 @@
+Set the default behavior on alpha to use -mieee since the large majority of
+time we want this (bad/weird things can happen with packages built without
+-mieee).
+
+To satisfy those people who may not want -mieee forced on them all the time,
+we also provide -mno-ieee.
+
+Patch by Mike Frysinger <vapier@gentoo.org>
+
+---
+ gcc/config/alpha/alpha.h   |    2 ++
+ gcc/config/alpha/alpha.opt |    2 +-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+Index: gcc-4.3.1/gcc/config/alpha/alpha.h
+===================================================================
+--- gcc-4.3.1.orig/gcc/config/alpha/alpha.h
++++ gcc-4.3.1/gcc/config/alpha/alpha.h
+@@ -95,6 +95,8 @@ along with GCC; see the file COPYING3.  
+   while (0)
+ #endif
+ 
++#define CPP_SPEC "%{!no-ieee:-mieee}"
++
+ #define WORD_SWITCH_TAKES_ARG(STR)		\
+  (!strcmp (STR, "rpath") || DEFAULT_WORD_SWITCH_TAKES_ARG(STR))
+ 
+Index: gcc-4.3.1/gcc/config/alpha/alpha.opt
+===================================================================
+--- gcc-4.3.1.orig/gcc/config/alpha/alpha.opt
++++ gcc-4.3.1/gcc/config/alpha/alpha.opt
+@@ -39,7 +39,7 @@ Target RejectNegative Mask(IEEE_CONFORMA
+ Request IEEE-conformant math library routines (OSF/1)
+ 
+ mieee
+-Target Report RejectNegative Mask(IEEE)
++Target Report Mask(IEEE)
+ Emit IEEE-conformant code, without inexact exceptions
+ 
+ mieee-with-inexact

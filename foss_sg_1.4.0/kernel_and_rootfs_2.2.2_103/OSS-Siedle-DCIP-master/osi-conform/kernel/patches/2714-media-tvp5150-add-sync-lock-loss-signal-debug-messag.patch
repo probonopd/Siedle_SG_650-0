@@ -1,0 +1,40 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 3 Dec 2015 12:23:52 +0100
+Subject: [PATCH] [media] tvp5150: add sync lock/loss signal debug messages
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/i2c/tvp5150.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/media/i2c/tvp5150.c b/drivers/media/i2c/tvp5150.c
+index b4e5d7d64725..f43d23361012 100644
+--- a/drivers/media/i2c/tvp5150.c
++++ b/drivers/media/i2c/tvp5150.c
+@@ -918,6 +918,8 @@ static void tvp5150_sync_work(struct work_struct *work)
+ 
+ 	regmap_read(decoder->regmap, TVP5150_STATUS_REG_1, &s);
+ 
++	v4l2_dbg(1, debug, &decoder->sd, "delayed sync lo%s signal\n",
++		 decoder->lock ? "ck" : "ss");
+ 	v4l2_subdev_notify(&decoder->sd, V4L2_SUBDEV_SYNC_LOCK_NOTIFY,
+ 			   &decoder->lock);
+ 	regmap_update_bits(decoder->regmap, TVP5150_MISC_CTL,
+@@ -941,12 +943,17 @@ static irqreturn_t tvp5150_isr(int irq, void *dev_id)
+ 				if (decoder->sync_lock_delay_msec)
+ 					cancel_delayed_work(&decoder->sync_work);
+ 
++				v4l2_dbg(1, debug, &decoder->sd,
++					 "sync lo%s signal\n",
++					 decoder->lock ? "ck" : "ss");
+ 				v4l2_subdev_notify(&decoder->sd,
+ 						   V4L2_SUBDEV_SYNC_LOCK_NOTIFY,
+ 						   &decoder->lock);
+ 				regmap_update_bits(decoder->regmap, TVP5150_MISC_CTL,
+ 						   0xd, decoder->lock ? decoder->oe : 0);
+ 			} else {
++				v4l2_dbg(1, debug, &decoder->sd,
++					 "delaying sync lock signal\n");
+ 				schedule_delayed_work(&decoder->sync_work,
+ 						      msecs_to_jiffies(decoder->sync_lock_delay_msec));
+ 			}

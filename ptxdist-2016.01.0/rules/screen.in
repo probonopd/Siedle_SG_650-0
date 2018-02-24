@@ -1,0 +1,18 @@
+## SECTION=shell_and_console
+menuconfig SCREEN
+	tristate
+	prompt "screen                        "
+	select LIBC_CRYPT
+	select LIBC_UTIL
+	select NCURSES
+	help
+	  Screen is a full-screen window manager that multiplexes a physical
+	  terminal between several processes, typically interactive shells.
+
+config SCREEN_ETC_SCREENRC
+	depends on SCREEN
+	bool
+	prompt "install /etc/screenrc"
+	help
+	  If enabled, it installs the "./projectroot/etc/screenrc" file if
+	  present, else a generic one from the ptxdist directory.

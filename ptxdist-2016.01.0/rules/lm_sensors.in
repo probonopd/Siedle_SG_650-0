@@ -1,0 +1,32 @@
+## SECTION=shell_and_console
+
+menuconfig LM_SENSORS
+	tristate
+	prompt "lm_sensors                    "
+	select LIBC_M
+	select BASH if (LM_SENSORS_FANCONTROL || LM_SENSORS_PWMCONFIG) && RUNTIME
+	help
+	  Lm-sensors is a hardware health monitoring package for Linux.
+	  It contains a library (libsensors) providing generic access to hwmon
+	  devices and a simple application dumping the readings of all
+	  available sensor chips.
+
+if LM_SENSORS
+
+config LM_SENSORS_FANCONTROL
+	bool
+	prompt "install fancontrol"
+
+config LM_SENSORS_ISASET
+	bool
+	prompt "install isaset"
+
+config LM_SENSORS_ISADUMP
+	bool
+	prompt "install isadump"
+
+config LM_SENSORS_PWMCONFIG
+	bool
+	prompt "install pwmconfig"
+
+endif

@@ -1,0 +1,24 @@
+## SECTION=shell_and_console
+comment "BusyBox' grep is selected!"
+	depends on BUSYBOX_GREP
+
+menuconfig GREP
+	tristate
+	depends on !BUSYBOX_GREP || ALLYES
+	select GCCLIBS_GCC_S
+	select LIBPCRE if GREP_PCRE
+	prompt "grep                          "
+	help
+	  GNUgrep searches one or more input files for lines
+	  containing a match to a specified pattern. By default, grep
+	  prints the matching lines.
+
+if GREP
+
+config GREP_PCRE
+	bool
+	prompt "pcre support"
+	help
+	  Enable support for perl compatible regular expressions.
+
+endif

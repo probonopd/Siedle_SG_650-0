@@ -1,0 +1,35 @@
+From e2d27f0a1231f17cdc8d76d93a99e6238f6a0e1a Mon Sep 17 00:00:00 2001
+From: Andrei Pelinescu-Onciul <andrei@iptel.org>
+Date: Tue, 20 Sep 2011 20:04:24 +0200
+Subject: [PATCH] merge "armv7: inform the assembler about thumb"
+
+In some toolchains, the assembler defaults to arm and gcc does not
+pass automatically the option for switching to the thumb mode, so
+we have to do it by hand.
+
+WARNING: merge of andrei/armv7 branch commit
+         "5b0b840 armv7: inform the assembler about thumb"
+         is neither tested for correctness nor for completeness
+
+Signed-off-by: Andreas Pretzsch <apr@cn-eng.de>
+---
+ Makefile.defs | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/Makefile.defs b/Makefile.defs
+index 55e1732..f28c275 100644
+--- a/Makefile.defs
++++ b/Makefile.defs
+@@ -1281,8 +1281,11 @@ ifeq	($(ARCH), arm7)
+ 		# if gcc 
+ ifeq		($(CC_NAME), gcc)
+ 				C_DEFS+=-DCC_GCC_LIKE_ASM
+-				#common stuff
++				#common stuff + inform the assembler about THUMB
++				# (some assemblers default to ARM, see
++				# https://wiki.ubuntu.com/ARM/Thumb2)
+ 				CFLAGS=-march=armv7-a -O9 -funroll-loops -fsigned-char \
++						-Wa,-mimplicit-it=thumb \
+ 						$(PROFILE)
+ 			#if gcc 4.5 or 4.2+
+ ifeq (,$(strip $(filter-out 4.2+ 4.5,$(CC_SHORTVER))))

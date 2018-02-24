@@ -1,0 +1,7 @@
+# config for w32api-headers
+
+config W32API_HEADERS
+	bool
+	# no prompt
+
+

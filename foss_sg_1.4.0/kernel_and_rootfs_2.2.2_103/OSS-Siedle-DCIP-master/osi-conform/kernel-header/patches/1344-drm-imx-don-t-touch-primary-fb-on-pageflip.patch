@@ -1,0 +1,25 @@
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Tue, 9 Feb 2016 12:38:36 +0100
+Subject: [PATCH] drm/imx: don't touch primary fb on pageflip
+
+The core already does the correct replacemet if the driver
+page flip function returns without an error, so there is no
+need to do it here.
+
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ drivers/gpu/drm/imx/ipuv3-crtc.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/imx/ipuv3-crtc.c b/drivers/gpu/drm/imx/ipuv3-crtc.c
+index 56d70c205f65..3257ee6a7cb7 100644
+--- a/drivers/gpu/drm/imx/ipuv3-crtc.c
++++ b/drivers/gpu/drm/imx/ipuv3-crtc.c
+@@ -125,7 +125,6 @@ static int ipu_page_flip(struct drm_crtc *crtc,
+ 
+ 	ipu_crtc->newfb = fb;
+ 	ipu_crtc->page_flip_event = event;
+-	crtc->primary->fb = fb;
+ 
+ 	return 0;
+ }

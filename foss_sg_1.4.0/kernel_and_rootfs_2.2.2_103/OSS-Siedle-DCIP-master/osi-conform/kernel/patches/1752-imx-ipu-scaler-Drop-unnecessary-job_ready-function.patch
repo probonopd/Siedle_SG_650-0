@@ -1,0 +1,61 @@
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Date: Thu, 5 Nov 2015 15:45:12 +0100
+Subject: [PATCH] imx-ipu-scaler: Drop unnecessary job_ready function
+
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipu-scaler.c | 24 ------------------------
+ 1 file changed, 24 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipu-scaler.c b/drivers/media/platform/imx/imx-ipu-scaler.c
+index 135b24eb8058..147f108d2eae 100644
+--- a/drivers/media/platform/imx/imx-ipu-scaler.c
++++ b/drivers/media/platform/imx/imx-ipu-scaler.c
+@@ -80,7 +80,6 @@ struct ipu_scale_ctx {
+ 	struct v4l2_fh		fh;
+ 	struct ipu_scale_q_data	q_data[2];
+ 	int			error;
+-	int			aborting;
+ 	enum ipu_image_scale_ctrl ctrl;
+ 	struct image_convert_ctx *icc;
+ 	int			num_tiles;
+@@ -104,30 +103,8 @@ static struct ipu_scale_q_data *get_q_data(struct ipu_scale_ctx *ctx,
+  * mem2mem callbacks
+  */
+ 
+-/**
+- * job_ready() - check whether an instance is ready to be scheduled to run
+- */
+-static int job_ready(void *priv)
+-{
+-	struct ipu_scale_ctx *ctx = priv;
+-
+-	if (ctx->aborting)
+-		return 0;
+-
+-	if (v4l2_m2m_num_src_bufs_ready(ctx->fh.m2m_ctx) < 1
+-	    || v4l2_m2m_num_dst_bufs_ready(ctx->fh.m2m_ctx) < 1) {
+-		dev_dbg(ctx->ipu_scaler->dev, "Not enough buffers available\n");
+-		return 0;
+-	}
+-
+-	return 1;
+-}
+-
+ static void job_abort(void *priv)
+ {
+-	struct ipu_scale_ctx *ctx = priv;
+-
+-	ctx->aborting = 1;
+ }
+ 
+ static void ipu_complete(void *priv, int err)
+@@ -688,7 +665,6 @@ static struct video_device ipu_scale_videodev = {
+ 
+ static struct v4l2_m2m_ops m2m_ops = {
+ 	.device_run	= device_run,
+-	.job_ready	= job_ready,
+ 	.job_abort	= job_abort,
+ };
+ 

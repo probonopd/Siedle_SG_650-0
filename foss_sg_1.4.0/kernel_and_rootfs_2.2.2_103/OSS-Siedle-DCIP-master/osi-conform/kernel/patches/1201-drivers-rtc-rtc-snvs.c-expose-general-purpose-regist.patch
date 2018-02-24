@@ -1,0 +1,68 @@
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Wed, 12 Nov 2014 22:09:11 +0100
+Subject: [PATCH] drivers/rtc/rtc-snvs.c: expose general purpose register to
+ userspace via sysfs
+
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/rtc/rtc-snvs.c | 32 ++++++++++++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+
+diff --git a/drivers/rtc/rtc-snvs.c b/drivers/rtc/rtc-snvs.c
+index 950c5d0b6dca..265c0fe3041b 100644
+--- a/drivers/rtc/rtc-snvs.c
++++ b/drivers/rtc/rtc-snvs.c
+@@ -30,6 +30,7 @@
+ #define SNVS_LPSRTCLR		0x20
+ #define SNVS_LPTAR		0x24
+ #define SNVS_LPPGDR		0x30
++#define SNVS_LPGPR		0x34
+ 
+ #define SNVS_LPCR_SRTC_ENV	(1 << 0)
+ #define SNVS_LPCR_LPTA_EN	(1 << 1)
+@@ -224,6 +225,33 @@ static irqreturn_t snvs_rtc_irq_handler(int irq, void *dev_id)
+ 	return events ? IRQ_HANDLED : IRQ_NONE;
+ }
+ 
++static ssize_t snvs_rtc_show_lpgrp(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct snvs_rtc_data *data = dev_get_drvdata(dev);
++	u32 lpgpr;
++
++	regmap_read(data->regmap, data->offset + SNVS_LPGPR, &lpgpr);
++
++	return sprintf(buf, "%u\n", lpgpr);
++}
++
++static ssize_t snvs_rtc_store_lpgrp(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
++{
++	struct snvs_rtc_data *data = dev_get_drvdata(dev);
++	int err;
++	u32 val;
++
++	err = kstrtou32(buf, 0x0, &val);
++	if (err)
++		return err;
++
++	regmap_write(data->regmap, data->offset + SNVS_LPGPR, val);
++
++	return count;
++}
++
++static DEVICE_ATTR(lpgpr, S_IRUGO | S_IWUSR, snvs_rtc_show_lpgrp, snvs_rtc_store_lpgrp);
++
+ static const struct regmap_config snvs_rtc_config = {
+ 	.reg_bits = 32,
+ 	.val_bits = 32,
+@@ -307,6 +335,10 @@ static int snvs_rtc_probe(struct platform_device *pdev)
+ 		goto error_rtc_device_register;
+ 	}
+ 
++	ret = sysfs_create_file(&pdev->dev.kobj, &dev_attr_lpgpr.attr);
++	if (ret)
++		return ret;
++
+ 	return 0;
+ 
+ error_rtc_device_register:

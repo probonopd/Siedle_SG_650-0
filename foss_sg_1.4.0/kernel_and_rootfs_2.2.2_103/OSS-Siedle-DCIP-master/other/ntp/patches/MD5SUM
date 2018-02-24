@@ -1,0 +1,4 @@
+dce63a1f69325b20a35337d4e1c47cbc  Fix-undefined-MOD_NANO.patch
+ba1d02fc11255a278cb93968b68ec493  ntp_minpoll_increase_to_spec_value.patch
+3c724920ded716ccc0ed78dde45498bd  ntpdate_disable_server_quality_checks.patch
+c65c9fe08426d9928e36d3164a16439d  series

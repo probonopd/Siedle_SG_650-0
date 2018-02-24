@@ -1,0 +1,92 @@
+#!/bin/sh
+# decide which type of memory we can use to boot this system
+
+# for the very first boot, select a regular NAND firmware slot if available
+if [ "x$state.active_firmware_slot" = "xnone" ]; then
+	# if the next slot is defined, do nothing here
+	if [ "x$state.next_firmware_slot" != "xnone" ]; then
+		# try to run the next NAND slot content
+		echo "Info: defined to boot $state.next_firmware_slot from NAND"
+		global boot.default=nand
+		exit 0
+	fi
+
+	# no slot defined yet (no 'active', nor 'next' one). Use an available
+	# one and prefer slot1 when available
+	if [ "x$state.content_firmware_slot2" = "xdeployed" ]; then
+		state.next_firmware_slot=slot2
+	fi
+	if [ "x$state.content_firmware_slot1" = "xdeployed" ]; then
+		state.next_firmware_slot=slot1
+	fi
+
+	# if we now have a valid firmware slot candidate, lets try to boot it
+	if [ "x$state.next_firmware_slot" != "xnone" ]; then
+		echo "Info: trying to boot $state.next_firmware_slot from NAND"
+		# save this new state and start the regular test cycle
+		state -s
+		# try to run the next NAND slot content
+		global boot.default=nand
+		exit 0
+	fi
+fi
+
+# if we are here due to a watchdog reset, or
+# if we are here and have exceeded the bootlimit, we:
+# a) tried a new regular firmware slot (and it fails)
+# b) the current regular firmware slot had a hiccup
+# for case a) "$state.next_firmware_slot" contains the slot we tried
+# for case b) "$state.next_firmware_slot" is "none"
+if [ "x$global.system.reset" = "xWDG" -o "${global.system.bootcount}" -ge "${global.bootlimit}" ]; then
+	if [ "x$state.next_firmware_slot" != "xnone" ]; then
+	# case a)
+		if [ "x$state.next_firmware_slot" = "xslot1" ]; then
+		# slot1 seems broken
+			echo "Error: trying to boot 'slot1' fails. Mark it as broken"
+			state.next_firmware_slot=none
+			state.content_firmware_slot1=broken
+			state -s
+		else
+			if [ "x$state.next_firmware_slot" = "xslot2" ]; then
+			# slot2 seems broken
+				echo "Error: trying to boot 'slot2' fails. Mark it as broken"
+				state.next_firmware_slot=none
+				state.content_firmware_slot2=broken
+				state -s
+			else
+				echo "Error: unexpected content in 'next_firmware_slot' marker: '$state.next_firmware_slot'"
+				# we are confused
+				echo "Error: Falling back into rescue system"
+				global boot.default=nor
+				exit 0
+			fi
+		fi
+	else
+	# case b)
+		if [ "x$state.active_firmware_slot" = "xslot1" ]; then
+		# slot1 had a hiccup
+			echo "Ups: 'slot1' had a hiccup. Will try it again"
+		else
+			if [ "x$state.active_firmware_slot" = "xslot2" ]; then
+			# slot2 had a hiccup
+				echo "Ups: 'slot2' had a hiccup. Will try it again"
+			else
+				echo "Error: unexpected content in 'active_firmware_slot' marker: '$state.active_firmware_slot'"
+				# we are confused
+				echo "Error: Falling back into rescue system"
+				global boot.default=nor
+				exit 0
+			fi
+		fi
+	fi
+fi
+
+if [ "x$state.active_firmware_slot" = "xnone" ]; then
+# fall back to the rescue systems when no NAND slot is active
+	echo "Info: Falling back into rescue system"
+	global boot.default=nor
+	exit 0
+fi
+
+# if a regular firmware slot in the NAND is active, try to use it
+global boot.default=nand

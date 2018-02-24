@@ -1,0 +1,9 @@
+## SECTION=system_libraries
+
+config LCMS
+	tristate
+	prompt "lcms"
+	select LIBC_M
+	help
+	  LittleCMS intends to be a small-footprint, speed
+	  optimized color management engine in open source form.

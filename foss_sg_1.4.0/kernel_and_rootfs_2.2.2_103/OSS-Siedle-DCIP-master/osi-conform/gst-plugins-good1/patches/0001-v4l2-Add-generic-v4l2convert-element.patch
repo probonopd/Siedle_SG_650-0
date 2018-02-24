@@ -1,0 +1,173 @@
+From: Enrico Jorns <ejo@pengutronix.de>
+Date: Fri, 9 Jan 2015 12:46:38 +0100
+Subject: [PATCH] v4l2: Add generic v4l2convert element
+
+Instead of only creating device-specific convert elements as subclasses
+of GstV4l2Transform, allow instantiating former abstract base class
+GstV4l2Transform directly as a generic convert element.
+The specific device can be passed using the 'device' property.
+
+For this purpose the base classes 'device' property was given the read/write
+flag and device-specific subclasses overwrite this property with a
+read-only 'device' property set to the respecitve device path.
+
+This eases constructing pipelines in scripts and allows to use
+fixed '/dev/video/by-name/..' device paths.
+
+Example usage:
+gst-launch [..] ! v4l2convert device=/dev/video1 ! [..]
+---
+ sys/v4l2/gstv4l2.c          |  2 ++
+ sys/v4l2/gstv4l2object.c    | 11 ++++++++++-
+ sys/v4l2/gstv4l2object.h    |  1 +
+ sys/v4l2/gstv4l2transform.c | 47 ++++++++++++++++++++++++++++++++-------------
+ 4 files changed, 47 insertions(+), 14 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2.c b/sys/v4l2/gstv4l2.c
+index 83fcc982a2d4..8f994215d028 100644
+--- a/sys/v4l2/gstv4l2.c
++++ b/sys/v4l2/gstv4l2.c
+@@ -221,6 +221,8 @@ plugin_init (GstPlugin * plugin)
+           GST_TYPE_V4L2SINK) ||
+       !gst_element_register (plugin, "v4l2radio", GST_RANK_NONE,
+           GST_TYPE_V4L2RADIO) ||
++      !gst_element_register (plugin, "v4l2convert", GST_RANK_NONE,
++          GST_TYPE_V4L2_TRANSFORM) ||
+       !gst_device_provider_register (plugin, "v4l2deviceprovider",
+           GST_RANK_PRIMARY, GST_TYPE_V4L2_DEVICE_PROVIDER)
+       /* etc. */
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index 549e06faa5b7..93cda9d3466f 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -427,7 +427,7 @@ gst_v4l2_object_install_m2m_properties_helper (GObjectClass * gobject_class)
+ {
+   g_object_class_install_property (gobject_class, PROP_DEVICE,
+       g_param_spec_string ("device", "Device", "Device location",
+-          NULL, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
++          NULL, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ 
+   g_object_class_install_property (gobject_class, PROP_DEVICE_NAME,
+       g_param_spec_string ("device-name", "Device name",
+@@ -457,6 +457,15 @@ gst_v4l2_object_install_m2m_properties_helper (GObjectClass * gobject_class)
+           GST_TYPE_STRUCTURE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ }
+ 
++void
++gst_v4l2_object_install_m2m_subclass_properties_helper (GObjectClass *
++    gobject_class)
++{
++  g_object_class_install_property (gobject_class, PROP_DEVICE,
++      g_param_spec_string ("device", "Device", "Device location",
++          NULL, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
++}
++
+ GstV4l2Object *
+ gst_v4l2_object_new (GstElement * element,
+     enum v4l2_buf_type type,
+diff --git a/sys/v4l2/gstv4l2object.h b/sys/v4l2/gstv4l2object.h
+index 7117d4386e96..20cc980a43dc 100644
+--- a/sys/v4l2/gstv4l2object.h
++++ b/sys/v4l2/gstv4l2object.h
+@@ -214,6 +214,7 @@ void         gst_v4l2_object_install_properties_helper (GObjectClass * gobject_c
+                                                         const char * default_device);
+ 
+ void         gst_v4l2_object_install_m2m_properties_helper (GObjectClass * gobject_class);
++void         gst_v4l2_object_install_m2m_subclass_properties_helper (GObjectClass * gobject_class);
+ 
+ gboolean     gst_v4l2_object_set_property_helper       (GstV4l2Object * v4l2object,
+                                                         guint prop_id,
+diff --git a/sys/v4l2/gstv4l2transform.c b/sys/v4l2/gstv4l2transform.c
+index 3090ff6c9198..bd2cb8d2a1b6 100644
+--- a/sys/v4l2/gstv4l2transform.c
++++ b/sys/v4l2/gstv4l2transform.c
+@@ -58,8 +58,7 @@ typedef struct
+ } GstV4l2TransformCData;
+ 
+ #define gst_v4l2_transform_parent_class parent_class
+-G_DEFINE_ABSTRACT_TYPE (GstV4l2Transform, gst_v4l2_transform,
+-    GST_TYPE_BASE_TRANSFORM);
++G_DEFINE_TYPE (GstV4l2Transform, gst_v4l2_transform, GST_TYPE_BASE_TRANSFORM);
+ 
+ static void
+ gst_v4l2_transform_set_property (GObject * object,
+@@ -1049,7 +1048,19 @@ gst_v4l2_transform_finalize (GObject * object)
+ static void
+ gst_v4l2_transform_init (GstV4l2Transform * self)
+ {
+-  /* V4L2 object are created in subinstance_init */
++
++  self->v4l2output = gst_v4l2_object_new (GST_ELEMENT (self),
++      V4L2_BUF_TYPE_VIDEO_OUTPUT, DEFAULT_PROP_DEVICE,
++      gst_v4l2_get_output, gst_v4l2_set_output, NULL);
++  self->v4l2output->no_initial_format = TRUE;
++  self->v4l2output->keep_aspect = FALSE;
++
++  self->v4l2capture = gst_v4l2_object_new (GST_ELEMENT (self),
++      V4L2_BUF_TYPE_VIDEO_CAPTURE, DEFAULT_PROP_DEVICE,
++      gst_v4l2_get_input, gst_v4l2_set_input, NULL);
++  self->v4l2capture->no_initial_format = TRUE;
++  self->v4l2output->keep_aspect = FALSE;
++
+   /* enable QoS */
+   gst_base_transform_set_qos_enabled (GST_BASE_TRANSFORM (self), TRUE);
+ }
+@@ -1060,17 +1071,11 @@ gst_v4l2_transform_subinstance_init (GTypeInstance * instance, gpointer g_class)
+   GstV4l2TransformClass *klass = GST_V4L2_TRANSFORM_CLASS (g_class);
+   GstV4l2Transform *self = GST_V4L2_TRANSFORM (instance);
+ 
+-  self->v4l2output = gst_v4l2_object_new (GST_ELEMENT (self),
+-      V4L2_BUF_TYPE_VIDEO_OUTPUT, klass->default_device,
+-      gst_v4l2_get_output, gst_v4l2_set_output, NULL);
+-  self->v4l2output->no_initial_format = TRUE;
+-  self->v4l2output->keep_aspect = FALSE;
++  g_free (self->v4l2output->videodev);
++  self->v4l2output->videodev = g_strdup (klass->default_device);
+ 
+-  self->v4l2capture = gst_v4l2_object_new (GST_ELEMENT (self),
+-      V4L2_BUF_TYPE_VIDEO_CAPTURE, klass->default_device,
+-      gst_v4l2_get_input, gst_v4l2_set_input, NULL);
+-  self->v4l2capture->no_initial_format = TRUE;
+-  self->v4l2output->keep_aspect = FALSE;
++  g_free (self->v4l2capture->videodev);
++  self->v4l2capture->videodev = g_strdup (klass->default_device);
+ }
+ 
+ static void
+@@ -1093,6 +1098,13 @@ gst_v4l2_transform_class_init (GstV4l2TransformClass * klass)
+       "Transform streams via V4L2 API",
+       "Nicolas Dufresne <nicolas.dufresne@collabora.com>");
+ 
++  gst_element_class_add_pad_template (element_class,
++      gst_pad_template_new ("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
++          gst_v4l2_object_get_all_caps ()));
++  gst_element_class_add_pad_template (element_class,
++      gst_pad_template_new ("src", GST_PAD_SRC, GST_PAD_ALWAYS,
++          gst_v4l2_object_get_all_caps ()));
++
+   gobject_class->dispose = GST_DEBUG_FUNCPTR (gst_v4l2_transform_dispose);
+   gobject_class->finalize = GST_DEBUG_FUNCPTR (gst_v4l2_transform_finalize);
+   gobject_class->set_property =
+@@ -1132,6 +1144,7 @@ gst_v4l2_transform_subclass_init (gpointer g_class, gpointer data)
+ {
+   GstV4l2TransformClass *klass = GST_V4L2_TRANSFORM_CLASS (g_class);
+   GstElementClass *element_class = GST_ELEMENT_CLASS (g_class);
++  GObjectClass *gobject_class = (GObjectClass *) klass;
+   GstV4l2TransformCData *cdata = data;
+ 
+   klass->default_device = cdata->device;
+@@ -1144,6 +1157,14 @@ gst_v4l2_transform_subclass_init (gpointer g_class, gpointer data)
+       gst_pad_template_new ("src", GST_PAD_SRC, GST_PAD_ALWAYS,
+           cdata->src_caps));
+ 
++  gobject_class->set_property =
++      GST_DEBUG_FUNCPTR (gst_v4l2_transform_set_property);
++  gobject_class->get_property =
++      GST_DEBUG_FUNCPTR (gst_v4l2_transform_get_property);
++
++  gst_v4l2_object_install_m2m_subclass_properties_helper ((GObjectClass *)
++      klass);
++
+   g_free (cdata);
+ }
+ 

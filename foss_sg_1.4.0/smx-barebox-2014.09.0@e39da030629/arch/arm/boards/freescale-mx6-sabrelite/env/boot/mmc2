@@ -1,0 +1,25 @@
+#!/bin/sh
+
+if [ "$1" = menu ]; then
+	boot-menu-add-entry "$0" "mmc (SD, ext3)"
+	exit
+fi
+
+path="/mnt/mmc2/boot"
+
+detect mmc2
+
+global.bootm.image="${path}/zImage"
+
+if [ x${global.hostname} = xpbab01 ]; then
+	oftree="${path}/imx6dl-phytec-pbab01.dtb"
+elif [ x${global.hostname} = xavp ]; then
+	oftree="${path}/imx6q-siedle-avp.dtb"
+else
+	oftree="${path}/imx6q-${global.hostname}.dtb"
+fi
+if [ -f "${oftree}" ]; then
+        global.bootm.oftree="$oftree"
+fi
+
+global.linux.bootargs.dyn.root="root=PARTUUID=${mmc2.nt_signature}-01 rootwait"

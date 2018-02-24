@@ -1,0 +1,91 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 22 Dec 2014 19:17:56 +0100
+Subject: [PATCH] [media] v4l: Add CM12 macroblock tiled Y/CbCr 4:2:0 format
+
+This patch adds fourccs for the 8x16 macroblock tiled, chroma-interleaved
+Y/CbCr format used by the Chips&Media CODA960 VPU core on i.MX6 to achieve
+higher memory bandwidth efficiency.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ Documentation/DocBook/media/v4l/pixfmt-cm12.xml | 32 +++++++++++++++++++++++++
+ Documentation/DocBook/media/v4l/pixfmt.xml      |  1 +
+ drivers/media/v4l2-core/v4l2-ioctl.c            |  1 +
+ include/uapi/linux/videodev2.h                  |  1 +
+ 4 files changed, 35 insertions(+)
+ create mode 100644 Documentation/DocBook/media/v4l/pixfmt-cm12.xml
+
+diff --git a/Documentation/DocBook/media/v4l/pixfmt-cm12.xml b/Documentation/DocBook/media/v4l/pixfmt-cm12.xml
+new file mode 100644
+index 000000000000..2e0935e9b2c2
+--- /dev/null
++++ b/Documentation/DocBook/media/v4l/pixfmt-cm12.xml
+@@ -0,0 +1,32 @@
++    <refentry>
++      <refmeta>
++	<refentrytitle>V4L2_PIX_FMT_CM12 ('CM12')</refentrytitle>
++	&manvol;
++      </refmeta>
++      <refnamediv>
++	<refname id="V4L2-PIX-FMT-CM12"><constant>V4L2_PIX_FMT_CM12
++</constant></refname>
++	<refpurpose>Format with &frac12; horizontal and vertical
++chroma resolution. This format similar to
++<constant>V4L2_PIX_FMT_NV12</constant>, except for the memory layout.
++Pixels are grouped in macroblocks of 16x16.
++	</refpurpose>
++      </refnamediv>
++      <refsect1>
++	<title>Description</title>
++
++	<para>This is a two-plane version of the YUV 4:2:0 format where data
++is grouped into 16x16 macroblocks. The three components are separated into two
++sub-images or planes. The Y plane is first. The Y plane has one byte per pixel
++and pixels are grouped in macroblocks of 16x16 (256 bytes), where each
++macroblock is composed of two columns of 8x16 pixels. A CbCr plane immediately
++follows the Y plane in memory. The CbCr plane has the same width, in bytes, as
++the Y plane (and the image), but is half as tall in pixels. Each CbCr pair
++belongs to four pixels. The CbCr samples are grouped in macroblocks of 8x8 (128
++bytes), where each macroblock is composed of two columns of 4x8 CbCr samples.
++	<para>Both width and height of the buffer have to be aligned to a
++multiple of 16. Additionally, the offset of the chroma plane must be a multiple
++of 1024, that is the number of 16x16 macroblocks in the image must be divisible
++by 4.</para>
++      </refsect1>
++    </refentry>
+diff --git a/Documentation/DocBook/media/v4l/pixfmt.xml b/Documentation/DocBook/media/v4l/pixfmt.xml
+index d871245d2973..413d503ef23e 100644
+--- a/Documentation/DocBook/media/v4l/pixfmt.xml
++++ b/Documentation/DocBook/media/v4l/pixfmt.xml
+@@ -1635,6 +1635,7 @@ information.</para>
+     &sub-nv12;
+     &sub-nv12m;
+     &sub-nv12mt;
++    &sub-cm12;
+     &sub-nv16;
+     &sub-nv16m;
+     &sub-nv24;
+diff --git a/drivers/media/v4l2-core/v4l2-ioctl.c b/drivers/media/v4l2-core/v4l2-ioctl.c
+index 7486af2c8ae4..17ff837113e7 100644
+--- a/drivers/media/v4l2-core/v4l2-ioctl.c
++++ b/drivers/media/v4l2-core/v4l2-ioctl.c
+@@ -1183,6 +1183,7 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
+ 	case V4L2_PIX_FMT_NV61:		descr = "Y/CrCb 4:2:2"; break;
+ 	case V4L2_PIX_FMT_NV24:		descr = "Y/CbCr 4:4:4"; break;
+ 	case V4L2_PIX_FMT_NV42:		descr = "Y/CrCb 4:4:4"; break;
++	case V4L2_PIX_FMT_CM12:		descr = "Y/CbCr 4:2:0 (8x16 Macroblocks)"; break;
+ 	case V4L2_PIX_FMT_NV12M:	descr = "Y/CbCr 4:2:0 (N-C)"; break;
+ 	case V4L2_PIX_FMT_NV21M:	descr = "Y/CrCb 4:2:0 (N-C)"; break;
+ 	case V4L2_PIX_FMT_NV16M:	descr = "Y/CbCr 4:2:2 (N-C)"; break;
+diff --git a/include/uapi/linux/videodev2.h b/include/uapi/linux/videodev2.h
+index 421d27413731..1a6958efcac5 100644
+--- a/include/uapi/linux/videodev2.h
++++ b/include/uapi/linux/videodev2.h
+@@ -534,6 +534,7 @@ struct v4l2_pix_format {
+ #define V4L2_PIX_FMT_NV61    v4l2_fourcc('N', 'V', '6', '1') /* 16  Y/CrCb 4:2:2  */
+ #define V4L2_PIX_FMT_NV24    v4l2_fourcc('N', 'V', '2', '4') /* 24  Y/CbCr 4:4:4  */
+ #define V4L2_PIX_FMT_NV42    v4l2_fourcc('N', 'V', '4', '2') /* 24  Y/CrCb 4:4:4  */
++#define V4L2_PIX_FMT_CM12    v4l2_fourcc('C', 'M', '1', '2') /* 12  Y/CbCr 4:2:0 8x16 macroblocks */
+ 
+ /* two non contiguous planes - one Y, one Cr + Cb interleaved  */
+ #define V4L2_PIX_FMT_NV12M   v4l2_fourcc('N', 'M', '1', '2') /* 12  Y/CbCr 4:2:0  */

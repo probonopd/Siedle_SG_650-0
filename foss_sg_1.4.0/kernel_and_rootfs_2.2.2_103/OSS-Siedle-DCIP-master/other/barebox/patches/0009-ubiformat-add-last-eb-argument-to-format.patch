@@ -1,0 +1,49 @@
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Date: Fri, 17 Oct 2014 12:37:34 +0200
+Subject: [PATCH] ubiformat: add last eb argument to format()
+
+format() formats from the start eb up to the end of the device. For
+fastmap support we need to format blocks in between, so add a end_eb
+argument to make that possible.
+
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+---
+ commands/ubiformat.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/commands/ubiformat.c b/commands/ubiformat.c
+index fd29ecb34d1a..e876accb04b6 100644
+--- a/commands/ubiformat.c
++++ b/commands/ubiformat.c
+@@ -296,7 +296,7 @@ static int mark_bad(const struct mtd_dev_info *mtd, struct ubi_scan_info *si, in
+ 
+ static int format(const struct mtd_dev_info *mtd,
+ 		  const struct ubigen_info *ui, struct ubi_scan_info *si,
+-		  int start_eb, int novtbl)
++		  int start_eb, int end_eb, int novtbl)
+ {
+ 	int eb, err, write_size;
+ 	struct ubi_ec_hdr *hdr;
+@@ -312,7 +312,7 @@ static int format(const struct mtd_dev_info *mtd,
+ 		return sys_errmsg("cannot allocate %d bytes of memory", write_size);
+ 	memset(hdr, 0xFF, write_size);
+ 
+-	for (eb = start_eb; eb < mtd->eb_cnt; eb++) {
++	for (eb = start_eb; eb <= end_eb; eb++) {
+ 		long long ec;
+ 
+ 		if (!args.quiet && !args.verbose) {
+@@ -739,11 +739,11 @@ int do_ubiformat(int argc, char *argv[])
+ 		if (err < 0)
+ 			goto out_free;
+ 
+-		err = format(&mtd, &ui, si, err, 1);
++		err = format(&mtd, &ui, si, err, mtd.eb_cnt - 1, 1);
+ 		if (err)
+ 			goto out_free;
+ 	} else {
+-		err = format(&mtd, &ui, si, 0, args.novtbl);
++		err = format(&mtd, &ui, si, 0, mtd.eb_cnt - 1, args.novtbl);
+ 		if (err)
+ 			goto out_free;
+ 	}

@@ -1,0 +1,41 @@
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 22 Jul 2016 17:17:48 +0200
+Subject: [PATCH] drm/etnaviv: Optimize error handling in
+ etnaviv_gem_new_userptr()
+
+Refactor this function implementation so that the
+drm_gem_object_unreference_unlocked() function will only be called once
+in case of a failure according to the Linux coding style recommendation
+for centralized exiting of functions.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+[seanpaul tweaked subject]
+Signed-off-by: Sean Paul <seanpaul@chromium.org>
+Link: http://patchwork.freedesktop.org/patch/msgid/4af34ce6-62c6-7966-1ae3-0877d5ac909d@users.sourceforge.net
+---
+ drivers/gpu/drm/etnaviv/etnaviv_gem.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/etnaviv/etnaviv_gem.c b/drivers/gpu/drm/etnaviv/etnaviv_gem.c
+index aab18790b163..109e947d6772 100644
+--- a/drivers/gpu/drm/etnaviv/etnaviv_gem.c
++++ b/drivers/gpu/drm/etnaviv/etnaviv_gem.c
+@@ -913,15 +913,12 @@ int etnaviv_gem_new_userptr(struct drm_device *dev, struct drm_file *file,
+ 	get_task_struct(current);
+ 
+ 	ret = etnaviv_gem_obj_add(dev, &etnaviv_obj->base);
+-	if (ret) {
+-		drm_gem_object_unreference_unlocked(&etnaviv_obj->base);
+-		return ret;
+-	}
++	if (ret)
++		goto unreference;
+ 
+ 	ret = drm_gem_handle_create(file, &etnaviv_obj->base, handle);
+-
++unreference:
+ 	/* drop reference from allocate - handle holds it now */
+ 	drm_gem_object_unreference_unlocked(&etnaviv_obj->base);
+-
+ 	return ret;
+ }

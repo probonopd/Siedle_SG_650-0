@@ -1,0 +1,65 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 15 Jan 2015 16:17:09 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: more detailed error reporting
+
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 18 ++++++++++++++----
+ 1 file changed, 14 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 5cad6888de67..3323cc7bcf0c 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -824,6 +824,8 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 			}
+ 			/* else: fallthrough */
+ 		default:
++			dev_err(dev, "invalid color format: %4.4s\n",
++				(char *)&fourcc);
+ 			ret = -EINVAL;
+ 			goto free_irq;
+ 		}
+@@ -884,13 +886,17 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 
+ 	/* Set the internal media pipeline to streaming state */
+ 	ret = media_entity_pipeline_start(ipucsi->csi_entity, &ipucsi->pipe);
+-	if (ret)
++	if (ret) {
++		dev_err(dev, "Failed to start internal media pipeline\n");
+ 		goto free_irq;
++	}
+ 
+ 	/* Set the external media pipeline to streaming state */
+ 	ret = media_entity_pipeline_start(&ipucsi->subdev.entity, &ipucsi->pipe);
+-	if (ret)
++	if (ret) {
++		dev_err(dev, "Failed to start external media pipeline\n");
+ 		goto stop_pipe;
++	}
+ 
+ 	if (ipucsi->ic) {
+ 		ipu_ic_enable(ipucsi->ic);
+@@ -901,8 +907,10 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 
+ 	/* FIXME */
+ 	ret = local_ipu_csi_init_interface(ipucsi, width, height);
+-	if (ret)
++	if (ret) {
++		dev_err(dev, "Failed to initialize CSI\n");
+ 		goto free_irq;
++	}
+ 
+ 	ipu_idmac_set_double_buffer(ipucsi->ipuch, 1);
+ 
+@@ -937,8 +945,10 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 	}
+ 
+ 	ret = v4l2_media_subdev_s_stream(&ipucsi->subdev.entity, 1);
+-	if (ret)
++	if (ret) {
++		dev_err(dev, "Failed to start streaming\n");
+ 		goto free_irq;
++	}
+ 
+ 	return 0;
+ 

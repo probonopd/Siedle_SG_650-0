@@ -1,0 +1,17 @@
+#!/bin/sh
+
+SKIP_ON_NFSROOT=@NFSSKIP@
+
+if [ "$SKIP_ON_NFSROOT" = "yes" ]; then
+	if cat /proc/cmdline | grep -q 'root=/dev/nfs'; then
+		echo "Skipping prelink on nfsroot"
+		exit 0
+	fi
+fi
+
+echo "running prelink..."
+
+cat /etc/prelink.conf /etc/prelink.conf.d/* > /tmp/prelink.conf 2>/dev/null
+
+prelink -afR -c /tmp/prelink.conf
+

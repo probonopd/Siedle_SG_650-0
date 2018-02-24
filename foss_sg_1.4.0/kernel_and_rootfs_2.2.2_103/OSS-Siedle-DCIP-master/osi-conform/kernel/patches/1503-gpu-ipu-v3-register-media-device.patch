@@ -1,0 +1,43 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 31 Jul 2014 10:58:02 +0200
+Subject: [PATCH] gpu: ipu-v3: register media device
+
+The first IPU to be probed will register the SoC global media device.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-common.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-common.c b/drivers/gpu/ipu-v3/ipu-common.c
+index c426daaa2f36..0e5a71a4cf68 100644
+--- a/drivers/gpu/ipu-v3/ipu-common.c
++++ b/drivers/gpu/ipu-v3/ipu-common.c
+@@ -31,7 +31,7 @@
+ #include <linux/of_graph.h>
+ 
+ #include <drm/drm_fourcc.h>
+-
++#include <media/imx.h>
+ #include <video/imx-ipu-v3.h>
+ #include "ipu-prv.h"
+ 
+@@ -1358,6 +1358,10 @@ static int ipu_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto failed_submodules_init;
+ 
++	ret = ipu_media_device_register(ipu->dev);
++	if (ret)
++		goto failed_media_device;
++
+ 	ret = ipu_add_client_devices(ipu, ipu_base);
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "adding client devices failed with %d\n",
+@@ -1376,6 +1380,7 @@ static int ipu_probe(struct platform_device *pdev)
+ failed_media_init:
+ 	platform_device_unregister_children(pdev);
+ failed_add_clients:
++failed_media_device:
+ 	ipu_submodules_exit(ipu);
+ failed_submodules_init:
+ 	ipu_irq_exit(ipu);

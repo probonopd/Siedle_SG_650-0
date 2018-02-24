@@ -1,0 +1,9 @@
+## SECTION=communication
+config POP3SPAM
+	tristate
+	prompt "pop3spam"
+	select LIBPCRE
+	help
+	  pop3spam is a rudimentary POP3 client. It is normally supposed
+	  to delete spam in a POP3 box but also can be used to make
+	  pop-before-smtp calls.

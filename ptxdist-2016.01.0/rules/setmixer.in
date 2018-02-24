@@ -1,0 +1,10 @@
+## SECTION=multimedia_sound
+
+config SETMIXER
+	tristate
+	prompt "setmixer"
+	help
+	  Got bored resetting soundcard manually after every reboot?
+	  Here is a small utility which can help you to avoid that.
+	  The whole source is setmixer.c.
+

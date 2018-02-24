@@ -1,0 +1,36 @@
+From: Robert Schwebel <r.schwebel@pengutronix.de>
+Subject: avoid that unspecified include paths leak into the build system
+
+The makefiles expect that "prefix" specifies "where to install", but
+this is not true. "prefix" specifies the run-time path in the final
+system.
+
+Signed-off-by: Robert Schwebel <r.schwebel@pengutronix.de>
+
+---
+
+# 20091210 rsc: needs a proper fix for configure.ac, so not ready for
+#          upstream yet.
+
+diff -urN blackbox-0.70.1/configure blackbox-0.70.1-ptx/configure
+--- blackbox-0.70.1/configure	2005-11-03 09:27:16.000000000 +0100
++++ blackbox-0.70.1-ptx/configure	2006-02-27 20:06:54.000000000 +0100
+@@ -1980,12 +1980,12 @@
+ 
+ test "x$prefix" = "xNONE" && prefix="$ac_default_prefix"
+ 
+-CPPFLAGS="$CPPFLAGS -I$prefix/include"
+-LDFLAGS="$LDFLAGS -L$prefix/lib"
+-if test "x$prefix" != "x/usr/local"; then
+-  CPPFLAGS="$CPPFLAGS -I/usr/local/include"
+-  LDFLAGS="$LDFLAGS -L/usr/local/lib"
+-fi
++# CPPFLAGS="$CPPFLAGS -I$prefix/include"
++# LDFLAGS="$LDFLAGS -L$prefix/lib"
++# if test "x$prefix" != "x/usr/local"; then
++#   CPPFLAGS="$CPPFLAGS -I/usr/local/include"
++#   LDFLAGS="$LDFLAGS -L/usr/local/lib"
++# fi
+ 
+ ac_ext=c
+ ac_cpp='$CPP $CPPFLAGS'

@@ -1,0 +1,75 @@
+#
+# Automatically generated file; DO NOT EDIT.
+# PTXdist 2013.12.0
+#
+
+#
+# PTXDIST Setup Menu
+#
+
+#
+# User              
+#
+PTXCONF_SETUP_USER_NAME=""
+PTXCONF_SETUP_USER_EMAIL=""
+
+#
+# Proxies           
+#
+PTXCONF_SETUP_FTP_PROXY=""
+PTXCONF_SETUP_HTTP_PROXY=""
+PTXCONF_SETUP_HTTPS_PROXY=""
+PTXCONF_SETUP_NO_PROXY=""
+
+#
+# Project Searchpath
+#
+PTXCONF_SETUP_PROJECTPATH="${PTXDIST_TOPDIR}/projects"
+
+#
+# Source Directories
+#
+PTXCONF_SETUP_SRCDIR="${PTXDIST_WORKSPACE}/src"
+
+#
+# Source Download   
+#
+# PTXCONF_SETUP_NO_DOWNLOAD is not set
+# PTXCONF_SETUP_PTXMIRROR_ONLY is not set
+PTXCONF_SETUP_PTXMIRROR="http://www.pengutronix.de/software/ptxdist/temporary-src"
+PTXCONF_SETUP_DEBMIRROR="http://ftp.uni-kl.de/debian"
+PTXCONF_SETUP_SFMIRROR="http://downloads.sourceforge.net/sourceforge"
+PTXCONF_SETUP_GNUMIRROR="http://ftp.uni-kl.de/pub/gnu"
+PTXCONF_SETUP_XORGMIRROR="http://ftp.sunet.se/pub/X11/ftp.x.org http://ftp.x.org/pub http://xorg.freedesktop.org/releases"
+PTXCONF_SETUP_KERNELMIRROR="https://www.kernel.org/pub/linux http://www.linux-mips.org/pub/linux/mips http://mirror.linux.org.au/linux"
+PTXCONF_SETUP_CHECK_ALWAYS=y
+# PTXCONF_SETUP_CHECK_NOTEMPTY is not set
+# PTXCONF_SETUP_CHECK_NEVER is not set
+PTXCONF_SETUP_CHECK="always"
+
+#
+# IPKG Repository   
+#
+PTXCONF_SETUP_IPKG_REPOSITORY="/var/www/ipkg-repository"
+
+#
+# Java SDK          
+#
+PTXCONF_SETUP_JAVA_SDK="/usr/lib/jvm/default-java"
+
+#
+# Developer Options 
+#
+# PTXCONF_SETUP_DISABLE_LOCAL_CHECK is not set
+PTXCONF_SETUP_ENV_WHITELIST=""
+# PTXCONF_SETUP_COMMON_CACHE is not set
+# PTXCONF_SETUP_GEN_DEP_TREE is not set
+# PTXCONF_SETUP_CHECK_EXIT_ON_ERROR is not set
+# PTXCONF_SETUP_CCACHE is not set
+# PTXCONF_SETUP_PATCHIN_GIT is not set
+# PTXCONF_SETUP_NFS_REL_SYMLINK is not set
+# PTXCONF_SETUP_DIRECT_CLEAN is not set
+PTXCONF_SETUP_HOST_CPP="cpp"
+PTXCONF_SETUP_HOST_CC="gcc"
+PTXCONF_SETUP_HOST_CXX="g++"
+PTXCONF_SETUP_HOST_MAKE="make"

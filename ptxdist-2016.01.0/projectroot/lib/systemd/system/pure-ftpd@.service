@@ -1,0 +1,7 @@
+[Unit]
+Description=pure-ftpd
+After=syslog.target
+@SCRIPT_DEPS@
+[Service]
+ExecStart=/usr/sbin/pure-ftpd @ARGS@
+StandardInput=socket

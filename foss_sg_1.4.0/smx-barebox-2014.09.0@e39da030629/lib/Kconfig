@@ -1,0 +1,60 @@
+menu "Library routines"
+config PARAMETER
+	bool
+
+config UNCOMPRESS
+	bool
+	select FILETYPE
+
+config ZLIB
+	bool "include gzip uncompression support"
+	select UNCOMPRESS
+
+config BZLIB
+	bool "include bzip2 uncompression support"
+	select UNCOMPRESS
+
+config LZ4_DECOMPRESS
+	bool "include lz4 uncompression support"
+	select UNCOMPRESS
+
+config GENERIC_FIND_NEXT_BIT
+	def_bool n
+
+config PROCESS_ESCAPE_SEQUENCE
+	def_bool n
+
+source lib/lzo/Kconfig
+
+config BCH
+	bool
+
+config BITREV
+	bool
+
+config QSORT
+	bool
+
+config XYMODEM
+	bool
+
+config LIBSCAN
+	bool
+
+config LIBUBIGEN
+	bool
+
+config LIBMTD
+	bool
+
+config STMP_DEVICE
+	bool
+
+source lib/gui/Kconfig
+
+source lib/bootstrap/Kconfig
+
+config PRINTF_UUID
+	bool
+
+endmenu

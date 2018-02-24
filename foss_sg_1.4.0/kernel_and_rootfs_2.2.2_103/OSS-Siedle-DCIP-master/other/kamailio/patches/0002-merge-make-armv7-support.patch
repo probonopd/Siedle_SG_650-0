@@ -1,0 +1,130 @@
+From f5942fcc3b213b1ddbfddc5f75b99e2560643b5a Mon Sep 17 00:00:00 2001
+From: Andrei Pelinescu-Onciul <andrei@iptel.org>
+Date: Mon, 19 Sep 2011 17:23:47 +0200
+Subject: [PATCH] merge "make: armv7 support"
+
+WARNING: merge of andrei/armv7 branch commit
+         "b75a3cd make: armv7 support"
+         is neither tested for correctness nor for completeness
+
+Signed-off-by: Andreas Pretzsch <apr@cn-eng.de>
+
+Conflicts:
+	Makefile.defs : trivial (comment), update and clarify comment
+---
+ Makefile.defs | 62 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 61 insertions(+), 1 deletion(-)
+
+diff --git a/Makefile.defs b/Makefile.defs
+index 9d68c4b..55e1732 100644
+--- a/Makefile.defs
++++ b/Makefile.defs
+@@ -10,6 +10,9 @@
+ #   exclude_modules, skip_modules, include_modules
+ #   extra_defs
+ #
++# WARNING: merge of andrei/armv7 branch commit
++#          "b75a3cd make: armv7 support"
++#          is neither tested for correctness nor for completeness
+ 
+ # default silent, unless Q= 0|no|off|verbose|noisy
+ quiet?=$(if $(filter 0 no off verbose noisy,$(Q)),verbose,silent)
+@@ -125,7 +128,7 @@ else
+ endif
+ 
+ HOST_ARCH := $(shell $(GETARCH) |sed -e s/i.86/i386/ -e s/sun4[uv]/sparc64/  \
+-			-e s/armv[3-5].*/arm/  -e s/armv6.*/arm6/ \
++			-e s/armv[3-5].*/arm/  -e s/armv6.*/arm6/ -e s/armv7.*/arm7/ \
+ 			-e "s/Power Macintosh/ppc/" \
+ 			-e "s/cobalt/mips2/" \
+ 			-e s/amd64/x86_64/ -e s/sparcv9/sparc64/ )
+@@ -296,6 +299,7 @@ sparc64_macros= __sparcv9 __sparc_v9__
+ 
+ arm_macros= __arm__ __thumb__
+ arm6_macros= __ARM_ARCH_6__
++arm7_macros= __ARM_ARCH_7A__
+ 
+ ppc_macros= __powerpc __powerpc__ __POWERPC__ __ppc__ _ARCH_PPC
+ ppc64_macros= __ppc64__ _ARCH_PPC64
+@@ -326,11 +330,15 @@ endif # sparc64_macros
+ 
+ else ifneq ($(strip $(filter $(arm_macros), $(predef_macros))),)
+ 
++ifneq ($(strip $(filter $(arm7_macros), $(predef_macros))),)
++CC_ARCH=arm7
++else
+ ifneq ($(strip $(filter $(arm6_macros), $(predef_macros))),)
+ CC_ARCH=arm6
+ else # arm6_macros
+ CC_ARCH=arm
+ endif # arm6_macros
++endif #arm7_macros
+ 
+ else ifneq ($(strip $(filter $(ppc64_macros), $(predef_macros))),)
+ CC_ARCH=ppc64
+@@ -796,6 +804,10 @@ ifeq ($(ARCH), arm6)
+ 	C_DEFS+=-DNOSMP # very unlikely to have an smp arm
+ endif
+ 
++ifeq ($(ARCH), arm7)
++	use_fast_lock=yes
++endif
++
+ ifeq ($(ARCH), ppc)
+ 	use_fast_lock=yes
+ endif
+@@ -1263,6 +1275,54 @@ $(error 			Unsupported compiler ($(CC):$(CC_NAME)), try gcc)
+ endif		#CC_NAME, gcc
+ endif	#ARCH, arm6
+ 
++
++	#if armv7 cpu 
++ifeq	($(ARCH), arm7)
++		# if gcc 
++ifeq		($(CC_NAME), gcc)
++				C_DEFS+=-DCC_GCC_LIKE_ASM
++				#common stuff
++				CFLAGS=-march=armv7-a -O9 -funroll-loops -fsigned-char \
++						$(PROFILE)
++			#if gcc 4.5 or 4.2+
++ifeq (,$(strip $(filter-out 4.2+ 4.5,$(CC_SHORTVER))))
++					CFLAGS+= -ftree-vectorize -fno-strict-overflow
++else
++			#if gcc 4.x+
++ifeq			($(CC_SHORTVER), 4.x)
++					CFLAGS+= -ftree-vectorize
++else
++			#if gcc 3.4+
++ifeq			($(CC_SHORTVER), 3.4)
++					CFLAGS+=
++else
++			#if gcc 3.0
++ifeq			($(CC_SHORTVER), 3.0)
++					CFLAGS+= 
++							#-mcpu=athlon
++else
++ifeq			($(CC_SHORTVER), 2.9x) #older gcc version (2.9[1-5])
++$(warning 			Old gcc detected ($(CC_SHORTVER)), use  gcc 3.0.x \
++					for better results)
++					
++					CFLAGS+=
++else
++				#really old version
++$(warning			You are using an old and unsupported gcc \
++					 version ($(CC_SHORTVER)), compile at your own risk!)
++	
++endif			# CC_SHORTVER, 2.9x
++endif			# CC_SHORTVER, 3.0
++endif			# CC_SHORTVER, 3.4
++endif			# CC_SHORTVER, 4.x
++endif			# CC_SHORTVER, 4.5 or 4.2+
++	
++else		# CC_NAME, gcc
++				#other compilers
++$(error 			Unsupported compiler ($(CC):$(CC_NAME)), try gcc)
++endif		#CC_NAME, gcc
++endif	#ARCH, arm7
++
+ 	#if  mips (R3000)
+ ifeq	($(ARCH), mips)
+ 		# if gcc 

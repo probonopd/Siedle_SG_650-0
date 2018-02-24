@@ -1,0 +1,27 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 13 Mar 2014 18:07:50 +0100
+Subject: [PATCH] [media] v4l2-subdev.h: Add lock status notification
+
+This notification type can be used by ADC converters with their
+own interrupt handler to notify the bridge or capture interface
+driver about the signal lock status.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ include/media/v4l2-subdev.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/include/media/v4l2-subdev.h b/include/media/v4l2-subdev.h
+index 3de246603b24..3c42f621c3e6 100644
+--- a/include/media/v4l2-subdev.h
++++ b/include/media/v4l2-subdev.h
+@@ -42,6 +42,9 @@
+ 
+ #define	V4L2_DEVICE_NOTIFY_EVENT		_IOW('v', 2, struct v4l2_event)
+ 
++#define V4L2_SUBDEV_SYNC_LOCK_NOTIFY		_IOW('v', 3, u32)
++#define V4L2_SUBDEV_SYNC_LOCK			0x00000001
++
+ struct v4l2_device;
+ struct v4l2_ctrl_handler;
+ struct v4l2_event;

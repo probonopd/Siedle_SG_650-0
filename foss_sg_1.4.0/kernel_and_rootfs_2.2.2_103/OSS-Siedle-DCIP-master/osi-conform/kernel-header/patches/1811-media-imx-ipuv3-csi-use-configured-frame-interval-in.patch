@@ -1,0 +1,91 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 26 Jan 2017 13:52:13 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: use configured frame interval in black
+ frame generator
+
+Schedule black frame generation in configured frame intervals while the
+signal is lost, instead of always producing frames at a constant
+framerate of 25 Hz.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 36 ++++++++++++++++++++++++++++--
+ 1 file changed, 34 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index d998361a8b43..e9629827e45f 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -177,6 +177,8 @@ struct ipucsi {
+ 	struct ipu_media_link		*link;
+ 	struct v4l2_fh			fh;
+ 	bool				paused;
++	ktime_t				last_frame_time;
++	unsigned long			interval_us;
+ 
+ 	struct delayed_work		pause_work;
+ 
+@@ -402,6 +404,8 @@ void ipucsi_pause_work(struct work_struct *work)
+ 	struct ipucsi *ipucsi = container_of(work, struct ipucsi,
+ 					     pause_work.work);
+ 	unsigned long flags;
++	ktime_t now, next_frame_time;
++	unsigned long remaining_us, time_since_last;
+ 
+ 	if (!ipucsi->paused)
+ 		return;
+@@ -435,7 +439,20 @@ void ipucsi_pause_work(struct work_struct *work)
+ 	if (!ipucsi->paused)
+ 		return;
+ 
+-	schedule_delayed_work(&ipucsi->pause_work, msecs_to_jiffies(40));
++	next_frame_time = ktime_add_us(ipucsi->last_frame_time,
++				       ipucsi->interval_us);
++	now = ktime_get();
++	time_since_last = ktime_us_delta(now, ipucsi->last_frame_time);
++	remaining_us = ktime_us_delta(next_frame_time, now);
++
++	dev_dbg(ipucsi->dev, "waiting for min(remaining %lu us, interval %lu us), %lu us passed\n",
++		remaining_us, ipucsi->interval_us, time_since_last);
++
++	ipucsi->last_frame_time = next_frame_time;
++
++	schedule_delayed_work(&ipucsi->pause_work,
++			      usecs_to_jiffies(min(remaining_us,
++					           ipucsi->interval_us)));
+ }
+ 
+ static const char *buffer_state_name(enum vb2_buffer_state state)
+@@ -516,7 +533,10 @@ int ipucsi_pause_stream(struct ipucsi *ipucsi)
+ 
+ 	v4l2_dbg(1, debug, ipucsi->v4l2_dev, "paused\n");
+ 
+-	schedule_delayed_work(&ipucsi->pause_work, msecs_to_jiffies(40));
++	ipucsi->last_frame_time = ktime_get();
++
++	schedule_delayed_work(&ipucsi->pause_work,
++			      usecs_to_jiffies(ipucsi->interval_us));
+ 
+ 	return 0;
+ }
+@@ -2043,8 +2063,20 @@ static int ipucsi_s_parm(struct file *file, void *fh,
+ 	fi.interval = sp->parm.capture.timeperframe;
+ 	ipucsi_s_frame_interval(&ipucsi->subdev, &fi);
+ 
++	if (ipucsi->timeperframe[1].denominator) {
++		u64 interval_us = USEC_PER_SEC;
++
++		interval_us *= ipucsi->timeperframe[1].numerator;
++		do_div(interval_us, ipucsi->timeperframe[1].denominator);
++		ipucsi->interval_us = interval_us;
++	}
++
+ 	sp->parm.capture.timeperframe = ipucsi->timeperframe[1];
+ 
++	dev_dbg(ipucsi->dev, "capture frame interval: %lu us (%u/%u)\n",
++		ipucsi->interval_us, sp->parm.capture.timeperframe.numerator,
++		sp->parm.capture.timeperframe.denominator);
++
+ 	return 0;
+ }
+ 

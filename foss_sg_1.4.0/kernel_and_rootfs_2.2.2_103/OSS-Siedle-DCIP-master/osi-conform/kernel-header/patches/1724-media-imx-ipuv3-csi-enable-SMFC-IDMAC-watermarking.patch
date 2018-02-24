@@ -1,0 +1,43 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 26 Nov 2014 09:26:36 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: enable SMFC/IDMAC watermarking
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 2d7b9b7cd036..373d66bb0982 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -831,7 +831,6 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ //	burstsize = (width % 16) ? 8 : 16;
+ 
+ 	if (ipucsi->smfc) {
+-#if 0
+ 		/*
+ 		 * Set the channel for the direct CSI-->memory via SMFC
+ 		 * use-case to very high priority, by enabling the watermark
+@@ -844,16 +843,16 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 		 * The WM's are set very low by intention here to ensure that
+ 		 * the SMFC FIFOs do not overflow.
+ 		 */
+-		ipu_smfc_set_wmc(ipucsi->smfc, false, 0x01);
+-		ipu_smfc_set_wmc(ipucsi->smfc, true, 0x02);
++		ipu_smfc_set_watermark(ipucsi->smfc, 2, 1);
+ 		ipu_idmac_enable_watermark(ipucsi->ipuch, true);
++		ipu_cpmem_set_high_priority(ipucsi->ipuch);
++
++		/* Superfluous due to call to ipu_cpmem_zero above */
+ 		ipu_cpmem_set_axi_id(ipucsi->ipuch, 0);
+-		ipu_idmac_lock_enable(ipucsi->ipuch, 8);
+-#endif
++
+ 		ipu_smfc_set_burstsize(ipucsi->smfc, burstsize - 1);
+ 		ipu_smfc_map_channel(ipucsi->smfc, ipucsi->id, 0);
+ 
+-		ipu_cpmem_set_high_priority(ipucsi->ipuch);
+ 	}
+ 	if (ipucsi->ic) {
+ 		/* TODO: s_fmt */

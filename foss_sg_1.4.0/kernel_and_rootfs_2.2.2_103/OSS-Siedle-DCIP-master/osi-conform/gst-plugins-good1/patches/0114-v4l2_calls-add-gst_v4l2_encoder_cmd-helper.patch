@@ -1,0 +1,50 @@
+From: Peter Seiderer <ps.report@gmx.net>
+Date: Fri, 12 Dec 2014 14:31:36 +0100
+Subject: [PATCH] v4l2_calls: add gst_v4l2_encoder_cmd helper
+
+---
+ sys/v4l2/gstv4l2videoenc.c | 31 +++++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
+
+diff --git a/sys/v4l2/gstv4l2videoenc.c b/sys/v4l2/gstv4l2videoenc.c
+index 553d8c037094..519dff096680 100644
+--- a/sys/v4l2/gstv4l2videoenc.c
++++ b/sys/v4l2/gstv4l2videoenc.c
+@@ -699,6 +699,37 @@ gst_v4l2_video_enc_sink_query (GstVideoEncoder * encoder, GstQuery * query)
+ }
+ 
+ static gboolean
++gst_v4l2_encoder_cmd (GstV4l2Object * v4l2object, guint cmd, guint flags)
++{
++  struct v4l2_encoder_cmd ecmd = { 0, };
++
++  GST_DEBUG_OBJECT (v4l2object->element,
++      "sending v4l2 encoder command %u with flags %u", cmd, flags);
++
++  if (!GST_V4L2_IS_OPEN (v4l2object))
++    return FALSE;
++
++  ecmd.cmd = cmd;
++  ecmd.flags = flags;
++  if (v4l2_ioctl (v4l2object->video_fd, VIDIOC_ENCODER_CMD, &ecmd) < 0)
++    goto ecmd_failed;
++
++  return TRUE;
++
++ecmd_failed:
++  if (errno == ENOTTY) {
++    GST_INFO_OBJECT (v4l2object->element,
++        "Failed to send encoder command %u with flags %u for '%s'. (%s)",
++        cmd, flags, v4l2object->videodev, g_strerror (errno));
++  } else {
++    GST_ERROR_OBJECT (v4l2object->element,
++        "Failed to send encoder command %u with flags %u for '%s'. (%s)",
++        cmd, flags, v4l2object->videodev, g_strerror (errno));
++  }
++  return FALSE;
++}
++
++static gboolean
+ gst_v4l2_video_enc_sink_event (GstVideoEncoder * encoder, GstEvent * event)
+ {
+   GstV4l2VideoEnc *self = GST_V4L2_VIDEO_ENC (encoder);

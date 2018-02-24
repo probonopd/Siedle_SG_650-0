@@ -1,0 +1,55 @@
+## SECTION=middleware
+
+menuconfig DBUS
+	tristate
+	prompt "dbus                          "
+	select EXPAT
+	select XORG_LIB_X11	if DBUS_X
+	select MACHINE_ID	if RUNTIME
+	select SYSTEMD		if DBUS_SYSTEMD
+	select LIBC_PTHREAD
+	select LIBC_RT
+	help
+	  D-Bus is a message bus, used for sending messages between
+	  applications. Conceptually, it fits somewhere in between raw
+	  sockets and CORBA in terms of complexity.
+
+	  D-Bus supports broadcast messages, asynchronous messages
+	  (thus decreasing latency), authentication, and more. It is
+	  designed to be low-overhead; messages are sent using a
+	  binary protocol, not using XML. D-Bus also supports a method
+	  call mapping for its messages, but it is not required; this
+	  makes using the system quite simple.
+
+	  It comes with several bindings, including GLib, Python, Qt
+	  and Java.
+
+if DBUS
+
+config DBUS_SELINUX
+	prompt "selinux support [BROKEN]"
+	depends on BROKEN
+	bool
+
+config DBUS_SYSTEMD
+	bool
+	default INITMETHOD_SYSTEMD
+
+config DBUS_X
+	bool
+	prompt "enable X support"
+	help
+	  Enable this option to build dbus with support for X.
+
+config DBUS_STARTSCRIPT
+	bool
+	default y
+	prompt "install /etc/init.d/dbus"
+
+config DBUS_SYSTEMD_UNIT
+	bool
+	default y
+	depends on DBUS_SYSTEMD
+	prompt "install systemd unit files for dbus"
+
+endif

@@ -1,0 +1,20 @@
+From: Enrico Jorns <ejo@pengutronix.de>
+Date: Tue, 13 Jan 2015 15:24:33 +0100
+Subject: [PATCH] v4l2: Add base encoder to list of elements to register
+
+---
+ sys/v4l2/v4l2-utils.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/sys/v4l2/v4l2-utils.c b/sys/v4l2/v4l2-utils.c
+index 19b5d673d4c8..da6e536e45bc 100644
+--- a/sys/v4l2/v4l2-utils.c
++++ b/sys/v4l2/v4l2-utils.c
+@@ -217,6 +217,7 @@ struct v4l2_elements
+ static const struct v4l2_elements elements[] = {
+   {gst_v4l2_video_dec_get_type, gst_v4l2_is_video_dec, FALSE, "videodec"},
+   {gst_v4l2_h264_enc_get_type, gst_v4l2_is_h264_enc, TRUE, "h264enc"},
++  {gst_v4l2_video_enc_get_type, gst_v4l2_is_video_enc, TRUE, "videoenc"},
+ };
+ 
+ static void

@@ -1,0 +1,131 @@
+Create new menuselect script to select features to be compiled in.
+
+---
+ menuselect.sh |  120 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 120 insertions(+)
+
+Index: b/menuselect.sh
+===================================================================
+--- /dev/null
++++ b/menuselect.sh
+@@ -0,0 +1,120 @@
++#!/bin/sh
++
++make menuselect.makeopts
++
++menuselect/menuselect --disable-all menuselect.makeopts
++menuselect/menuselect --enable app_authenticate menuselect.makeopts
++menuselect/menuselect --enable app_channelredirect menuselect.makeopts
++menuselect/menuselect --enable app_chanspy menuselect.makeopts
++menuselect/menuselect --enable app_confbridge menuselect.makeopts
++menuselect/menuselect --enable app_db menuselect.makeopts
++menuselect/menuselect --enable app_dial menuselect.makeopts
++menuselect/menuselect --enable app_directed_pickup menuselect.makeopts
++menuselect/menuselect --enable app_dumpchan menuselect.makeopts
++menuselect/menuselect --enable app_echo menuselect.makeopts
++menuselect/menuselect --enable app_exec menuselect.makeopts
++menuselect/menuselect --enable app_macro menuselect.makeopts
++menuselect/menuselect --enable app_mixmonitor menuselect.makeopts
++menuselect/menuselect --enable app_originate menuselect.makeopts
++menuselect/menuselect --enable app_page menuselect.makeopts
++menuselect/menuselect --enable app_playback menuselect.makeopts
++menuselect/menuselect --enable app_playtones menuselect.makeopts
++menuselect/menuselect --enable app_queue menuselect.makeopts
++menuselect/menuselect --enable app_read menuselect.makeopts
++menuselect/menuselect --enable app_readexten menuselect.makeopts
++menuselect/menuselect --enable app_record menuselect.makeopts
++menuselect/menuselect --enable app_senddtmf menuselect.makeopts
++menuselect/menuselect --enable app_sendtext menuselect.makeopts
++menuselect/menuselect --enable app_softhangup menuselect.makeopts
++menuselect/menuselect --enable app_stack menuselect.makeopts
++menuselect/menuselect --enable app_stasis menuselect.makeopts
++menuselect/menuselect --enable app_transfer menuselect.makeopts
++menuselect/menuselect --enable app_userevent menuselect.makeopts
++menuselect/menuselect --enable app_verbose menuselect.makeopts
++menuselect/menuselect --enable app_voicemail menuselect.makeopts
++menuselect/menuselect --enable app_while menuselect.makeopts
++menuselect/menuselect --enable app_chanisavail menuselect.makeopts
++menuselect/menuselect --enable bridge_builtin_features menuselect.makeopts
++menuselect/menuselect --enable bridge_builtin_interval_features menuselect.makeopts
++menuselect/menuselect --enable bridge_holding menuselect.makeopts
++menuselect/menuselect --enable bridge_native_rtp menuselect.makeopts
++menuselect/menuselect --enable bridge_simple menuselect.makeopts
++menuselect/menuselect --enable bridge_softmix menuselect.makeopts
++menuselect/menuselect --enable chan_bridge_media menuselect.makeopts
++menuselect/menuselect --enable chan_multicast_rtp menuselect.makeopts
++menuselect/menuselect --enable chan_sip menuselect.makeopts
++menuselect/menuselect --enable codec_alaw menuselect.makeopts
++menuselect/menuselect --enable codec_g722 menuselect.makeopts
++menuselect/menuselect --enable codec_gsm menuselect.makeopts
++menuselect/menuselect --enable format_pcm menuselect.makeopts
++menuselect/menuselect --enable format_wav menuselect.makeopts
++menuselect/menuselect --enable format_wav_gsm menuselect.makeopts
++menuselect/menuselect --enable func_callerid menuselect.makeopts
++menuselect/menuselect --enable func_channel menuselect.makeopts
++menuselect/menuselect --enable func_cut menuselect.makeopts
++menuselect/menuselect --enable func_db menuselect.makeopts
++menuselect/menuselect --enable func_devstate menuselect.makeopts
++menuselect/menuselect --enable func_dialgroup menuselect.makeopts
++menuselect/menuselect --enable func_dialplan menuselect.makeopts
++menuselect/menuselect --enable func_extstate menuselect.makeopts
++menuselect/menuselect --enable func_global menuselect.makeopts
++menuselect/menuselect --enable func_groupcount menuselect.makeopts
++menuselect/menuselect --enable func_iconv menuselect.makeopts
++menuselect/menuselect --enable func_logic menuselect.makeopts
++menuselect/menuselect --enable func_math menuselect.makeopts
++menuselect/menuselect --enable func_rand menuselect.makeopts
++menuselect/menuselect --enable func_strings menuselect.makeopts
++menuselect/menuselect --enable func_sysinfo menuselect.makeopts
++menuselect/menuselect --enable func_timeout menuselect.makeopts
++menuselect/menuselect --enable func_vmcount menuselect.makeopts
++menuselect/menuselect --enable func_volume menuselect.makeopts
++menuselect/menuselect --enable pbx_config menuselect.makeopts
++menuselect/menuselect --enable pbx_loopback menuselect.makeopts
++menuselect/menuselect --enable pbx_spool menuselect.makeopts
++menuselect/menuselect --enable pbx_realtime menuselect.makeopts
++menuselect/menuselect --enable res_adsi menuselect.makeopts
++menuselect/menuselect --enable res_agi menuselect.makeopts
++menuselect/menuselect --enable res_ari menuselect.makeopts
++menuselect/menuselect --enable res_ari_applications menuselect.makeopts
++menuselect/menuselect --enable res_ari_asterisk menuselect.makeopts
++menuselect/menuselect --enable res_ari_bridges menuselect.makeopts
++menuselect/menuselect --enable res_ari_channels menuselect.makeopts
++menuselect/menuselect --enable res_ari_device_states menuselect.makeopts
++menuselect/menuselect --enable res_ari_endpoints menuselect.makeopts
++menuselect/menuselect --enable res_ari_events menuselect.makeopts
++menuselect/menuselect --enable res_ari_model menuselect.makeopts
++menuselect/menuselect --enable res_ari_playbacks menuselect.makeopts
++menuselect/menuselect --enable res_clioriginate menuselect.makeopts
++menuselect/menuselect --enable res_config_odbc menuselect.makeopts
++menuselect/menuselect --enable res_crypto menuselect.makeopts
++menuselect/menuselect --enable res_limit menuselect.makeopts
++menuselect/menuselect --enable res_manager_devicestate menuselect.makeopts
++menuselect/menuselect --enable res_manager_presencestate menuselect.makeopts
++menuselect/menuselect --enable res_monitor menuselect.makeopts
++menuselect/menuselect --enable res_musiconhold menuselect.makeopts
++menuselect/menuselect --enable res_mutestream menuselect.makeopts
++menuselect/menuselect --enable res_odbc menuselect.makeopts
++menuselect/menuselect --enable res_realtime menuselect.makeopts
++menuselect/menuselect --enable res_rtp_asterisk menuselect.makeopts
++menuselect/menuselect --enable res_rtp_multicast menuselect.makeopts
++menuselect/menuselect --enable res_smdi menuselect.makeopts
++menuselect/menuselect --enable res_stasis menuselect.makeopts
++menuselect/menuselect --enable res_stasis_answer menuselect.makeopts
++menuselect/menuselect --enable res_stasis_device_state menuselect.makeopts
++menuselect/menuselect --enable res_stasis_recording menuselect.makeopts
++menuselect/menuselect --enable res_stasis_playback menuselect.makeopts
++menuselect/menuselect --enable res_timing_timerfd menuselect.makeopts
++menuselect/menuselect --enable res_http_websocket menuselect.makeopts
++menuselect/menuselect --enable res_speech menuselect.makeopts
++menuselect/menuselect --enable DONT_OPTIMIZE menuselect.makeopts
++menuselect/menuselect --enable LOADABLE_MODULES menuselect.makeopts
++menuselect/menuselect --enable BUILD_NATIVE menuselect.makeopts
++menuselect/menuselect --enable G711_NEW_ALGORITHM menuselect.makeopts
++menuselect/menuselect --enable G711_REDUCED_BRANCHING menuselect.makeopts
++menuselect/menuselect --enable FILE_STORAGE menuselect.makeopts
++menuselect/menuselect --enable CORE-SOUNDS-EN-ALAW menuselect.makeopts
++menuselect/menuselect --enable CORE-SOUNDS-EN-GSM menuselect.makeopts
++menuselect/menuselect --enable CORE-SOUNDS-EN-G722 menuselect.makeopts
++menuselect/menuselect --enable MOH-OPSOUND-ALAW menuselect.makeopts
++menuselect/menuselect --enable MOH-OPSOUND-GSM menuselect.makeopts
++menuselect/menuselect --enable MOH-OPSOUND-G722 menuselect.makeopts

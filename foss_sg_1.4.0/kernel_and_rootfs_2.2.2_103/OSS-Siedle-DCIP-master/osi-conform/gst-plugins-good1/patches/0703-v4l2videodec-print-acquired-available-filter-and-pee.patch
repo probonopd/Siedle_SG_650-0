@@ -1,0 +1,41 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 13 May 2016 15:02:00 +0200
+Subject: [PATCH] v4l2videodec: print acquired, available, filter, and peer
+ caps for debugging purposes
+
+---
+ sys/v4l2/gstv4l2videodec.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/sys/v4l2/gstv4l2videodec.c b/sys/v4l2/gstv4l2videodec.c
+index f5967b7f873a..8030e95eabc4 100644
+--- a/sys/v4l2/gstv4l2videodec.c
++++ b/sys/v4l2/gstv4l2videodec.c
+@@ -596,9 +596,14 @@ gst_v4l2_video_dec_handle_frame (GstVideoDecoder * decoder,
+ 
+     /* Create caps from the acquired format, remove the format field */
+     acquired_caps = gst_video_info_to_caps (&info);
++    GST_DEBUG_OBJECT (self, "Acquired caps: %" GST_PTR_FORMAT, acquired_caps);
+     st = gst_caps_get_structure (acquired_caps, 0);
+     gst_structure_remove_field (st, "format");
+ 
++    filter = gst_v4l2_object_probe_caps (self->v4l2capture, NULL);
++    GST_DEBUG_OBJECT (self, "Available caps: %" GST_PTR_FORMAT, filter);
++    gst_caps_unref(filter);
++
+     /* Probe currently available pixel formats */
+     available_caps = gst_v4l2_object_probe_caps (self->v4l2capture, NULL);
+     available_caps = gst_caps_make_writable (available_caps);
+@@ -611,6 +616,12 @@ gst_v4l2_video_dec_handle_frame (GstVideoDecoder * decoder,
+         GST_CAPS_INTERSECT_FIRST);
+     gst_caps_unref (acquired_caps);
+     gst_caps_unref (available_caps);
++
++    GST_DEBUG_OBJECT (self, "Filter: %" GST_PTR_FORMAT, filter);
++
++    caps = gst_pad_peer_query_caps (decoder->srcpad, NULL);
++    GST_DEBUG_OBJECT (self, "Peer caps: %" GST_PTR_FORMAT, caps);
++    gst_caps_unref(caps);
+     caps = gst_pad_peer_query_caps (decoder->srcpad, filter);
+     gst_caps_unref (filter);
+ 

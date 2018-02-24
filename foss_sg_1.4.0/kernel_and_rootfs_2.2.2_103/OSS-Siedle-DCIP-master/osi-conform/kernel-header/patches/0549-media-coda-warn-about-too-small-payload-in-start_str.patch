@@ -1,0 +1,21 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 7 Jul 2015 17:18:55 +0200
+Subject: [PATCH] [media] coda: warn about too small payload in start_streaming
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-common.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index c5bdce35c506..116e3803c58b 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -1494,6 +1494,7 @@ static int coda_start_streaming(struct vb2_queue *q, unsigned int count)
+ 			mutex_unlock(&ctx->bitstream_mutex);
+ 
+ 			if (coda_get_bitstream_payload(ctx) < 512) {
++				v4l2_err(v4l2_dev, "start payload < 512\n");
+ 				ret = -EINVAL;
+ 				goto err;
+ 			}

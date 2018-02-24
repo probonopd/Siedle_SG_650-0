@@ -1,0 +1,6 @@
+0001-deb-config-h.patch
+0002-datehack.patch
+0003-cpp-crossbuild.patch
+0004-chown-484762.patch
+0005-configure-add-check-for-large-file-support.patch
+0010-HACK-disable-some-logrotate.conf-security-checks.patch

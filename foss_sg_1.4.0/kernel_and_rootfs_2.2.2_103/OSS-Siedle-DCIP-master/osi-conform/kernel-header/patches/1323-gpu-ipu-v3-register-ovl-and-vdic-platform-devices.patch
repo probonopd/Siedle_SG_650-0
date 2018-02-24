@@ -1,0 +1,27 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 30 Jul 2014 15:20:19 +0200
+Subject: [PATCH] gpu: ipu-v3: register ovl and vdic platform devices
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-common.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-common.c b/drivers/gpu/ipu-v3/ipu-common.c
+index f39e2f6f704e..2f3f0f31e4e9 100644
+--- a/drivers/gpu/ipu-v3/ipu-common.c
++++ b/drivers/gpu/ipu-v3/ipu-common.c
+@@ -1039,6 +1039,13 @@ static struct ipu_platform_reg client_reg[] = {
+ 		.name = "imx-ipuv3-crtc",
+ 	}, {
+ 		.name = "imx-ipuv3-scaler",
++	}, {
++		.pdata = {
++			.dma[0] = IPUV3_CHANNEL_MEM_FG_SYNC,
++		},
++		.name = "imx-ipuv3-ovl",
++	}, {
++		.name = "imx-ipuv3-vdic",
+ 	},
+ };
+ 

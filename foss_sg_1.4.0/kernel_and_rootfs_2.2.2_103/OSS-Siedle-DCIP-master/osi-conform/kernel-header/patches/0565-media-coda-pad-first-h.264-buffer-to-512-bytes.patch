@@ -1,0 +1,131 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 19 Jan 2017 12:43:22 +0100
+Subject: [PATCH] [media] coda: pad first h.264 buffer to 512 bytes
+
+The bitstream reader needs 512 bytes ready to read to examine the
+headers in the first frame. If that frame is too small, prepend it
+with a filler NAL.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-bit.c  | 28 ++++++++++++++++++++++++++--
+ drivers/media/platform/coda/coda-h264.c | 24 ++++++++++++++++++------
+ drivers/media/platform/coda/coda.h      |  1 +
+ 3 files changed, 45 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index 4d61f5d8ed71..3f51e7c47f65 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -235,6 +235,25 @@ static void coda_kfifo_sync_to_device_write(struct coda_ctx *ctx)
+ 	coda_write(dev, wr_ptr, CODA_REG_BIT_WR_PTR(ctx->reg_idx));
+ }
+ 
++static int coda_bitstream_pad(struct coda_ctx *ctx, u32 size)
++{
++	unsigned char *buf;
++	u32 n;
++
++	if (size < 6)
++		size = 6;
++
++	buf = kmalloc(size, GFP_KERNEL);
++	if (!buf)
++		return -ENOMEM;
++
++	coda_h264_filler_nal(size, buf);
++	n = kfifo_in(&ctx->bitstream_fifo, buf, size);
++	kfree(buf);
++
++	return (n < size) ? -ENOSPC : 0;
++}
++
+ static int coda_bitstream_queue(struct coda_ctx *ctx,
+ 				struct vb2_v4l2_buffer *src_buf)
+ {
+@@ -254,10 +273,10 @@ static int coda_bitstream_queue(struct coda_ctx *ctx,
+ static bool coda_bitstream_try_queue(struct coda_ctx *ctx,
+ 				     struct vb2_v4l2_buffer *src_buf)
+ {
++	unsigned long payload = vb2_get_plane_payload(&src_buf->vb2_buf, 0);
+ 	int ret;
+ 
+-	if (coda_get_bitstream_payload(ctx) +
+-	    vb2_get_plane_payload(&src_buf->vb2_buf, 0) + 512 >=
++	if (coda_get_bitstream_payload(ctx) + payload + 512 >=
+ 	    ctx->bitstream.size)
+ 		return false;
+ 
+@@ -266,6 +285,11 @@ static bool coda_bitstream_try_queue(struct coda_ctx *ctx,
+ 		return true;
+ 	}
+ 
++	/* Add zero padding before the first H.264 buffer, if it is too small */
++	if (ctx->qsequence == 0 && payload < 512 &&
++	    ctx->codec->src_fourcc == V4L2_PIX_FMT_H264)
++		coda_bitstream_pad(ctx, 512 - payload);
++
+ 	ret = coda_bitstream_queue(ctx, src_buf);
+ 	if (ret < 0) {
+ 		v4l2_err(&ctx->dev->v4l2_dev, "bitstream buffer overflow\n");
+diff --git a/drivers/media/platform/coda/coda-h264.c b/drivers/media/platform/coda/coda-h264.c
+index e10e5497bbec..30df59e304ef 100644
+--- a/drivers/media/platform/coda/coda-h264.c
++++ b/drivers/media/platform/coda/coda-h264.c
+@@ -18,8 +18,6 @@
+ 
+ #include "coda.h"
+ 
+-static const u8 coda_filler_nal[14] = { 0x00, 0x00, 0x00, 0x01, 0x0c, 0xff,
+-			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x80 };
+ static const u8 coda_filler_size[8] = { 0, 7, 14, 13, 12, 11, 10, 9 };
+ 
+ static const u8 *coda_find_nal_header(const u8 *buf, const u8 *end)
+@@ -53,6 +51,23 @@ int coda_sps_parse_profile(struct coda_ctx *ctx, struct vb2_buffer *vb)
+ 	return 0;
+ }
+ 
++int coda_h264_filler_nal(int size, char *p)
++{
++	if (size < 6)
++		return -EINVAL;
++
++	p[0] = 0x00;
++	p[1] = 0x00;
++	p[2] = 0x00;
++	p[3] = 0x01;
++	p[4] = 0x0c;
++	memset(p + 5, 0xff, size - 6);
++	/* Add rbsp stop bit and trailing at the end */
++	p[size - 1] = 0x80;
++
++	return 0;
++}
++
+ int coda_h264_padding(int size, char *p)
+ {
+ 	int nal_size;
+@@ -63,10 +78,7 @@ int coda_h264_padding(int size, char *p)
+ 		return 0;
+ 
+ 	nal_size = coda_filler_size[diff];
+-	memcpy(p, coda_filler_nal, nal_size);
+-
+-	/* Add rbsp stop bit and trailing at the end */
+-	*(p + nal_size - 1) = 0x80;
++	coda_h264_filler_nal(nal_size, p);
+ 
+ 	return nal_size;
+ }
+diff --git a/drivers/media/platform/coda/coda.h b/drivers/media/platform/coda/coda.h
+index 9a8e74f8b19f..5a8b517dab8d 100644
+--- a/drivers/media/platform/coda/coda.h
++++ b/drivers/media/platform/coda/coda.h
+@@ -302,6 +302,7 @@ void coda_bit_debug_timeout(struct coda_ctx *ctx);
+ void coda_m2m_buf_done(struct coda_ctx *ctx, struct vb2_v4l2_buffer *buf,
+ 		       enum vb2_buffer_state state);
+ 
++int coda_h264_filler_nal(int size, char *p);
+ int coda_h264_padding(int size, char *p);
+ int coda_h264_profile(int profile_idc);
+ int coda_h264_level(int level_idc);

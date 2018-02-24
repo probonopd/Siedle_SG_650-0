@@ -1,0 +1,9 @@
+## SECTION=multimedia_xorg_lib
+
+config XORG_LIB_OLDX
+	tristate
+	prompt "liboldX"
+	select XORG_LIB_X11
+	help
+	  liboldX - X version 10 backwards compatibility
+

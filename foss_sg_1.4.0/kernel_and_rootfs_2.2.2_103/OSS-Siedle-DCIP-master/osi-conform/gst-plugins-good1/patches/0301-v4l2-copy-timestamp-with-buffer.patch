@@ -1,0 +1,20 @@
+From: Michael Olbrich <m.olbrich@pengutronix.de>
+Date: Fri, 31 Oct 2014 10:31:10 +0100
+Subject: [PATCH] v4l2: copy timestamp with buffer
+
+---
+ sys/v4l2/gstv4l2bufferpool.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/sys/v4l2/gstv4l2bufferpool.c b/sys/v4l2/gstv4l2bufferpool.c
+index 38f7debc6a4d..23c41c5a0d70 100644
+--- a/sys/v4l2/gstv4l2bufferpool.c
++++ b/sys/v4l2/gstv4l2bufferpool.c
+@@ -148,6 +148,7 @@ gst_v4l2_buffer_pool_copy_buffer (GstV4l2BufferPool * pool, GstBuffer * dest,
+     gst_buffer_unmap (src, &map);
+     gst_buffer_resize (dest, 0, gst_buffer_get_size (src));
+   }
++  GST_BUFFER_PTS(dest) = GST_BUFFER_PTS(src);
+ 
+   gst_buffer_copy_into (dest, src,
+       GST_BUFFER_COPY_FLAGS | GST_BUFFER_COPY_TIMESTAMPS, 0, -1);

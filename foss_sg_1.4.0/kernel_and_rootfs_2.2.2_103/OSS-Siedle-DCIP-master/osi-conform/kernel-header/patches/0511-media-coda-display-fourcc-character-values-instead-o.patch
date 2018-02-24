@@ -1,0 +1,42 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 22 Jul 2014 11:53:36 +0200
+Subject: [PATCH] [media] coda: display fourcc character values instead of
+ decimal or hex codes
+
+This makes debugging output a little bit more readable.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-bit.c    | 2 +-
+ drivers/media/platform/coda/coda-common.c | 5 +++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index 994581c183ab..3ad9ce60e19e 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -969,7 +969,7 @@ static int coda_start_encoding(struct coda_ctx *ctx)
+ 		break;
+ 	default:
+ 		v4l2_err(v4l2_dev,
+-			 "dst format (0x%08x) invalid.\n", dst_fourcc);
++			 "dst format (%4.4s) invalid.\n", (char *)&dst_fourcc);
+ 		ret = -EINVAL;
+ 		goto out;
+ 	}
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index de50513e1f66..e7d3fcb736ae 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -611,8 +611,9 @@ static int coda_s_fmt(struct coda_ctx *ctx, struct v4l2_format *f)
+ 	}
+ 
+ 	v4l2_dbg(1, coda_debug, &ctx->dev->v4l2_dev,
+-		"Setting format for type %d, wxh: %dx%d, fmt: %d\n",
+-		f->type, q_data->width, q_data->height, q_data->fourcc);
++		"Setting format for type %d, wxh: %dx%d, fmt: %4.4s\n",
++		f->type, q_data->width, q_data->height,
++		(char *)&q_data->fourcc);
+ 
+ 	return 0;
+ }

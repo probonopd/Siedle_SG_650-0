@@ -1,0 +1,43 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 3 Feb 2014 11:07:03 +0100
+Subject: [PATCH] mfd: da9063: Disable SMBus timeout feature
+
+If there is a too long delay between bits on the bus, occasionally the DA9063
+will reset communications and ignore the remaining bits. This can lead to
+a failure to scale up the voltage as requested by cpufreq and subsequently
+hang the system.
+Bit 6 in the CONFIG_J register is supposed to disable the SMBus timeout
+feature or switch the chip to plain I2C mode. This patch is based on the
+"mfd: da9063: disable timeout feature" patch by Christian Hemp from the
+Phytec phyFLEX-i.MX6 PD13.2.2 BSP.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/mfd/da9063-i2c.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/mfd/da9063-i2c.c b/drivers/mfd/da9063-i2c.c
+index 2d4e3e0f4e94..13bda253813b 100644
+--- a/drivers/mfd/da9063-i2c.c
++++ b/drivers/mfd/da9063-i2c.c
+@@ -243,7 +243,19 @@ static int da9063_i2c_probe(struct i2c_client *i2c,
+ 		return ret;
+ 	}
+ 
+-	return da9063_device_init(da9063, i2c->irq);
++	ret = da9063_device_init(da9063, i2c->irq);
++	if (ret)
++		return ret;
++
++	/*
++	 * Disabling bit BIT(6) in the CONFIG_J register supposedly disables
++	 * the SMBus timeout feature or switches the chip to I2C mode.
++	 */
++	ret = regmap_update_bits(da9063->regmap, DA9063_REG_CONFIG_J, 0x40, 0);
++	if (ret)
++		dev_err(da9063->dev, "Failed to disable SMBus timeout\n");
++
++	return 0;
+ }
+ 
+ static int da9063_i2c_remove(struct i2c_client *i2c)

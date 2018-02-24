@@ -1,0 +1,24 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 3 Dec 2014 12:56:08 +0100
+Subject: [PATCH] gpu: ipu-v3: Add per-channel threshold crossing interrupt
+
+This adds an offsets for the TH interrupts, which get triggered when the
+associated IDMAC channel crosses its watermark threshold.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ include/video/imx-ipu-v3.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/video/imx-ipu-v3.h b/include/video/imx-ipu-v3.h
+index 1a6efe3de90a..845063a5ecbb 100644
+--- a/include/video/imx-ipu-v3.h
++++ b/include/video/imx-ipu-v3.h
+@@ -109,6 +109,7 @@ enum ipu_channel_irq {
+ 	IPU_IRQ_NFACK = 64,
+ 	IPU_IRQ_NFB4EOF = 128,
+ 	IPU_IRQ_EOS = 192,
++	IPU_IRQ_TH = 384,
+ };
+ 
+ /*

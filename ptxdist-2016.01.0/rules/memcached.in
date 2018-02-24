@@ -1,0 +1,12 @@
+## SECTION=networking
+
+config MEMCACHED
+	tristate
+	prompt "memcached"
+	select LIBC_PTHREAD
+	select LIBEVENT
+	help
+	  Memcached is an in-memory key-value store for small chunks of
+	  arbitrary data (strings, objects) from results of database calls,
+	  API calls, or page rendering.
+

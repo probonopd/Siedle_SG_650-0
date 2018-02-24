@@ -1,0 +1,11 @@
+## SECTION=test_suites
+
+config IOZONE
+	tristate
+	prompt "iozone"
+	select LIBC_PTHREAD
+	select LIBC_RT
+	select GCCLIBS_GCC_S
+	help
+	  IOzone is a filesystem benchmark tool. The benchmark generates
+          and measures a variety of file operations.

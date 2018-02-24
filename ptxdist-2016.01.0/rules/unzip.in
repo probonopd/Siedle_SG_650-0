@@ -1,0 +1,24 @@
+## SECTION=disk_and_file
+menuconfig UNZIP
+	tristate
+	prompt "unzip                         "
+	help
+	  UnZip is an extraction utility for archives compressed in .zip
+	  format (also called "zipfiles").
+
+if UNZIP
+
+config UNZIP_UNZIP
+	bool "unzip"
+	depends on !BUSYBOX_UNZIP || ALLYES
+
+comment "BusyBox' unzip selected"
+	depends on BUSYBOX_UNZIP
+
+config UNZIP_FUNZIP
+	bool "funzip"
+
+config UNZIP_UNZIPSFX
+	bool "unzipsfx"
+
+endif

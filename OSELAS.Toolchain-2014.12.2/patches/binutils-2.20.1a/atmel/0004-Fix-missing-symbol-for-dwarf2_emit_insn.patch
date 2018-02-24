@@ -1,0 +1,43 @@
+From 35990cb04f3f56433bcf177918d0b727e98c2249 Mon Sep 17 00:00:00 2001
+From: Stephan Linz <linz@li-pro.net>
+Date: Mon, 18 Apr 2011 21:21:12 +0200
+Subject: [PATCH 4/9] Fix missing symbol for dwarf2_emit_insn
+
+Use gas header dwarf2dbg.h and keep DWARF2_ADDR_SIZE in consistency
+with C compiler produced information.
+
+Original ATMEL patch from:
+http://distribute.atmel.no/tools/opensource/avr-gcc/binutils-2.20.1/34-binutils-2.20.1-as-dwarf.patch
+
+Signed-off-by: Stephan Linz <linz@li-pro.net>
+---
+ gas/config/tc-avr.c |    1 +
+ gas/config/tc-avr.h |    3 +++
+ 2 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/gas/config/tc-avr.c b/gas/config/tc-avr.c
+index 9d14f64..6a1c7ea 100644
+--- a/gas/config/tc-avr.c
++++ b/gas/config/tc-avr.c
+@@ -24,6 +24,7 @@
+ #include "as.h"
+ #include "safe-ctype.h"
+ #include "subsegs.h"
++#include "dwarf2dbg.h"
+ 
+ struct avr_opcodes_s
+ {
+diff --git a/gas/config/tc-avr.h b/gas/config/tc-avr.h
+index f68bbbd..0f0cd30 100644
+--- a/gas/config/tc-avr.h
++++ b/gas/config/tc-avr.h
+@@ -147,3 +147,6 @@ extern long md_pcrel_from_section (struct fix *, segT);
+ 
+ /* This target is buggy, and sets fix size too large.  */
+ #define TC_FX_SIZE_SLACK(FIX) 2
++
++/* keep DWARF2_ADDR_SIZE in consistency with C compiler produced information */
++#define DWARF2_ADDR_SIZE(bfd) 4
+-- 
+1.6.0.4
+

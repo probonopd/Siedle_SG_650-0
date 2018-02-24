@@ -1,0 +1,23 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 13 Jun 2014 17:06:44 +0200
+Subject: [PATCH] Documentation: document CODA interrupts
+
+---
+ Documentation/devicetree/bindings/media/coda.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/media/coda.txt b/Documentation/devicetree/bindings/media/coda.txt
+index b89c76af91be..c493e974b123 100644
+--- a/Documentation/devicetree/bindings/media/coda.txt
++++ b/Documentation/devicetree/bindings/media/coda.txt
+@@ -12,8 +12,8 @@ Required properties:
+   (c) "fsl,imx6dl-vpu" for CODA960 present in i.MX6DL/S
+ - reg: should be register base and length as documented in the
+   SoC reference manual
+-- interrupts : Should contain the VPU interrupt. For CODA960,
+-  a second interrupt is needed for the MJPEG unit.
++- interrupts : Should contain the VPU (BIT processor) interrupt.
++  For CODA960, a second interrupt is needed for the MJPEG unit.
+ - clocks : Should contain the ahb and per clocks, in the order
+   determined by the clock-names property.
+ - clock-names : Should be "ahb", "per"

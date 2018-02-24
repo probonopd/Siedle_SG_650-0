@@ -1,0 +1,8 @@
+## SECTION=multimedia_xorg_font_utils
+
+config XORG_FONT_UTIL
+	tristate
+	prompt "Util                          "
+	help
+	  An application for creating an index of
+	  X font files in a directory

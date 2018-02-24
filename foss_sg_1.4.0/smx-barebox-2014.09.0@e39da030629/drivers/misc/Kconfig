@@ -1,0 +1,22 @@
+#
+# Misc strange devices
+#
+
+menu "Misc devices"
+
+config JTAG
+	tristate "JTAG Bitbang driver"
+	depends on GENERIC_GPIO
+	help
+	  Controls JTAG chains connected to I/O pins
+
+config SRAM
+	bool "Generic SRAM driver"
+	help
+	  This driver adds support for memory mapped SRAM.
+
+config STATE_DRV
+	tristate "state driver"
+	depends on STATE
+
+endmenu

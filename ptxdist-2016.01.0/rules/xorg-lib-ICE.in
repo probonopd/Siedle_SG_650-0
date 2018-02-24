@@ -1,0 +1,9 @@
+## SECTION=multimedia_xorg_lib
+
+config XORG_LIB_ICE
+	tristate
+	prompt "libICE"
+	select XORG_PROTO_X
+	select XORG_LIB_XTRANS
+	help
+	  X Inter Client Exchange Library

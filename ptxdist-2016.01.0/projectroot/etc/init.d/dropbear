@@ -1,0 +1,77 @@
+#!/bin/sh
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/dropbear
+NAME=dropbear
+
+DROPBEAR_PORT=22
+DROPBEAR_EXTRA_ARGS=
+
+. /lib/init/initmethod-bbinit-functions.sh
+
+# test ! -h /var/service/dropbear || exit 0
+
+DROPBEAR_RSAKEY_DEFAULT="@KEYDIR@/dropbear_rsa_host_key"
+DROPBEAR_DSSKEY_DEFAULT="@KEYDIR@/dropbear_dss_host_key"
+
+test -z "$DROPBEAR_BANNER" || \
+  DROPBEAR_EXTRA_ARGS="$DROPBEAR_EXTRA_ARGS -b $DROPBEAR_BANNER"
+test -n "$DROPBEAR_RSAKEY" || \
+  DROPBEAR_RSAKEY=$DROPBEAR_RSAKEY_DEFAULT
+test -n "$DROPBEAR_DSSKEY" || \
+  DROPBEAR_DSSKEY=$DROPBEAR_DSSKEY_DEFAULT
+test -n "$DROPBEAR_KEYTYPES" || \
+  DROPBEAR_KEYTYPES="rsa dss"
+
+dropbear_start() {
+
+    KEY_ARGS=""
+    test -f $DROPBEAR_DSSKEY && KEY_ARGS="$KEY_ARGS -d $DROPBEAR_DSSKEY"
+    test -f $DROPBEAR_RSAKEY && KEY_ARGS="$KEY_ARGS -r $DROPBEAR_RSAKEY"
+
+    echo -n "starting dropbear..."
+
+    start-stop-daemon -S -x "$DAEMON" --oknodo -- \
+        $KEY_ARGS -p "$DROPBEAR_PORT" $DROPBEAR_EXTRA_ARGS > /dev/null 2>&1
+
+    if [ "$?" = "0" ]; then
+        echo "done"
+    else
+        echo "failed"
+        exit 1
+    fi
+}
+
+dropbear_stop() {
+
+    echo -n "stopping dropbear..."
+
+    start-stop-daemon -K -x "$DAEMON" --oknodo > /dev/null 2>&1
+
+    if [ "$?" = "0" ]; then
+        echo "done"
+    else
+        echo "failed"
+        exit 1
+    fi
+}
+
+
+case "$1" in
+start)
+    dropbear_start;;
+stop)
+    dropbear_stop;;
+restart|force-reload)
+    dropbear_stop
+    dropbear_start
+    ;;
+*)
+    N=/etc/init.d/$NAME
+    echo "usage: $N {start|stop|restart|force-reload}" >&2
+    exit 1
+    ;;
+esac
+
+exit 0
+

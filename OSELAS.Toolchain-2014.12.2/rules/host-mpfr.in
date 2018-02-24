@@ -1,0 +1,3 @@
+config HOST_MPFR
+	select HOST_GMP
+	bool

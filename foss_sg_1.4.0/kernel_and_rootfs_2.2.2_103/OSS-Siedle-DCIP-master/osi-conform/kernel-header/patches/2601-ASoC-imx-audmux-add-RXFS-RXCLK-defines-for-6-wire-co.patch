@@ -1,0 +1,28 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 18 Sep 2013 16:13:07 +0200
+Subject: [PATCH] ASoC: imx-audmux: add RXFS/RXCLK defines for 6-wire
+ connections
+
+In asynchronous mode, a RxFS and RxClk connection needs to be made between
+two ports. Add a define for the bit to be set in the *SEL fields.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ include/dt-bindings/sound/fsl-imx-audmux.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/include/dt-bindings/sound/fsl-imx-audmux.h b/include/dt-bindings/sound/fsl-imx-audmux.h
+index 50b09e96f247..63b48f8a8d6e 100644
+--- a/include/dt-bindings/sound/fsl-imx-audmux.h
++++ b/include/dt-bindings/sound/fsl-imx-audmux.h
+@@ -24,6 +24,10 @@
+ #define MX51_AUDMUX_PORT6		5
+ #define MX51_AUDMUX_PORT7		6
+ 
++/* TFSEL/TCSEL/RFSEL/RCSEL can be sourced from Rx/Tx clocks on i.MX51/53/6Q */
++#define IMX_AUDMUX_RXFS			0x8
++#define IMX_AUDMUX_RXCLK		0x8
++
+ /* Register definitions for the i.MX21/27 Digital Audio Multiplexer */
+ #define IMX_AUDMUX_V1_PCR_INMMASK(x)	((x) & 0xff)
+ #define IMX_AUDMUX_V1_PCR_INMEN		(1 << 8)

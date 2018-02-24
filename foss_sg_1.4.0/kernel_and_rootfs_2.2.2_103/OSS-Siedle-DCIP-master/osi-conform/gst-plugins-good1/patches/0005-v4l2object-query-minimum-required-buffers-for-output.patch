@@ -1,0 +1,39 @@
+From: =?UTF-8?q?Aur=C3=A9lien=20Zanelli?= <aurelien.zanelli@parrot.com>
+Date: Fri, 25 Jul 2014 17:42:20 +0200
+Subject: [PATCH] v4l2object: query minimum required buffers for output
+
+Some v4l2 devices could require a minimum buffers different from default
+values. Rather than blindly propose a pool with min-buffers set to the
+default value, it ask the device using control ioctl.
+---
+ sys/v4l2/gstv4l2object.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index e0e620b6571f..5d1f378925a0 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -4126,6 +4126,7 @@ gst_v4l2_object_propose_allocation (GstV4l2Object * obj, GstQuery * query)
+   guint size, min, max;
+   GstCaps *caps;
+   gboolean need_pool;
++  struct v4l2_control ctl = { 0, };
+ 
+   /* Set defaults allocation parameters */
+   size = obj->info.size;
+@@ -4161,6 +4162,15 @@ gst_v4l2_object_propose_allocation (GstV4l2Object * obj, GstQuery * query)
+ 
+   min = MAX (obj->min_buffers, GST_V4L2_MIN_BUFFERS);
+ 
++  /* Some devices may expose a minimum */
++  ctl.id = V4L2_CID_MIN_BUFFERS_FOR_OUTPUT;
++  if (v4l2_ioctl (obj->video_fd, VIDIOC_G_CTRL, &ctl) >= 0) {
++    GST_DEBUG_OBJECT (obj->element, "driver require a miminum of %d buffers",
++        ctl.value);
++
++    min = MAX (ctl.value, GST_V4L2_MIN_BUFFERS);
++  }
++
+   gst_query_add_allocation_pool (query, pool, size, min, max);
+ 
+   /* we also support various metadata */

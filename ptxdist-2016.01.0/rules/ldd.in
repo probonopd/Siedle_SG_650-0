@@ -1,0 +1,7 @@
+## SECTION=debug_tools
+
+config LDD
+	tristate
+	prompt "ldd"
+	help
+	  ldd prints shared library dependencies of object files

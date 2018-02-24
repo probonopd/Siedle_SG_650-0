@@ -1,0 +1,26 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 8 Dec 2015 18:49:53 +0100
+Subject: [PATCH] reset: remove unnecessary local variable initialization from
+ of_reset_control_get_by_index
+
+There is no need to initialize rstc, as it is unconditionally
+assigned the return value of a kzalloc call before use.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/reset/core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/reset/core.c b/drivers/reset/core.c
+index 87376638948d..4a63b379361c 100644
+--- a/drivers/reset/core.c
++++ b/drivers/reset/core.c
+@@ -152,7 +152,7 @@ EXPORT_SYMBOL_GPL(reset_control_status);
+ struct reset_control *of_reset_control_get_by_index(struct device_node *node,
+ 					   int index)
+ {
+-	struct reset_control *rstc = ERR_PTR(-EPROBE_DEFER);
++	struct reset_control *rstc;
+ 	struct reset_controller_dev *r, *rcdev;
+ 	struct of_phandle_args args;
+ 	int rstc_id;

@@ -1,0 +1,80 @@
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+Date: Thu, 5 Nov 2015 14:54:56 +0900
+Subject: [PATCH] reset: check return value of reset_controller_register()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Currently, reset_controller_register() always return 0, but it would
+be better to check its return code.
+
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+Acked-by: Sören Brinkmann <soren.brinkmann@xilinx.com>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/reset/reset-berlin.c  | 4 +---
+ drivers/reset/reset-socfpga.c | 3 +--
+ drivers/reset/reset-sunxi.c   | 3 +--
+ drivers/reset/reset-zynq.c    | 3 +--
+ 4 files changed, 4 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/reset/reset-berlin.c b/drivers/reset/reset-berlin.c
+index 3c922d37255c..970b1ad60293 100644
+--- a/drivers/reset/reset-berlin.c
++++ b/drivers/reset/reset-berlin.c
+@@ -87,9 +87,7 @@ static int berlin2_reset_probe(struct platform_device *pdev)
+ 	priv->rcdev.of_reset_n_cells = 2;
+ 	priv->rcdev.of_xlate = berlin_reset_xlate;
+ 
+-	reset_controller_register(&priv->rcdev);
+-
+-	return 0;
++	return reset_controller_register(&priv->rcdev);
+ }
+ 
+ static const struct of_device_id berlin_reset_dt_match[] = {
+diff --git a/drivers/reset/reset-socfpga.c b/drivers/reset/reset-socfpga.c
+index 1a6c5d66c83b..b7d773d9248c 100644
+--- a/drivers/reset/reset-socfpga.c
++++ b/drivers/reset/reset-socfpga.c
+@@ -133,9 +133,8 @@ static int socfpga_reset_probe(struct platform_device *pdev)
+ 	data->rcdev.nr_resets = NR_BANKS * BITS_PER_LONG;
+ 	data->rcdev.ops = &socfpga_reset_ops;
+ 	data->rcdev.of_node = pdev->dev.of_node;
+-	reset_controller_register(&data->rcdev);
+ 
+-	return 0;
++	return reset_controller_register(&data->rcdev);
+ }
+ 
+ static int socfpga_reset_remove(struct platform_device *pdev)
+diff --git a/drivers/reset/reset-sunxi.c b/drivers/reset/reset-sunxi.c
+index 3d95c87160b3..29ed39dbf326 100644
+--- a/drivers/reset/reset-sunxi.c
++++ b/drivers/reset/reset-sunxi.c
+@@ -108,9 +108,8 @@ static int sunxi_reset_init(struct device_node *np)
+ 	data->rcdev.nr_resets = size * 32;
+ 	data->rcdev.ops = &sunxi_reset_ops;
+ 	data->rcdev.of_node = np;
+-	reset_controller_register(&data->rcdev);
+ 
+-	return 0;
++	return reset_controller_register(&data->rcdev);
+ 
+ err_alloc:
+ 	kfree(data);
+diff --git a/drivers/reset/reset-zynq.c b/drivers/reset/reset-zynq.c
+index 89318a5d5bd7..c6b3cd8b40ad 100644
+--- a/drivers/reset/reset-zynq.c
++++ b/drivers/reset/reset-zynq.c
+@@ -121,9 +121,8 @@ static int zynq_reset_probe(struct platform_device *pdev)
+ 	priv->rcdev.nr_resets = resource_size(res) / 4 * BITS_PER_LONG;
+ 	priv->rcdev.ops = &zynq_reset_ops;
+ 	priv->rcdev.of_node = pdev->dev.of_node;
+-	reset_controller_register(&priv->rcdev);
+ 
+-	return 0;
++	return reset_controller_register(&priv->rcdev);
+ }
+ 
+ static int zynq_reset_remove(struct platform_device *pdev)

@@ -1,0 +1,168 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 28 Jul 2016 13:50:02 +0200
+Subject: [PATCH] [media] imx-ipuv3-csi: serialize stream pause/resume with
+ resource acquisition
+
+Unstable video signals may cause signal lock or lock loss interrupts
+immediately before the CSI resources are acquired in start_streaming.
+Lock stream pause/resume against resource acquisition and handle early
+lock/loss events without crashing.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 51 +++++++++++++++++++++++++++---
+ 1 file changed, 46 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index f882bf1534da..ef6faff54873 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -22,6 +22,7 @@
+ #include <linux/debugfs.h>
+ #include <linux/device.h>
+ #include <linux/kernel.h>
++#include <linux/lockdep.h>
+ #include <linux/module.h>
+ #include <linux/delay.h>
+ #include <linux/errno.h>
+@@ -148,6 +149,7 @@ struct ipucsi {
+ 
+ 	spinlock_t			lock;
+ 	struct mutex			mutex;
++	struct mutex			resource_lock;
+ 	struct vb2_alloc_ctx		*alloc_ctx;
+ 	enum v4l2_field			field;
+ 	int				sequence;
+@@ -291,11 +293,19 @@ int ipucsi_resume_stream(struct ipucsi *ipucsi)
+ 	unsigned long flags;
+ 	dma_addr_t eba;
+ 
++	lockdep_assert_held(&ipucsi->resource_lock);
++
+ 	if (!ipucsi->paused) {
+ 		v4l2_dbg(1, debug, ipucsi->v4l2_dev, "not paused, no need to resume\n");
+ 		return 0;
+ 	}
+ 
++	if (!ipucsi->ipuch) {
++		v4l2_dbg(1, debug, ipucsi->v4l2_dev,
++			 "CSI resources not acquired, not resuming\n");
++		return 0;
++	}
++
+ 	spin_lock_irqsave(&ipucsi->lock, flags);
+ 
+ 	if (list_empty(&ipucsi->capture)) {
+@@ -446,9 +456,17 @@ int ipucsi_pause_stream(struct ipucsi *ipucsi)
+ {
+ 	unsigned long flags;
+ 
++	lockdep_assert_held(&ipucsi->resource_lock);
++
+ 	if (ipucsi->paused)
+ 		return 0;
+ 
++	if (!ipucsi->ipuch) {
++		v4l2_dbg(1, debug, ipucsi->v4l2_dev,
++			 "CSI resources not acquired, not resuming\n");
++		return 0;
++	}
++
+ 	ipu_csi_disable(ipucsi->csi);
+ 	ipu_idmac_disable_channel(ipucsi->ipuch);
+ 	/*
+@@ -564,10 +582,17 @@ static void ipucsi_v4l2_dev_notify(struct v4l2_subdev *sd,
+ 		v4l2_dbg(1, debug, ipucsi->v4l2_dev, "sync lock event: %s\n",
+ 			 lock ? "locked to signal" : "signal lost");
+ 
++		/*
++		 * This can be called from a v4l2 subdevice driver interrupt,
++		 * via v4l2_subdev_notify_event, any time. Serialize with
++		 * resource acquisition.
++		 */
++		mutex_lock(&ipucsi->resource_lock);
+ 		if (lock)
+ 			ipucsi_resume_stream(ipucsi);
+ 		else
+ 			ipucsi_pause_stream(ipucsi);
++		mutex_unlock(&ipucsi->resource_lock);
+ 
+ 		v4l2_event_queue(&ipucsi->vdev, arg);
+ 	}
+@@ -693,9 +718,13 @@ static int ipucsi_get_resources(struct ipucsi *ipucsi)
+ 	int ret;
+ 	int i;
+ 
++	mutex_lock(&ipucsi->resource_lock);
++
+ 	entity = ipu_get_entity(ipu, ipucsi->id ? IPU_CSI1: IPU_CSI0);
+-	if (!entity)
+-		return -ENODEV;
++	if (!entity) {
++		ret = -ENODEV;
++		goto out;
++	}
+ 	ipucsi->csi_entity = entity;
+ 
+ 	/* Walk the graph starting from the CSI entity */
+@@ -721,7 +750,8 @@ static int ipucsi_get_resources(struct ipucsi *ipucsi)
+ 	if (!entity) {
+ 		dev_err(ipucsi->dev, "No output channel connected to CSI%d\n",
+ 			ipucsi->id);
+-		return -EINVAL;
++		ret = -EINVAL;
++		goto out;
+ 	}
+ 
+ 	channel = ipu_media_pad_to_channel(ipu, &entity->pads[1]);
+@@ -732,7 +762,7 @@ static int ipucsi_get_resources(struct ipucsi *ipucsi)
+ 	if (IS_ERR(ipucsi->ipuch)) {
+ 		ret = PTR_ERR(ipucsi->ipuch);
+ 		ipucsi->ipuch = NULL;
+-		return ret;
++		goto out;
+ 	}
+ 
+ 	switch (channel) {
+@@ -762,15 +792,23 @@ static int ipucsi_get_resources(struct ipucsi *ipucsi)
+ 		break;
+ 	}
+ 
+-	return 0;
++	ret = 0;
++out:
++	mutex_unlock(&ipucsi->resource_lock);
++	return ret;
+ err:
+ 	dev_err(ipucsi->dev, "Failed to get %s: %d\n", entity->name, ret);
+ 	ipu_idmac_put(ipucsi->ipuch);
++	ipucsi->ipuch = NULL;
++	ipucsi->csi_entity = NULL;
++	mutex_unlock(&ipucsi->resource_lock);
+ 	return ret;
+ }
+ 
+ static void ipucsi_put_resources(struct ipucsi *ipucsi)
+ {
++	mutex_lock(&ipucsi->resource_lock);
++
+ 	if (ipucsi->ipuch) {
+ 		ipu_idmac_put(ipucsi->ipuch);
+ 		ipucsi->ipuch = NULL;
+@@ -787,6 +825,8 @@ static void ipucsi_put_resources(struct ipucsi *ipucsi)
+ 	}
+ 
+ 	ipucsi->csi_entity = NULL;
++
++	mutex_unlock(&ipucsi->resource_lock);
+ }
+ 
+ /*
+@@ -2379,6 +2419,7 @@ static int ipucsi_probe(struct platform_device *pdev)
+ 	INIT_LIST_HEAD(&ipucsi->capture);
+ 	spin_lock_init(&ipucsi->lock);
+ 	mutex_init(&ipucsi->mutex);
++	mutex_init(&ipucsi->resource_lock);
+ 	INIT_DELAYED_WORK(&ipucsi->pause_work, ipucsi_pause_work);
+ 
+ 	ipucsi->ipu = ipu;

@@ -1,0 +1,145 @@
+From e2eb8b58916a5a6ba7d0ac2063d6b196f5fd350b Mon Sep 17 00:00:00 2001
+From: Stephan Linz <linz@li-pro.net>
+Date: Wed, 20 Apr 2011 22:05:41 +0200
+Subject: [PATCH 06/10] Add support for more XMEGA devices
+
+Add support for a bunch of new AVR XMEGA devices: atxmega64a1u,
+atxmega128a1u, atxmega128b1, atxmega16x1, atxmega32x1
+
+Original ATMEL patch from:
+http://distribute.atmel.no/tools/opensource/avr-gcc/gcc-4.4.3/53-gcc-4.4.3-xmega128a1u-64a1u.patch
+http://distribute.atmel.no/tools/opensource/avr-gcc/gcc-4.4.3/63-gcc-4.4.3-atxmega16x1-32x1.patch
+http://distribute.atmel.no/tools/opensource/avr-gcc/gcc-4.4.3/64-gcc-4.4.3-atxmega128b1.patch
+
+Signed-off-by: Stephan Linz <linz@li-pro.net>
+---
+ gcc/config/avr/avr.c |    5 +++++
+ gcc/config/avr/avr.h |   20 +++++++++++++++-----
+ gcc/config/avr/t-avr |    7 ++++++-
+ 3 files changed, 26 insertions(+), 6 deletions(-)
+
+diff --git a/gcc/config/avr/avr.c b/gcc/config/avr/avr.c
+index 9c410a5..b818c8b 100644
+--- a/gcc/config/avr/avr.c
++++ b/gcc/config/avr/avr.c
+@@ -366,8 +366,10 @@ static const struct mcu_type_s avr_mcu_types[] = {
+   { "avrxmega2",    ARCH_AVRXMEGA2, NULL },
+   { "atxmega16a4",  ARCH_AVRXMEGA2, "__AVR_ATxmega16A4__" },
+   { "atxmega16d4",  ARCH_AVRXMEGA2, "__AVR_ATxmega16D4__" },
++  { "atxmega16x1",  ARCH_AVRXMEGA2, "__AVR_ATxmega16X1__" },
+   { "atxmega32a4",  ARCH_AVRXMEGA2, "__AVR_ATxmega32A4__" },
+   { "atxmega32d4",  ARCH_AVRXMEGA2, "__AVR_ATxmega32D4__" },
++  { "atxmega32x1",  ARCH_AVRXMEGA2, "__AVR_ATxmega32X1__" },
+     /* Xmega, > 8K, <= 64K FLASH, > 64K RAM.  */
+     /* { "avrxmega3",    ARCH_AVRXMEGA3, NULL }, */
+     /* Xmega, > 64K, <= 128K FLASH, <= 64K RAM.  */
+@@ -377,9 +379,11 @@ static const struct mcu_type_s avr_mcu_types[] = {
+     /* Xmega, > 64K, <= 128K FLASH, > 64K RAM.  */
+   { "avrxmega5",    ARCH_AVRXMEGA5, NULL },
+   { "atxmega64a1",  ARCH_AVRXMEGA5, "__AVR_ATxmega64A1__" },
++  { "atxmega64a1u", ARCH_AVRXMEGA5, "__AVR_ATxmega64A1U__" },
+     /* Xmega, > 128K, <= 256K FLASH, <= 64K RAM.  */
+   { "avrxmega6",    ARCH_AVRXMEGA6, NULL },
+   { "atxmega128a3", ARCH_AVRXMEGA6, "__AVR_ATxmega128A3__" },
++  { "atxmega128b1", ARCH_AVRXMEGA6, "__AVR_ATxmega128B1__" },
+   { "atxmega128d3", ARCH_AVRXMEGA6, "__AVR_ATxmega128D3__" },
+   { "atxmega192a3", ARCH_AVRXMEGA6, "__AVR_ATxmega192A3__" },
+   { "atxmega192d3", ARCH_AVRXMEGA6, "__AVR_ATxmega192D3__" },
+@@ -389,6 +393,7 @@ static const struct mcu_type_s avr_mcu_types[] = {
+     /* Xmega, > 128K, <= 256K FLASH, > 64K RAM.  */
+   { "avrxmega7",    ARCH_AVRXMEGA7, NULL },
+   { "atxmega128a1", ARCH_AVRXMEGA7, "__AVR_ATxmega128A1__" },
++  { "atxmega128a1u",ARCH_AVRXMEGA7, "__AVR_ATxmega128A1U__" },
+     /* Assembler only.  */
+   { "avr1",         ARCH_AVR1, NULL },
+   { "at90s1200",    ARCH_AVR1, "__AVR_AT90S1200__" },
+diff --git a/gcc/config/avr/avr.h b/gcc/config/avr/avr.h
+index 3cbe842..b0d5d60 100644
+--- a/gcc/config/avr/avr.h
++++ b/gcc/config/avr/avr.h
+@@ -975,18 +975,23 @@ mmcu=*:-mmcu=%*}"
+ %{mmcu=atmega256*:-m avr6}\
+ %{mmcu=atxmega16a4|\
+   mmcu=atxmega16d4|\
++  mmcu=atxmega16x1|\
+   mmcu=atxmega32d4|\
+-  mmcu=atxmega32a4:-m avrxmega2} \
++  mmcu=atxmega32a4|\
++  mmcu=atxmega32x1:-m avrxmega2} \
+ %{mmcu=atxmega64a3|\
+   mmcu=atxmega64d3:-m avrxmega4} \
+-%{mmcu=atxmega64a1:-m avrxmega5} \
++%{mmcu=atxmega64a1|\
++  mmcu=atxmega64a1u:-m avrxmega5} \
+ %{mmcu=atxmega128a3|\
++  mmcu=atxmega128b1|\
+   mmcu=atxmega128d3|\
+   mmcu=atxmega192a3|\
+   mmcu=atxmega192d3|\
+   mmcu=atxmega256a3*|\
+   mmcu=atxmega256d3:-m avrxmega6} \
+-%{mmcu=atxmega128a1:-m avrxmega7} \
++%{mmcu=atxmega128a1|\
++  mmcu=atxmega128a1u:-m avrxmega7} \
+ %{mmcu=atmega324*|\
+   mmcu=atmega325*|\
+   mmcu=atmega328|\
+@@ -1211,18 +1216,23 @@ mmcu=*:-mmcu=%*}"
+ %{mmcu=avrxmega2|mmcu=atxmega32d4:crtx32d4.o%s} \
+ %{mmcu=atxmega16a4:crtx16a4.o%s} \
+ %{mmcu=atxmega16d4:crtx16d4.o%s} \
+-%{mmcu=atxmega3|mmcu=atxmega32a4:crtx32a4.o%s} \
++%{mmcu=atxmega16x1:crtx16x1.o%s} \
++%{mmcu=atxmega32a4:crtx32a4.o%s} \
++%{mmcu=atxmega32x1:crtx32x1.o%s} \
+ %{mmcu=atxmega4|mmcu=atxmega64a3:crtx64a3.o%s} \
+ %{mmcu=atxmega64d3:crtx64d3.o%s} \
+ %{mmcu=atxmega5|mmcu=atxmega64a1:crtx64a1.o%s} \
++%{mmcu=atxmega64a1u:crtx64a1u.o%s} \
+ %{mmcu=atxmega6|mmcu=atxmega128a3:crtx128a3.o%s} \
++%{mmcu=atxmega128b1:crtx128b1.o%s}\
+ %{mmcu=atxmega128d3:crtx128d3.o%s}\
+ %{mmcu=atxmega192a3:crtx192a3.o%s}\
+ %{mmcu=atxmega192d3:crtx192d3.o%s}\
+ %{mmcu=atxmega256a3:crtx256a3.o%s} \
+ %{mmcu=atxmega256a3b:crtx256a3b.o%s} \
+ %{mmcu=atxmega256d3:crtx256d3.o%s} \
+-%{mmcu=atxmega7|mmcu=atxmega128a1:crtx128a1.o%s}"
++%{mmcu=atxmega7|mmcu=atxmega128a1:crtx128a1.o%s} \
++%{mmcu=atxmega128a1u:crtx128a1u.o%s}"
+ 
+ #define EXTRA_SPECS {"crt_binutils", CRT_BINUTILS_SPECS},
+ 
+diff --git a/gcc/config/avr/t-avr b/gcc/config/avr/t-avr
+index af9e1de..b068d3c 100644
+--- a/gcc/config/avr/t-avr
++++ b/gcc/config/avr/t-avr
+@@ -227,19 +227,24 @@ MULTILIB_MATCHES = \
+ 	mmcu?avr6=mmcu?atmega2561 \
+ 	mmcu?avrxmega2=mmcu?atxmega16a4 \
+ 	mmcu?avrxmega2=mmcu?atxmega16d4 \
++	mmcu?avrxmega2=mmcu?atxmega16x1 \
+ 	mmcu?avrxmega2=mmcu?atxmega32d4 \
+ 	mmcu?avrxmega2=mmcu?atxmega32a4 \
++	mmcu?avrxmega2=mmcu?atxmega32x1 \
+ 	mmcu?avrxmega4=mmcu?atxmega64a3 \
+ 	mmcu?avrxmega4=mmcu?atxmega64d3 \
+ 	mmcu?avrxmega5=mmcu?atxmega64a1 \
++	mmcu?avrxmega5=mmcu?atxmega64a1u \
+ 	mmcu?avrxmega6=mmcu?atxmega128a3 \
++	mmcu?avrxmega6=mmcu?atxmega128b1 \
+ 	mmcu?avrxmega6=mmcu?atxmega128d3 \
+ 	mmcu?avrxmega6=mmcu?atxmega192a3 \
+ 	mmcu?avrxmega6=mmcu?atxmega192d3 \
+ 	mmcu?avrxmega6=mmcu?atxmega256a3 \
+ 	mmcu?avrxmega6=mmcu?atxmega256a3b \
+ 	mmcu?avrxmega6=mmcu?atxmega256d3 \
+-	mmcu?avrxmega7=mmcu?atxmega128a1
++	mmcu?avrxmega7=mmcu?atxmega128a1 \
++	mmcu?avrxmega7=mmcu?atxmega128a1u
+ 
+ MULTILIB_EXCEPTIONS =
+ 
+-- 
+1.6.0.4
+

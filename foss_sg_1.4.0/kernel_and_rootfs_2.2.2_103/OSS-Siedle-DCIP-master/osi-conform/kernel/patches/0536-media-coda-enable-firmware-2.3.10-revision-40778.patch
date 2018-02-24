@@ -1,0 +1,24 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 22 Jul 2014 10:42:16 +0200
+Subject: [PATCH] [media] coda: enable firmware 2.3.10, revision 40778
+
+This patch adds the Freescale i.MX6 CODA960 firmware version 2.3.10,
+revision 40778 to the list of supported firmware versions.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-bit.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index 2e7959c70a83..beb5cca14ed2 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -740,6 +740,7 @@ static u32 coda_supported_firmwares[] = {
+ 	CODA_FIRMWARE_VERNUM(CODA_7541, 1, 4, 50),
+ 	CODA_FIRMWARE_VERNUM(CODA_960, 2, 1, 5),
+ 	CODA_FIRMWARE_VERNUM(CODA_960, 2, 1, 9),
++	CODA_FIRMWARE_VERNUM(CODA_960, 2, 3, 10), /* revision 40778 from firmware-imx-3.5.7-1.0.0 */
+ };
+ 
+ static bool coda_firmware_supported(u32 vernum)

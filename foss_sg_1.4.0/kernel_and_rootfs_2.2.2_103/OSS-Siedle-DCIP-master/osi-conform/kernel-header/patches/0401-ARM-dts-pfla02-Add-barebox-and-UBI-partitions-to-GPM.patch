@@ -1,0 +1,32 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 4 Nov 2013 12:44:54 +0100
+Subject: [PATCH] ARM: dts: pfla02: Add barebox and UBI partitions to GPMI
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi b/arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi
+index d6d98d426384..becf4bdc44b2 100644
+--- a/arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi
+@@ -377,6 +377,18 @@
+ 	pinctrl-0 = <&pinctrl_pcie>;
+ 	reset-gpio = <&gpio4 17 0>;
+ 	status = "disabled";
++	#address-cells = <1>;
++	#size-cells = <1>;
++
++	partition@0 {
++		label = "barebox";
++		reg = <0x0 0x200000>;
++	};
++
++	partition@1 {
++		label = "ubi";
++		reg = <0x200000 0x3fe00000>;
++	};
+ };
+ 
+ &uart3 {

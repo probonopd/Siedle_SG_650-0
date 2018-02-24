@@ -1,0 +1,23 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 3 Nov 2016 11:53:07 +0100
+Subject: [PATCH] jpegparse: do not overwrite timestamps
+
+Only add fake timestamps if there were none before.
+---
+ gst/jpegformat/gstjpegparse.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/gst/jpegformat/gstjpegparse.c b/gst/jpegformat/gstjpegparse.c
+index 77e53a6193b2..9330bf614d1b 100644
+--- a/gst/jpegformat/gstjpegparse.c
++++ b/gst/jpegformat/gstjpegparse.c
+@@ -761,6 +761,9 @@ gst_jpeg_parse_pre_push_frame (GstBaseParse * bparse, GstBaseParseFrame * frame)
+   GstJpegParse *parse = GST_JPEG_PARSE_CAST (bparse);
+   GstBuffer *outbuf = frame->buffer;
+ 
++  if (GST_CLOCK_TIME_IS_VALID (GST_BUFFER_TIMESTAMP (outbuf)))
++    return GST_FLOW_OK;
++
+   GST_BUFFER_TIMESTAMP (outbuf) = parse->priv->next_ts;
+ 
+   if (parse->priv->has_fps && GST_CLOCK_TIME_IS_VALID (parse->priv->next_ts)

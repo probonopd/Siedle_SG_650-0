@@ -1,0 +1,9 @@
+## SECTION=scripting_languages
+config GMAKE
+	tristate
+	prompt "gmake"
+	select LIBC_RT
+	select LIBC_PTHREAD
+	help
+	  gmake is GNU make.
+

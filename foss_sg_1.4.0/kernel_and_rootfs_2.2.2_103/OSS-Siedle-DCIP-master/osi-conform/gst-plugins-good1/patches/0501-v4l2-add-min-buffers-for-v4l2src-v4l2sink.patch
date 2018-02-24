@@ -1,0 +1,99 @@
+From: Peter Seiderer <ps.report@gmx.net>
+Date: Tue, 3 Mar 2015 16:38:18 +0100
+Subject: [PATCH] v4l2: add min-buffers for v4l2src/v4l2sink
+
+---
+ sys/v4l2/gstv4l2bufferpool.c |  7 +++++++
+ sys/v4l2/gstv4l2object.c     | 19 +++++++++++++++++++
+ sys/v4l2/gstv4l2object.h     |  2 ++
+ 3 files changed, 28 insertions(+)
+
+diff --git a/sys/v4l2/gstv4l2bufferpool.c b/sys/v4l2/gstv4l2bufferpool.c
+index 23c41c5a0d70..dbb854c345e8 100644
+--- a/sys/v4l2/gstv4l2bufferpool.c
++++ b/sys/v4l2/gstv4l2bufferpool.c
+@@ -546,6 +546,13 @@ gst_v4l2_buffer_pool_set_config (GstBufferPool * bpool, GstStructure * config)
+         | GST_V4L2_ALLOCATOR_FLAG_DMABUF_CREATE_BUFS);
+   }
+ 
++  if (min_buffers < obj->custom_min_buffers) {
++    updated = TRUE;
++    min_buffers = obj->custom_min_buffers;
++    GST_INFO_OBJECT (pool, "increasing minimum buffers to %u on user request",
++        min_buffers);
++  }
++
+   if (min_buffers < GST_V4L2_MIN_BUFFERS) {
+     updated = TRUE;
+     min_buffers = GST_V4L2_MIN_BUFFERS;
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index 259846e3fa13..1676c0848a25 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -383,6 +383,16 @@ gst_v4l2_object_install_properties_helper (GObjectClass * gobject_class,
+           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ 
+   /**
++   * GstV4l2Src:min-buffers:
++   *
++   * Minimum allocated buffers
++   */
++  g_object_class_install_property (gobject_class, PROP_MIN_BUFFERS,
++      g_param_spec_int ("min-buffers", "Minimum allocated buffers",
++          "Minimum allocated buffers value",
++          0, G_MAXINT, 2, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
++
++  /**
+    * GstV4l2Src:extra-controls:
+    *
+    * Additional v4l2 controls for the device. The controls are identified
+@@ -571,6 +581,9 @@ gst_v4l2_object_new (GstElement * element,
+   v4l2object->update_fps_func = update_fps_func;
+ 
+   v4l2object->video_fd = -1;
++
++  v4l2object->custom_min_buffers = 2;
++
+   v4l2object->active = FALSE;
+   v4l2object->videodev = g_strdup (default_device);
+ 
+@@ -820,6 +833,9 @@ gst_v4l2_object_set_property_helper (GstV4l2Object * v4l2object,
+     case PROP_IO_MODE:
+       v4l2object->req_mode = g_value_get_enum (value);
+       break;
++    case PROP_MIN_BUFFERS:
++      v4l2object->custom_min_buffers = g_value_get_int (value);
++      break;
+     case PROP_CAPTURE_IO_MODE:
+       g_return_val_if_fail (!V4L2_TYPE_IS_OUTPUT (v4l2object->type), FALSE);
+       v4l2object->req_mode = g_value_get_enum (value);
+@@ -976,6 +992,9 @@ gst_v4l2_object_get_property_helper (GstV4l2Object * v4l2object,
+     case PROP_IO_MODE:
+       g_value_set_enum (value, v4l2object->req_mode);
+       break;
++    case PROP_MIN_BUFFERS:
++      g_value_set_int (value, v4l2object->custom_min_buffers);
++      break;
+     case PROP_CAPTURE_IO_MODE:
+       g_return_val_if_fail (!V4L2_TYPE_IS_OUTPUT (v4l2object->type), FALSE);
+       g_value_set_enum (value, v4l2object->req_mode);
+diff --git a/sys/v4l2/gstv4l2object.h b/sys/v4l2/gstv4l2object.h
+index a836715808dc..9f6cd17cc83b 100644
+--- a/sys/v4l2/gstv4l2object.h
++++ b/sys/v4l2/gstv4l2object.h
+@@ -89,6 +89,7 @@ struct _GstV4l2Object {
+   /* the video-device's file descriptor */
+   gint video_fd;
+   GstV4l2IOMode mode;
++  gint custom_min_buffers;
+ 
+   gboolean active;
+   gboolean streaming;
+@@ -193,6 +194,7 @@ GType gst_v4l2_object_get_type (void);
+     PROP_HUE,                 \
+     PROP_TV_NORM,             \
+     PROP_IO_MODE,             \
++    PROP_MIN_BUFFERS,         \
+     PROP_OUTPUT_IO_MODE,      \
+     PROP_CAPTURE_IO_MODE,     \
+     PROP_EXTRA_CONTROLS,      \

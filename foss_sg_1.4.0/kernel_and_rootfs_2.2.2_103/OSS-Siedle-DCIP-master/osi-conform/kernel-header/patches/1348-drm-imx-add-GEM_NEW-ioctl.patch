@@ -1,0 +1,126 @@
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Tue, 9 Feb 2016 18:09:53 +0100
+Subject: [PATCH] drm/imx: add GEM_NEW ioctl
+
+Allows userspace to allocate GEM objects from imx-drm, without
+abusing the dumb buffer ioctls.
+
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ drivers/gpu/drm/imx/imx-drm-core.c | 38 ++++++++++++++++++++++++++++++++--
+ include/uapi/drm/imx_drm.h         | 42 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 78 insertions(+), 2 deletions(-)
+ create mode 100644 include/uapi/drm/imx_drm.h
+
+diff --git a/drivers/gpu/drm/imx/imx-drm-core.c b/drivers/gpu/drm/imx/imx-drm-core.c
+index a4a77a0a41a9..38631ec0a177 100644
+--- a/drivers/gpu/drm/imx/imx-drm-core.c
++++ b/drivers/gpu/drm/imx/imx-drm-core.c
+@@ -26,6 +26,7 @@
+ #include <drm/drm_fb_cma_helper.h>
+ #include <drm/drm_plane_helper.h>
+ #include <drm/drm_of.h>
++#include <drm/imx_drm.h>
+ #include <video/imx-ipu-v3.h>
+ 
+ #include "imx-drm.h"
+@@ -435,8 +436,41 @@ int imx_drm_encoder_parse_of(struct drm_device *drm,
+ }
+ EXPORT_SYMBOL_GPL(imx_drm_encoder_parse_of);
+ 
++static int imx_drm_ioctl_gem_new(struct drm_device *dev, void *data,
++		struct drm_file *file)
++{
++	struct drm_imx_gem_new *args = data;
++	struct drm_gem_cma_object *cma_obj;
++	struct drm_gem_object *gem_obj;
++	int ret;
++
++	/* no valid flags defined */
++	if (args->flags)
++		return -EINVAL;
++
++	cma_obj = drm_gem_cma_create(dev, args->size);
++	if (IS_ERR(cma_obj))
++		return PTR_ERR(cma_obj);
++
++	gem_obj = &cma_obj->base;
++
++	ret = drm_gem_handle_create(file, gem_obj, &args->handle);
++	if (ret)
++		goto err_handle_create;
++
++	/* drop reference from allocate - handle holds it now. */
++	drm_gem_object_unreference_unlocked(gem_obj);
++
++	return 0;
++
++err_handle_create:
++	dev->driver->gem_free_object(gem_obj);
++
++	return ret;
++}
++
+ static const struct drm_ioctl_desc imx_drm_ioctls[] = {
+-	/* none so far */
++	DRM_IOCTL_DEF_DRV(IMX_GEM_NEW, imx_drm_ioctl_gem_new, DRM_AUTH|DRM_RENDER_ALLOW),
+ };
+ 
+ static struct drm_driver imx_drm_driver = {
+@@ -471,7 +505,7 @@ static struct drm_driver imx_drm_driver = {
+ 	.desc			= "i.MX DRM graphics",
+ 	.date			= "20120507",
+ 	.major			= 1,
+-	.minor			= 0,
++	.minor			= 1,
+ 	.patchlevel		= 0,
+ };
+ 
+diff --git a/include/uapi/drm/imx_drm.h b/include/uapi/drm/imx_drm.h
+new file mode 100644
+index 000000000000..4ae04187aa72
+--- /dev/null
++++ b/include/uapi/drm/imx_drm.h
+@@ -0,0 +1,42 @@
++/*
++ * Copyright 2016 Pengutronix
++ * All Rights Reserved.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the
++ * "Software"), to deal in the Software without restriction, including
++ * without limitation the rights to use, copy, modify, merge, publish,
++ * distribute, sub license, and/or sell copies of the Software, and to
++ * permit persons to whom the Software is furnished to do so, subject to
++ * the following conditions:
++ *
++ * The above copyright notice and this permission notice (including the
++ * next paragraph) shall be included in all copies or substantial portions
++ * of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
++ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
++ * IN NO EVENT SHALL TUNGSTEN GRAPHICS AND/OR ITS SUPPLIERS BE LIABLE FOR
++ * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
++ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
++ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
++ *
++ */
++
++#ifndef _UAPI_IMX_DRM_H_
++#define _UAPI_IMX_DRM_H_
++
++#include "drm.h"
++
++struct drm_imx_gem_new {
++	__u64 size;           /* in */
++	__u32 flags;          /* in, dummy for now, no valid values */
++	__u32 handle;         /* out */
++};
++
++#define DRM_IMX_GEM_NEW	0x00
++
++#define DRM_IOCTL_IMX_GEM_NEW      DRM_IOWR(DRM_COMMAND_BASE + DRM_IMX_GEM_NEW, struct drm_imx_gem_new)
++
++#endif /* _UAPI_IMX_DRM_H_ */

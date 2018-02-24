@@ -1,0 +1,8 @@
+## SECTION=shell_and_console
+
+config U_BOOT_TOOLS
+	tristate
+	prompt "u-boot-tools"
+	help
+	  some helpful tools from U-Boot project. Most important tool in
+	  this section is fw_printenv/fw_setenv to read/write U-Boot settings.

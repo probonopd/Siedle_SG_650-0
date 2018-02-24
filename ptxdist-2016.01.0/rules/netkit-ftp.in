@@ -1,0 +1,10 @@
+## SECTION=networking
+config NETKIT_FTP
+	tristate
+	prompt "netkit ftp client"
+	help
+	  This is the ftp client from netkit
+	  See http://freshmeat.net/projects/netkit/ for details.
+
+	  License: BSD License (original)
+

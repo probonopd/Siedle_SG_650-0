@@ -1,0 +1,46 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 14 Jan 2015 17:18:09 +0100
+Subject: [PATCH] [media] coda: implement encoder_cmd
+
+---
+ drivers/media/platform/coda/coda-common.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index e7d3fcb736ae..5ae25293dcaf 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -760,6 +760,24 @@ static int coda_g_selection(struct file *file, void *fh,
+ 	return 0;
+ }
+ 
++static int coda_try_encoder_cmd(struct file *file, void *fh,
++				struct v4l2_encoder_cmd *ec)
++{
++	if (ec->cmd != V4L2_ENC_CMD_STOP)
++		return -EINVAL;
++
++	return 0;
++}
++
++static int coda_encoder_cmd(struct file *file, void *fh,
++			    struct v4l2_encoder_cmd *ec)
++{
++	if (ec->cmd != V4L2_ENC_CMD_STOP)
++		return -EINVAL;
++
++	return 0;
++}
++
+ static int coda_try_decoder_cmd(struct file *file, void *fh,
+ 				struct v4l2_decoder_cmd *dc)
+ {
+@@ -933,6 +951,8 @@ static const struct v4l2_ioctl_ops coda_ioctl_ops = {
+ 
+ 	.vidioc_g_selection	= coda_g_selection,
+ 
++	.vidioc_try_encoder_cmd	= coda_try_encoder_cmd,
++	.vidioc_encoder_cmd	= coda_encoder_cmd,
+ 	.vidioc_try_decoder_cmd	= coda_try_decoder_cmd,
+ 	.vidioc_decoder_cmd	= coda_decoder_cmd,
+ 

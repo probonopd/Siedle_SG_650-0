@@ -1,0 +1,8 @@
+## SECTION=test_suites
+
+config EVTEST
+	tristate
+	prompt "evtest"
+	help
+	  Simple tool for Linux's input event debugging
+

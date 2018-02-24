@@ -1,0 +1,71 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 23 Jun 2016 15:16:31 +0200
+Subject: [PATCH] v4l2videoenc: fix gst_v4l2_video_enc_finish
+
+---
+ sys/v4l2/gstv4l2videoenc.c | 34 +++++++++++++++++++++-------------
+ 1 file changed, 21 insertions(+), 13 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2videoenc.c b/sys/v4l2/gstv4l2videoenc.c
+index a60c385c8763..e630f45cd7da 100644
+--- a/sys/v4l2/gstv4l2videoenc.c
++++ b/sys/v4l2/gstv4l2videoenc.c
+@@ -336,26 +336,38 @@ gst_v4l2_video_enc_finish (GstVideoEncoder * encoder)
+   GstFlowReturn ret = GST_FLOW_OK;
+ 
+   if (!g_atomic_int_get (&self->processing))
+-    return ret;
++    goto done;
+ 
+   GST_DEBUG_OBJECT (self, "Finishing encoding");
+ 
+-  /* Kill loop task */
+   GST_VIDEO_ENCODER_STREAM_UNLOCK (encoder);
+-  gst_pad_stop_task (encoder->srcpad);
+-  GST_VIDEO_ENCODER_STREAM_LOCK (encoder);
+ 
+-  if (self->output_flow != GST_FLOW_OK)
+-    return self->output_flow;
++  if (gst_v4l2_encoder_cmd (self->v4l2output, V4L2_ENC_CMD_STOP, 0)) {
++    GstTask *task = encoder->srcpad->task;
+ 
+-  while (ret == GST_FLOW_OK && gst_video_encoder_get_frames (encoder))
+-    ret = gst_v4l2_video_enc_push_frame (encoder);
++    /* If the encoder stop command succeeded, just wait until processing is
++     * finished */
+ 
+-  gst_v4l2_object_unlock (self->v4l2output);
++    GST_OBJECT_LOCK (task);
++    while (GST_TASK_STATE (task) == GST_TASK_STARTED)
++      GST_TASK_WAIT (task);
++    GST_OBJECT_UNLOCK (task);
+ 
++    ret = GST_FLOW_FLUSHING;
++  }
++
++  /* and ensure the processing thead has stopped in case another error
++   * occured. */
++  gst_v4l2_object_unlock (self->v4l2capture);
++  gst_pad_stop_task (encoder->srcpad);
++  GST_VIDEO_ENCODER_STREAM_LOCK (encoder);
++
++  if (ret == GST_FLOW_FLUSHING)
++    ret = self->output_flow;
+ 
+   GST_DEBUG_OBJECT (encoder, "Done draining buffers");
+ 
++done:
+   return ret;
+ }
+ 
+@@ -744,10 +756,6 @@ gst_v4l2_video_enc_sink_event (GstVideoEncoder * encoder, GstEvent * event)
+       gst_v4l2_object_unlock (self->v4l2output);
+       gst_v4l2_object_unlock (self->v4l2capture);
+       break;
+-    case GST_EVENT_EOS:
+-      GST_DEBUG_OBJECT (self, "got EOS event, send V4L2_ENC_CMD_STOP");
+-      gst_v4l2_encoder_cmd (self->v4l2output, V4L2_ENC_CMD_STOP, 0);
+-      break;
+     default:
+       break;
+   }

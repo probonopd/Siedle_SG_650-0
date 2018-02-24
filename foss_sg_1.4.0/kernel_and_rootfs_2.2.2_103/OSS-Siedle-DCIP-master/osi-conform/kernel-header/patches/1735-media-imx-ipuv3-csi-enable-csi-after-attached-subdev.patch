@@ -1,0 +1,39 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 17 Feb 2015 11:29:59 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: enable csi after attached subdevices
+
+If the CSI is enabled before setting up attached MIPI CSI-2
+subdevices, the image will roll through until vsync hits the
+right place.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 88e8171735f6..7469ae57c4ad 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -935,10 +935,6 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 	if (ipucsi->smfc)
+ 		ipu_smfc_enable(ipucsi->smfc);
+ 
+-	ipu_csi_enable(ipucsi->csi);
+-
+-	ipucsi->paused = false;
+-
+ 	if (ipucsi->ic) {
+ 		ipu_dump(ipucsi->ipu);
+ 		ipu_ic_dump(ipucsi->ic);
+@@ -957,6 +953,10 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 		goto stop_pipe;
+ 	}
+ 
++	ipu_csi_enable(ipucsi->csi);
++
++	ipucsi->paused = false;
++
+ 	return 0;
+ 
+ stop_pipe:

@@ -1,0 +1,6 @@
+# config for mingw-runtime-headers
+
+config MINGW_RUNTIME_HEADERS
+	bool
+	select W32API_HEADERS
+	# no prompt

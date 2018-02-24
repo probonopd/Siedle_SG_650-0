@@ -1,0 +1,27 @@
+# config for kernel-headers
+
+menuconfig KERNEL_HEADERS
+	prompt "kernel headers              "
+	bool
+
+if KERNEL_HEADERS
+
+config KERNEL_HEADERS_VERSION
+	string
+	prompt "kernel version"
+	default "2.6.25"
+	help
+	  Specify the kernel version here.
+
+config KERNEL_HEADERS_MD5
+	string
+	prompt "kernel source md5sum"
+
+config KERNEL_HEADERS_SANITIZED
+	bool
+	prompt "use sanitized headers"
+	help
+	  If selected we use the sanitized kernel headers instead of the
+	  original kernel headers.
+
+endif

@@ -1,0 +1,296 @@
+From: Luotao Fu <lfu@pengutronix.de>
+Date: Thu, 11 Dec 2008 17:02:52 +0100
+Subject: [PATCH] added RGB666 Support to ffmpegcolorspace
+
+This one adds RGB666 Support to ffmpegcolorspace
+Still very hacky, need to be enhanced before submitting to mainline
+
+Signed-off-by: Luotao Fu <l.fu@pengutronix.de>
+---
+ gst/ffmpegcolorspace/avcodec.h           |  1 +
+ gst/ffmpegcolorspace/gstffmpegcodecmap.c | 26 ++++++++++--
+ gst/ffmpegcolorspace/imgconvert.c        | 71 ++++++++++++++++++++++++++++++--
+ 3 files changed, 91 insertions(+), 7 deletions(-)
+
+diff --git a/gst/ffmpegcolorspace/avcodec.h b/gst/ffmpegcolorspace/avcodec.h
+index 6067aedb5e1b..6714b60350b1 100644
+--- a/gst/ffmpegcolorspace/avcodec.h
++++ b/gst/ffmpegcolorspace/avcodec.h
+@@ -94,6 +94,7 @@ enum PixelFormat {
+ 
+     PIX_FMT_AYUV4444,  ///< Packed pixel, A0 Y0 Cb Cr
+     PIX_FMT_YUVA420P,   ///< Planar YUV 4:4:2:0 (1 Cr & Cb sample per 2x2 Y & A samples) (A420)
++    PIX_FMT_RGB666,
+     PIX_FMT_NB
+ };
+ 
+diff --git a/gst/ffmpegcolorspace/gstffmpegcodecmap.c b/gst/ffmpegcolorspace/gstffmpegcodecmap.c
+index 97052cb454f1..a8d17cf0b583 100644
+--- a/gst/ffmpegcolorspace/gstffmpegcodecmap.c
++++ b/gst/ffmpegcolorspace/gstffmpegcodecmap.c
+@@ -228,6 +228,14 @@ gst_ffmpeg_pixfmt_to_caps (enum PixelFormat pix_fmt, AVCodecContext * context)
+       b_mask = 0xff000000;
+ #endif
+       break;
++    case PIX_FMT_RGB666:
++      bpp = 32;
++      depth = 18;
++      endianness = G_BIG_ENDIAN;
++      r_mask = 0x0003f000;
++      g_mask = 0x00000fc0;
++      b_mask = 0x0000003f;
++      break;
+     case PIX_FMT_BGR32:
+       bpp = 32;
+       depth = 24;
+@@ -684,7 +692,6 @@ gst_ffmpeg_caps_to_pixfmt (const GstCaps * caps,
+     }
+   } else if (gst_structure_has_name (structure, "video/x-raw-rgb")) {
+     gint bpp = 0, rmask = 0, endianness = 0, amask = 0, depth = 0;
+-
+     if (gst_structure_get_int (structure, "bpp", &bpp) &&
+         gst_structure_get_int (structure, "endianness", &endianness)) {
+       if (gst_structure_get_int (structure, "red_mask", &rmask)) {
+@@ -696,6 +703,8 @@ gst_ffmpeg_caps_to_pixfmt (const GstCaps * caps,
+                 context->pix_fmt = PIX_FMT_BGRA32;
+               else if (rmask == 0x00ff0000)
+                 context->pix_fmt = PIX_FMT_RGBA32;
++              else if (rmask == 0x0003f000)
++                context->pix_fmt = PIX_FMT_RGB666;
+               else if (rmask == 0xff000000)
+                 context->pix_fmt = PIX_FMT_ARGB32;
+               else              // if (r_mask = 0x000000ff)
+@@ -705,6 +714,11 @@ gst_ffmpeg_caps_to_pixfmt (const GstCaps * caps,
+                 context->pix_fmt = PIX_FMT_BGRA32;
+               else if (rmask == 0x0000ff00)
+                 context->pix_fmt = PIX_FMT_RGBA32;
++	      /* XXX: Hack here, gstreamer seems not to treat endianess in a
++	       * consistent way between plugins. Since we only have RGB666 for
++	       * now, We have to hack it around here */
++              else if (rmask == 0x0003f000)
++                context->pix_fmt = PIX_FMT_RGB666;
+               else if (rmask == 0x000000ff)
+                 context->pix_fmt = PIX_FMT_ARGB32;
+               else              // if (rmask == 0xff000000)
+@@ -716,7 +730,9 @@ gst_ffmpeg_caps_to_pixfmt (const GstCaps * caps,
+                 context->pix_fmt = PIX_FMT_RGB32;
+               else if (rmask == 0x0000ff00)
+                 context->pix_fmt = PIX_FMT_BGR32;
+-              else if (rmask == 0xff000000)
++	      else if (rmask == 0x0003f000)
++		context->pix_fmt = PIX_FMT_RGB666;
++	      else if (rmask == 0xff000000)
+                 context->pix_fmt = PIX_FMT_xRGB32;
+               else              // if (rmask == 0x000000ff)
+                 context->pix_fmt = PIX_FMT_BGRx32;
+@@ -725,7 +741,10 @@ gst_ffmpeg_caps_to_pixfmt (const GstCaps * caps,
+                 context->pix_fmt = PIX_FMT_RGB32;
+               else if (rmask == 0x00ff0000)
+                 context->pix_fmt = PIX_FMT_BGR32;
+-              else if (rmask == 0x000000ff)
++	      /* XXX: Hack here, see XXX section above for more details */
++	      else if (rmask == 0x0003f000)
++		context->pix_fmt = PIX_FMT_RGB666;
++	      else if (rmask == 0x000000ff)
+                 context->pix_fmt = PIX_FMT_xRGB32;
+               else              // if (rmask == 0xff000000)
+                 context->pix_fmt = PIX_FMT_BGRx32;
+@@ -922,6 +941,7 @@ gst_ffmpegcsp_avpicture_fill (AVPicture * picture,
+       picture->linesize[0] = stride;
+       return size;
+     case PIX_FMT_AYUV4444:
++    case PIX_FMT_RGB666:
+     case PIX_FMT_RGB32:
+     case PIX_FMT_RGBA32:
+     case PIX_FMT_ARGB32:
+diff --git a/gst/ffmpegcolorspace/imgconvert.c b/gst/ffmpegcolorspace/imgconvert.c
+index c670e25fff9b..696f32b3353c 100644
+--- a/gst/ffmpegcolorspace/imgconvert.c
++++ b/gst/ffmpegcolorspace/imgconvert.c
+@@ -488,7 +488,18 @@ static PixFmtInfo pix_fmt_info[PIX_FMT_NB] = {
+         /* .x_chroma_shift = */ 1,
+         /* .y_chroma_shift = */ 1,
+         /* .depth          = */ 8,
+-      }
++      },
++  /* [PIX_FMT_RGB666] = */ {
++        /* .format         = */ PIX_FMT_RGB666,
++        /* .name           = */ "rgb666",
++        /* .nb_channels    = */ 4,
++        /* .color_type     = */ FF_COLOR_RGB,
++        /* .pixel_type     = */ FF_PIXEL_PLANAR,
++        /* .is_alpha       = */ 0,
++        /* .x_chroma_shift = */ 0,
++        /* .y_chroma_shift = */ 0,
++        /* .depth          = */ 6,
++       }
+ };
+ 
+ /* returns NULL if not found */
+@@ -497,7 +508,6 @@ PixFmtInfo *
+ get_pix_fmt_info (enum PixelFormat format)
+ {
+   int i;
+-
+   for (i = 0; i < sizeof (pix_fmt_info) / sizeof (pix_fmt_info[0]); i++) {
+     if (pix_fmt_info[i].format == format) {
+       return pix_fmt_info + i;
+@@ -673,6 +683,8 @@ avg_bits_per_pixel (int pix_fmt)
+         case PIX_FMT_RGB555:
+           bits = 16;
+           break;
++	case PIX_FMT_RGB666:
++	  bits = 8 *  pf->nb_channels;
+         case PIX_FMT_UYVY411:
+           bits = 12;
+           break;
+@@ -682,7 +694,9 @@ avg_bits_per_pixel (int pix_fmt)
+       }
+       break;
+     case FF_PIXEL_PLANAR:
+-      if (pf->x_chroma_shift == 0 && pf->y_chroma_shift == 0) {
++      if(pix_fmt == PIX_FMT_RGB666) {
++	bits =  8 *  pf->nb_channels;
++      } else if (pf->x_chroma_shift == 0 && pf->y_chroma_shift == 0) {
+         bits = pf->depth * pf->nb_channels;
+       } else {
+         bits = pf->depth + ((2 * pf->depth) >>
+@@ -740,7 +754,6 @@ avcodec_find_best_pix_fmt (int pix_fmt_mask, int src_pix_fmt,
+     ~FF_LOSS_DEPTH,
+     0,
+   };
+-
+   /* try with successive loss */
+   i = 0;
+   for (;;) {
+@@ -2371,6 +2384,37 @@ bitcopy_n (unsigned int a, int n)
+ 
+ #include "imgconvert_template.h"
+ 
++/* rgb666 handling */
++
++#define RGB_NAME rgb666
++#define FMT_RGB666
++
++#define RGB_IN(r, g, b, s)\
++{\
++    unsigned int v = ((const uint32_t *)(s))[0];\
++    r = (v >> 12) & 0x3f;\
++    g = (v >> 6) & 0x3f;\
++    b = v & 0x3f;\
++}
++
++#define RGBA_IN(r, g, b, a, s)\
++{\
++    unsigned int v = ((const uint32_t *)(s))[0];\
++    a = 0xff;\
++    r = (v >> 12) & 0x3f;\
++    g = (v >> 6) & 0x3f;\
++    b = v & 0x3f;\
++}
++
++#define RGBA_OUT(d, r, g, b, a)\
++{\
++    ((uint32_t *)(d))[0] = ((r >> 2) << 12) | ((g >> 2) << 6) | (b >> 2);\
++}
++
++#define BPP 4
++
++#include "imgconvert_template.h"
++
+ /* xrgb32 handling */
+ 
+ #define RGB_NAME xrgb32
+@@ -3102,6 +3146,7 @@ static ConvertEntry convert_table[] = {
+   {PIX_FMT_YUV420P, PIX_FMT_RGB565, yuv420p_to_rgb565},
+   {PIX_FMT_YUV420P, PIX_FMT_BGR24, yuv420p_to_bgr24},
+   {PIX_FMT_YUV420P, PIX_FMT_RGB24, yuv420p_to_rgb24},
++  {PIX_FMT_YUV420P, PIX_FMT_RGB666, yuv420p_to_rgb666},
+   {PIX_FMT_YUV420P, PIX_FMT_RGB32, yuv420p_to_rgb32},
+   {PIX_FMT_YUV420P, PIX_FMT_BGR32, yuv420p_to_bgr32},
+   {PIX_FMT_YUV420P, PIX_FMT_xRGB32, yuv420p_to_xrgb32},
+@@ -3115,6 +3160,7 @@ static ConvertEntry convert_table[] = {
+   {PIX_FMT_NV12, PIX_FMT_RGB565, nv12_to_rgb565},
+   {PIX_FMT_NV12, PIX_FMT_BGR24, nv12_to_bgr24},
+   {PIX_FMT_NV12, PIX_FMT_RGB24, nv12_to_rgb24},
++  {PIX_FMT_NV12, PIX_FMT_RGB666, nv12_to_rgb666},
+   {PIX_FMT_NV12, PIX_FMT_RGB32, nv12_to_rgb32},
+   {PIX_FMT_NV12, PIX_FMT_BGR32, nv12_to_bgr32},
+   {PIX_FMT_NV12, PIX_FMT_xRGB32, nv12_to_xrgb32},
+@@ -3130,6 +3176,7 @@ static ConvertEntry convert_table[] = {
+   {PIX_FMT_NV21, PIX_FMT_RGB565, nv21_to_rgb565},
+   {PIX_FMT_NV21, PIX_FMT_BGR24, nv21_to_bgr24},
+   {PIX_FMT_NV21, PIX_FMT_RGB24, nv21_to_rgb24},
++  {PIX_FMT_NV21, PIX_FMT_RGB666, nv21_to_rgb666},
+   {PIX_FMT_NV21, PIX_FMT_RGB32, nv21_to_rgb32},
+   {PIX_FMT_NV21, PIX_FMT_BGR32, nv21_to_bgr32},
+   {PIX_FMT_NV21, PIX_FMT_xRGB32, nv21_to_xrgb32},
+@@ -3151,6 +3198,7 @@ static ConvertEntry convert_table[] = {
+   {PIX_FMT_YUVJ420P, PIX_FMT_RGB565, yuvj420p_to_rgb565},
+   {PIX_FMT_YUVJ420P, PIX_FMT_BGR24, yuvj420p_to_bgr24},
+   {PIX_FMT_YUVJ420P, PIX_FMT_RGB24, yuvj420p_to_rgb24},
++  {PIX_FMT_YUVJ420P, PIX_FMT_RGB666, yuvj420p_to_rgb666},
+   {PIX_FMT_YUVJ420P, PIX_FMT_RGB32, yuvj420p_to_rgb32},
+   {PIX_FMT_YUVJ420P, PIX_FMT_BGR32, yuvj420p_to_bgr32},
+   {PIX_FMT_YUVJ420P, PIX_FMT_RGB32, yuvj420p_to_xrgb32},
+@@ -3216,6 +3264,7 @@ static ConvertEntry convert_table[] = {
+   {PIX_FMT_RGB24, PIX_FMT_NV21, rgb24_to_nv21},
+   {PIX_FMT_RGB24, PIX_FMT_RGB565, rgb24_to_rgb565},
+   {PIX_FMT_RGB24, PIX_FMT_RGB555, rgb24_to_rgb555},
++  {PIX_FMT_RGB24, PIX_FMT_RGB666, rgb24_to_rgb666},
+   {PIX_FMT_RGB24, PIX_FMT_RGB32, rgb24_to_rgb32},
+   {PIX_FMT_RGB24, PIX_FMT_BGR32, rgb24_to_bgr32},
+   {PIX_FMT_RGB24, PIX_FMT_xRGB32, rgb24_to_xrgb32},
+@@ -3239,6 +3288,7 @@ static ConvertEntry convert_table[] = {
+ 
+   {PIX_FMT_RGB32, PIX_FMT_RGB24, rgb32_to_rgb24},
+   {PIX_FMT_RGB32, PIX_FMT_RGB555, rgba32_to_rgb555},
++  {PIX_FMT_RGB32, PIX_FMT_RGB666, rgba32_to_rgb666},
+   {PIX_FMT_RGB32, PIX_FMT_PAL8, rgb32_to_pal8},
+   {PIX_FMT_RGB32, PIX_FMT_YUV420P, rgb32_to_yuv420p},
+   {PIX_FMT_RGB32, PIX_FMT_YUVA420P, rgb32_to_yuva420p},
+@@ -3269,6 +3319,7 @@ static ConvertEntry convert_table[] = {
+   {PIX_FMT_RGBA32, PIX_FMT_BGRx32, rgba32_to_bgrx32},
+   {PIX_FMT_RGBA32, PIX_FMT_ABGR32, rgba32_to_abgr32},
+   {PIX_FMT_RGBA32, PIX_FMT_RGB24, rgba32_to_rgb24},
++  {PIX_FMT_RGBA32, PIX_FMT_RGB666, rgba32_to_rgb666},
+   {PIX_FMT_RGBA32, PIX_FMT_RGB555, rgba32_to_rgb555},
+   {PIX_FMT_RGBA32, PIX_FMT_PAL8, rgba32_to_pal8},
+   {PIX_FMT_RGBA32, PIX_FMT_YUV420P, rgba32_to_yuv420p},
+@@ -3408,10 +3459,18 @@ static ConvertEntry convert_table[] = {
+   {PIX_FMT_Y16, PIX_FMT_ABGR32, y16_to_abgr32},
+   {PIX_FMT_Y16, PIX_FMT_Y800, y16_to_y800},
+ 
++  {PIX_FMT_RGB666, PIX_FMT_GRAY8, rgb666_to_gray},
++  {PIX_FMT_RGB666, PIX_FMT_NV12, rgb666_to_nv12},
++  {PIX_FMT_RGB666, PIX_FMT_NV21, rgb666_to_nv21},
++  {PIX_FMT_RGB666, PIX_FMT_YUV420P, rgb666_to_yuv420p},
++  {PIX_FMT_RGB666, PIX_FMT_RGBA32, rgb666_to_rgba32},
++  {PIX_FMT_RGB666, PIX_FMT_RGB24, rgb666_to_rgb24},
++
+   {PIX_FMT_GRAY8, PIX_FMT_RGB555, gray_to_rgb555},
+   {PIX_FMT_GRAY8, PIX_FMT_RGB565, gray_to_rgb565},
+   {PIX_FMT_GRAY8, PIX_FMT_RGB24, gray_to_rgb24},
+   {PIX_FMT_GRAY8, PIX_FMT_BGR24, gray_to_bgr24},
++  {PIX_FMT_GRAY8, PIX_FMT_RGB666, gray_to_rgb666},
+   {PIX_FMT_GRAY8, PIX_FMT_RGB32, gray_to_rgb32},
+   {PIX_FMT_GRAY8, PIX_FMT_BGR32, gray_to_bgr32},
+   {PIX_FMT_GRAY8, PIX_FMT_xRGB32, gray_to_xrgb32},
+@@ -3463,6 +3522,7 @@ static ConvertEntry convert_table[] = {
+   {PIX_FMT_PAL8, PIX_FMT_RGB565, pal8_to_rgb565},
+   {PIX_FMT_PAL8, PIX_FMT_BGR24, pal8_to_bgr24},
+   {PIX_FMT_PAL8, PIX_FMT_RGB24, pal8_to_rgb24},
++  {PIX_FMT_PAL8, PIX_FMT_RGB666, pal8_to_rgb666},
+   {PIX_FMT_PAL8, PIX_FMT_RGB32, pal8_to_rgb32},
+   {PIX_FMT_PAL8, PIX_FMT_BGR32, pal8_to_bgr32},
+   {PIX_FMT_PAL8, PIX_FMT_xRGB32, pal8_to_xrgb32},
+@@ -3858,6 +3918,9 @@ img_get_alpha_info (const AVPicture * src, int pix_fmt, int width, int height)
+     case PIX_FMT_ABGR32:
+       ret = get_alpha_info_abgr32 (src, width, height);
+       break;
++    case PIX_FMT_RGB666:
++      ret = get_alpha_info_rgb666 (src, width, height);
++      break;
+     case PIX_FMT_RGB555:
+       ret = get_alpha_info_rgb555 (src, width, height);
+       break;

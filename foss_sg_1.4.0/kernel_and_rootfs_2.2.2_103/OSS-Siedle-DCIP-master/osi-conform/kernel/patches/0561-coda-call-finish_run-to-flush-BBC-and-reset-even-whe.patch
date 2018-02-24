@@ -1,0 +1,26 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 19 Sep 2016 14:12:46 +0200
+Subject: [PATCH] coda: call finish_run to flush BBC and reset even when
+ aborting
+
+Otherwise the following JPEG encode run will stall if multiple
+encoder contexts are running simultaneously.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-common.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index bf2594f9b98b..39c7d6beef03 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -1171,7 +1171,7 @@ static void coda_pic_run_work(struct work_struct *work)
+ 		} else {
+ 			dev_err(&dev->plat_dev->dev, "CODA JPEG timeout\n");
+ 		}
+-	} else if (!ctx->aborting) {
++	} else if (!ctx->aborting || !ctx->ops->seq_end_work) {
+ 		ctx->ops->finish_run(ctx);
+ 	}
+ 

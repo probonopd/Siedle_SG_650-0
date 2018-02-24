@@ -1,0 +1,68 @@
+From: Anton Bondarenko <anton.bondarenko.sama@gmail.com>
+Date: Tue, 8 Dec 2015 07:43:45 +0100
+Subject: [PATCH] spi: imx: return error from dma channel request
+
+On SDMA initialization return exactly the same error, which is
+reported by dma_request_slave_channel_reason(), it is a preceding
+change to defer SPI DMA initialization, if SDMA module is not yet
+available.
+
+Signed-off-by: Vladimir Zapolskiy <vladimir_zapolskiy@mentor.com>
+Signed-off-by: Anton Bondarenko <anton.bondarenko.sama@gmail.com>
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ drivers/spi/spi-imx.c | 27 ++++++++++++++++-----------
+ 1 file changed, 16 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/spi/spi-imx.c b/drivers/spi/spi-imx.c
+index 17a90dcab328..c12306099d24 100644
+--- a/drivers/spi/spi-imx.c
++++ b/drivers/spi/spi-imx.c
+@@ -848,10 +848,11 @@ static int spi_imx_sdma_init(struct device *dev, struct spi_imx_data *spi_imx,
+ 	spi_imx->wml = spi_imx_get_fifosize(spi_imx) / 2;
+ 
+ 	/* Prepare for TX DMA: */
+-	master->dma_tx = dma_request_slave_channel(dev, "tx");
+-	if (!master->dma_tx) {
+-		dev_err(dev, "cannot get the TX DMA channel!\n");
+-		ret = -EINVAL;
++	master->dma_tx = dma_request_slave_channel_reason(dev, "tx");
++	if (IS_ERR(master->dma_tx)) {
++		ret = PTR_ERR(master->dma_tx);
++		dev_dbg(dev, "can't get the TX DMA channel, error %d!\n", ret);
++		master->dma_tx = NULL;
+ 		goto err;
+ 	}
+ 
+@@ -866,10 +867,11 @@ static int spi_imx_sdma_init(struct device *dev, struct spi_imx_data *spi_imx,
+ 	}
+ 
+ 	/* Prepare for RX : */
+-	master->dma_rx = dma_request_slave_channel(dev, "rx");
+-	if (!master->dma_rx) {
+-		dev_dbg(dev, "cannot get the DMA channel.\n");
+-		ret = -EINVAL;
++	master->dma_rx = dma_request_slave_channel_reason(dev, "rx");
++	if (IS_ERR(master->dma_rx)) {
++		ret = PTR_ERR(master->dma_rx);
++		dev_dbg(dev, "can't get the RX DMA channel, error %d\n", ret);
++		master->dma_rx = NULL;
+ 		goto err;
+ 	}
+ 
+@@ -1218,9 +1220,12 @@ static int spi_imx_probe(struct platform_device *pdev)
+ 	 * Only validated on i.mx6 now, can remove the constrain if validated on
+ 	 * other chips.
+ 	 */
+-	if (is_imx51_ecspi(spi_imx) &&
+-	    spi_imx_sdma_init(&pdev->dev, spi_imx, master, res))
+-		dev_err(&pdev->dev, "dma setup error,use pio instead\n");
++	if (is_imx51_ecspi(spi_imx)) {
++		ret = spi_imx_sdma_init(&pdev->dev, spi_imx, master, res);
++		if (ret < 0)
++			dev_err(&pdev->dev, "dma setup error %d, use pio\n",
++				ret);
++	}
+ 
+ 	spi_imx->devtype_data->reset(spi_imx);
+ 

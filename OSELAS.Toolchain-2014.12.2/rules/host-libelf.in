@@ -1,0 +1,4 @@
+config HOST_LIBELF
+	bool
+	select HOST_ZLIB
+	select HOST_XZ

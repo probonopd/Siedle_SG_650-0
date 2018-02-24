@@ -1,0 +1,79 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 18 Sep 2014 17:03:27 +0200
+Subject: [PATCH] [media] coda: Add tracing support for CODA960 JPEG
+
+This patch adds two additional tracepoints to the coda driver that can be used
+together with the v4l2:v4l2_qbuf and v4l2:v4l2_dqbuf tracepoints to to follow
+video frames through the mem2mem device when encoding or decoding with the
+CODA960 JPEG codec:
+    coda:coda_jpeg_run
+    coda:coda_jpeg_done
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-jpeg.c |  9 +++++++++
+ drivers/media/platform/coda/trace.h     | 10 ++++++++++
+ 2 files changed, 19 insertions(+)
+
+diff --git a/drivers/media/platform/coda/coda-jpeg.c b/drivers/media/platform/coda/coda-jpeg.c
+index 7dd029355f38..25660f276312 100644
+--- a/drivers/media/platform/coda/coda-jpeg.c
++++ b/drivers/media/platform/coda/coda-jpeg.c
+@@ -1284,6 +1284,8 @@ static int coda9_jpeg_prepare_encode(struct coda_ctx *ctx)
+ 	coda_write(dev, 1, CODA9_GDI_WPROT_ERR_CLR);
+ 	coda_write(dev, 0, CODA9_GDI_WPROT_RGN_EN);
+ 
++	trace_coda_jpeg_run(ctx, src_buf);
++
+ 	coda_write(dev, 1, CODA9_REG_JPEG_PIC_START);
+ 
+ 	return 0;
+@@ -1299,6 +1301,8 @@ static void coda9_jpeg_finish_encode(struct coda_ctx *ctx)
+ 	src_buf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
+ 	dst_buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
+ 
++	trace_coda_jpeg_done(ctx, dst_buf);
++
+ 	/*
+ 	 * Set plane payload to the number of bytes written out
+ 	 * by the JPEG processing unit
+@@ -1491,6 +1495,9 @@ static int coda9_jpeg_prepare_decode(struct coda_ctx *ctx)
+ 	coda_write(dev, 0, CODA9_REG_JPEG_DPB_BASE00);
+ 	coda_write(dev, 0, CODA9_GDI_CONTROL);
+ 	coda_write(dev, 1, CODA9_GDI_PIC_INIT_HOST);
++
++	trace_coda_jpeg_run(ctx, src_buf);
++
+ 	coda_write(dev, 1, CODA9_REG_JPEG_PIC_START);
+ 
+ 	return 0;
+@@ -1513,6 +1520,8 @@ static void coda9_jpeg_finish_decode(struct coda_ctx *ctx)
+ 	dst_buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
+ 	dst_buf->sequence = ctx->osequence++;
+ 
++	trace_coda_jpeg_done(ctx, dst_buf);
++
+ 	dst_buf->flags &= ~V4L2_BUF_FLAG_PFRAME;
+ 	dst_buf->flags |= V4L2_BUF_FLAG_KEYFRAME;
+ 
+diff --git a/drivers/media/platform/coda/trace.h b/drivers/media/platform/coda/trace.h
+index 1e7c94680f3d..883ace7a413b 100644
+--- a/drivers/media/platform/coda/trace.h
++++ b/drivers/media/platform/coda/trace.h
+@@ -185,6 +185,16 @@ TRACE_EVENT(coda_not_ready,
+ 		  __entry->ctx)
+ );
+ 
++DEFINE_EVENT(coda_buf_class, coda_jpeg_run,
++	TP_PROTO(struct coda_ctx *ctx, struct vb2_v4l2_buffer *buf),
++	TP_ARGS(ctx, buf)
++);
++
++DEFINE_EVENT(coda_buf_class, coda_jpeg_done,
++	TP_PROTO(struct coda_ctx *ctx, struct vb2_v4l2_buffer *buf),
++	TP_ARGS(ctx, buf)
++);
++
+ #endif /* __CODA_TRACE_H__ */
+ 
+ #undef TRACE_INCLUDE_PATH

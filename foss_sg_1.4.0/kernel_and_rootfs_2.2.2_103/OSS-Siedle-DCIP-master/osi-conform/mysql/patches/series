@@ -1,0 +1,6 @@
+mysql-5.0.26_configure.in
+mysql-5.0.26_comp_err_gen_lex_hash.diff
+mysql-5.0.26_factorial.diff
+mysql-5.1.14-beta-query_cache.diff
+mysql-5.1.14-beta-install-to-usr-lib.diff
+mysql-5.1.34_my_error-fix_dangling_pointer.diff

@@ -1,0 +1,16 @@
+db7b64a961dd077e3db250415fca58e8  0001-net-phy-micrel-Staticise-ksz8873mll_read_status.patch
+3d85c754696212e33d3143f892acd79d  0002-net-phy-micrel-use-BIT-macro.patch
+6ce142d12dc5b1c4dcf37d865d719190  0003-net-phy-micrel-Be-more-const-correct.patch
+084d0c2e9f88eab60e5521d3b49acbc3  0004-net-phy-micrel-Center-FLP-timing-at-16ms.patch
+2d7399cd5874bf436a8ed5087d355764  0005-net-phy-micrel-Add-workaround-for-bad-autoneg.patch
+be7e4aefcc90415400acecb80fd21664  0006-net-phy-micrel-errata-for-KSZ9031.patch
+dac622c47c3f4aa5234e985a5e913315  0007-ARM-i.MX-bbu-internal-detect-device-before-writing-t.patch
+e3259c4e2e86b282fe4d5618b6a85da2  0008-ubiformat-move-format-above-flash_image.patch
+57f5193814ce09e42acade97aa5ddfa9  0009-ubiformat-add-last-eb-argument-to-format.patch
+0e69411859a90ae88a5e636dc8fd9f7b  0010-ubiformat-leave-space-for-fastmap.patch
+e5e6365ce01f4580bdf8a9f7781cd584  0011-barebox-metadata-add-IMD-tag-SSS_VERSION-cat-SSS_VER.patch
+616303cceab441eb4c1226a8a84a0873  0012-Barebox-ARM-update-imx_v7_defconfig-for-Siedle.patch
+98051355952687860e13a659efd6b1d9  0013-ARM-Add-Siedle-DCIP-board-support.patch
+cf61e81642b2707cd7d9b521b829016c  0014-ARM-Add-Siedle-ComPanel-board-support.patch
+510156e94ca99ead9a5550ec663ac051  0101-Release-2016.02.0-customers-siedle-multiplatform-201.patch
+4f91e2ace5dc2e0de00eda60c8779b9c  series

@@ -1,0 +1,78 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 4 Nov 2013 12:42:10 +0100
+Subject: [PATCH] ARM: dts: pbab01: Add barebox partitions
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ arch/arm/boot/dts/imx6qdl-phytec-pbab01.dtsi | 12 ++++++++++++
+ arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi | 26 +++++++++++++++++++++++++-
+ 2 files changed, 37 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/imx6qdl-phytec-pbab01.dtsi b/arch/arm/boot/dts/imx6qdl-phytec-pbab01.dtsi
+index 585b4f6986c1..54de9f2ac6bb 100644
+--- a/arch/arm/boot/dts/imx6qdl-phytec-pbab01.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-phytec-pbab01.dtsi
+@@ -14,6 +14,18 @@
+ / {
+ 	chosen {
+ 		linux,stdout-path = &uart4;
++
++		environment-spi {
++			compatible = "barebox,environment";
++			device-path = &flash, "partname:barebox-environment";
++			status = "disabled";
++		};
++
++		enviroment-mmc {
++			compatible = "barebox,environment";
++			device-path = &usdhc3, "partname:barebox-environment";
++			status = "disabled";
++		};
+ 	};
+ 
+ 	regulators {
+diff --git a/arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi b/arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi
+index becf4bdc44b2..559f50f89126 100644
+--- a/arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi
+@@ -79,10 +79,22 @@
+ 	fsl,spi-num-chipselects = <1>;
+ 	cs-gpios = <&gpio4 24 0>;
+ 
+-	flash@0 {
++	flash: flash@0 {
+ 		compatible = "m25p80", "jedec,spi-nor";
+ 		spi-max-frequency = <20000000>;
+ 		reg = <0>;
++		#address-cells = <1>;
++		#size-cells = <1>;
++
++		partition@0 {
++		        label = "barebox";
++		        reg = <0x0 0x80000>;
++		};
++
++		partition@1 {
++		        label = "barebox-environment";
++		        reg = <0x80000 0x10000>;
++		};
+ 	};
+ };
+ 
+@@ -433,4 +445,16 @@
+ 	cd-gpios = <&gpio1 27 GPIO_ACTIVE_LOW>;
+ 	wp-gpios = <&gpio1 29 GPIO_ACTIVE_HIGH>;
+         status = "disabled";
++	#address-cells = <1>;
++	#size-cells = <1>;
++
++	partition@0 {
++		label = "barebox";
++		reg = <0x0 0x80000>;
++	};
++
++	partition@1 {
++		label = "barebox-environment";
++		reg = <0x80000 0x10000>;
++	};
+ };

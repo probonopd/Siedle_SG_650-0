@@ -1,0 +1,384 @@
+#
+# config/Kconfig: Main menu structure definition
+# Copyright (C) Robert Schwebel <r.schwebel@pengutronix.de> 2002-2008
+#
+
+mainmenu "PTXdist $SETUP_VERSION_DEFAULT"
+
+config SETUP_VERSION_DEFAULT
+	string
+	option env="PTXDIST_VERSION_FULL"
+
+config INVISIBLE
+	bool
+	help
+	  don't delete this, it's to keep some menus in shape :)
+
+comment "PTXDIST Setup Menu"
+
+menu "User              "
+
+config SETUP_USER_NAME
+	prompt "Name"
+	string
+	default ""
+	help
+	  Full name of the user. Used as default in 'ptxdist newpackage'
+
+config SETUP_USER_EMAIL
+	prompt "eMail"
+	string
+	default ""
+	help
+	  eMail address of the user. Used as default in 'ptxdist newpackage'
+
+endmenu
+
+menu "Proxies           "
+
+config SETUP_FTP_PROXY
+	prompt "FTP Proxy"
+	string
+	default ""
+	help
+	  If you have to use a proxy for FTP transfers, please add the
+	  proxy URL here. Example:
+
+	              http://your.proxy.org:80
+
+config SETUP_HTTP_PROXY
+	prompt "HTTP Proxy"
+	string
+	default ""
+	help
+	  If you have to use a proxy for HTTP transfers, please add the
+	  proxy URL here. Example:
+
+	              http://your.proxy.org:80
+
+config SETUP_HTTPS_PROXY
+	prompt "HTTPS Proxy"
+	string
+	default ""
+	help
+	  If you have to use a proxy for HTTPS transfers, please add the
+	  proxy URL here. Example:
+
+	              http://your.proxy.org:80
+
+config SETUP_NO_PROXY
+	prompt "Proxy Exceptions"
+	string
+	default ""
+	help
+	  If you generally require a proxy, but need to add exceptions for
+	  certain hosts, please add those as a comma-separated list here.
+	  Example:
+
+	              .localdomain,127.0.0.1
+
+endmenu
+
+menu "Project Searchpath"
+
+config SETUP_PROJECTPATH
+	prompt "Project Searchpath "
+	string
+	default "${PTXDIST_TOPDIR}/projects"
+	help
+	  This path is used to search for project templates when
+	  running 'ptxdist projects'. You can clone the projects
+	  specified in this path with 'ptxdist clone'. The path
+	  is a : separated list.
+
+endmenu
+
+menu "Source Directories"
+
+config SETUP_SRCDIR
+	prompt "Source Directory"
+	string
+	default "${PTXDIST_WORKSPACE}/src"
+
+endmenu
+
+menu "Source Download   "
+
+config SETUP_NO_DOWNLOAD
+	bool "Do not download sources automatically"
+	help
+	  Set this to y to disable automatic download at all.
+
+	  Note: this can be overwritten by adding the option
+	  "--force-download" to the ptxdist call.
+
+comment ""
+	depends on INVISIBLE
+
+if !SETUP_NO_DOWNLOAD
+
+config SETUP_PTXMIRROR_ONLY
+	bool
+	prompt "Only use PTXdist Mirror to download packages"
+	help
+	  Set this to y if you only want to download packages from
+	  PTXCONF_SETUP_PTXMIRROR
+
+endif
+
+config SETUP_PTXMIRROR
+	string
+	default "http://www.pengutronix.de/software/ptxdist/temporary-src"
+	prompt "PTXdist Mirror"
+	help
+	  Enter the fallback mirror for all packages here.
+
+if SETUP_PTXMIRROR_ONLY
+
+config SETUP_URL_WHITELIST
+	string
+	prompt "URL Whitelist"
+	help
+	  A space separated list of URLs. Any download URL that starts with
+	  one of the here specified URLs will always be used. This
+	  overwrites the 'only use PTXdist Mirror' feature for these URLs.
+
+endif	# SETUP_PTXMIRROR_ONLY
+
+########################################################################
+# WARNING!                                                             #
+#                                                                      #
+# if you add a new mirror here, don't forget to regenerate the default #
+# configfile:                                                          #
+# "config/setup/ptxdistrc.default"                                     #
+#                                                                      #
+########################################################################
+
+config SETUP_DEBMIRROR
+	string
+	default "http://ftp.uni-kl.de/debian"
+	prompt "Debian Pool Mirror"
+	help
+	  The Debian pool mirror to use for downloading various
+	  components of the target root filesystem.
+
+config SETUP_SFMIRROR
+	string
+	default "http://downloads.sourceforge.net/sourceforge"
+	prompt "Sourceforge Mirror"
+	help
+	  For all Sourceforge related packages enter an available mirror here.
+
+config SETUP_GNUMIRROR
+	string
+	default "http://ftp.uni-kl.de/pub/gnu"
+	prompt "GNU.org Mirror"
+	help
+	  For all GNU.org related packages enter an available mirror here.
+
+config SETUP_XORGMIRROR
+	string
+	default "http://ftp.sunet.se/pub/X11/ftp.x.org http://ftp.x.org/pub http://xorg.freedesktop.org/releases"
+	prompt "x.org Mirror"
+	help
+	  For all x.org related packages enter an available mirror here.
+
+config SETUP_KERNELMIRROR
+	string
+	default "https://www.kernel.org/pub/linux http://www.linux-mips.org/pub/linux/mips http://mirror.linux.org.au/linux"
+	prompt "kernel.org Mirror"
+	help
+	  For all kernel.org related packages enter an available mirror here.
+
+choice
+	prompt "archive check"
+	default SETUP_CHECK_ALWAYS
+
+	config SETUP_CHECK_ALWAYS
+		bool
+		prompt "always"
+
+	config SETUP_CHECK_NOTEMPTY
+		bool
+		prompt "for existing checksum"
+
+	config SETUP_CHECK_NEVER
+		bool
+		prompt "never"
+
+endchoice
+
+config SETUP_CHECK
+	string
+	default "always" if SETUP_CHECK_ALWAYS
+	default "notempty" if SETUP_CHECK_NOTEMPTY
+	default "never" if SETUP_CHECK_NEVER
+
+endmenu
+
+menu "IPKG Repository   "
+
+config SETUP_IPKG_REPOSITORY
+	string
+	default "/var/www/ipkg-repository"
+	prompt "Path to IPKG Repository"
+	help
+	  PTXdist can be used to update an IPKG server which is
+	  accessible via a mounted path. Run 'make ipkg-push'
+	  to push the packets from $IMAGEDIR to the server dir
+	  which is specified here.
+
+	  FIXME: add mechanism to use other transports than cp.
+endmenu
+
+menu "Java SDK          "
+
+config SETUP_JAVA_SDK
+	string
+	default "/usr/lib/jvm/default-java"
+	prompt "Java SDK"
+	help
+	  Specify the path to your Java SDK; this is needed if Java
+	  programs are being compiled by PTXdist, for example
+	  if you have selected JVisu.
+	  This must not be '/usr' but the actual SDK path,
+	  e.g. '/usr/lib/jvm/default-java'.
+	  Make sure the selected directory contains bin/javac.
+
+endmenu
+
+menu "Developer Options "
+
+#config SETUP_CHECK_OMIT_CASE
+#	bool "don't check for case sensitive file system"
+
+#config SETUP_CHECK_OMIT_SPACES
+#	bool "don't check for spaces in important directories"
+
+config SETUP_DISABLE_LOCAL_CHECK
+	bool
+	prompt "disable local disk check"
+	help
+	  By default ptxdist will check that the BSP is built on a
+	  local disk. Building on a network file system is slow and
+	  may fail under certain circumstances.
+	  Disable this check at your own risk.
+
+config SETUP_ENV_WHITELIST
+	string "environment variable whitelist (space separated)"
+	help
+	  PTXdist clears the environment by default. Specify here a
+	  space seprated list of environment variables to preserve.
+
+
+config SETUP_COMMON_CACHE
+	bool "use common configure cache"
+	help
+	  Use only one configure cache file for host and for target
+	  packages, instead of a cache for each programm. This can
+	  speed up compilation, but may breaks things badly.
+
+	  This is a developer option, you probably don't want to
+	  enable this.
+
+
+config SETUP_GEN_DEP_TREE
+	bool "generate dependency graphs"
+	help
+	  PTXdist has the feature to generate graphs to illustrate the
+	  dependencies to build a root file system. This information
+	  if probably only interesting for hard core developers or
+	  marketing guys, you probably don't want it.
+
+	  BTW: you need to install the 'dot' program of the
+	       'graphviz' package for this.
+
+
+config SETUP_CHECK_EXIT_ON_ERROR
+	bool "enable exit on error"
+	help
+	  Use bash' "set -e" feature within ptxdist. Which enables
+	  quite aggressive error checking. Don't turn this on until
+	  you know what you're doing.
+
+config SETUP_ICECC
+	bool "use icecc"
+	depends on !SETUP_CCACHE
+	help
+	  icecc (also known as Icecream) is a distributed compile system.
+	  It allows parallel compiling by distributing the compile jobs to
+	  several nodes of a compile network running the icecc daemon. The
+	  icecc scheduler routes the jobs and provides status and
+	  statistics information to the icecc monitor.
+
+if SETUP_ICECC
+
+config SETUP_ICECC_CREATE_ENV
+	string
+	default "/usr/lib/icecc/icecc-create-env"
+	prompt "icecc-create-env path"
+	help
+	  The full path to icecc-create-env
+
+endif
+
+config SETUP_CCACHE
+	bool "use ccache"
+	help
+	  ccache is a compiler cache. It speeds up re-compilation of
+	  C/C++ code by caching previous compiles and detecting when
+	  the same compile is being done again.
+
+
+config SETUP_PATCHIN_GIT
+	bool "use git to apply patches"
+	help
+
+	  Activating this option, ptxdist will use "git" instead of
+	  quilt to apply patches.
+
+	  _NOTE_: this is an experimental feature
+
+config SETUP_NFS_REL_SYMLINK
+	bool "make absolute symlinks relative on nfsroot"
+	help
+	  With this option enabled, ptxdist converts any absolute
+	  symlink into a relative symlink when installing it to
+	  ${PLATFORMDIR}/root{,-debug}. This makes it easier to check
+	  for broken links.
+	  The link installed into the image remains absolute.
+
+config SETUP_DIRECT_CLEAN
+	bool "ptxdist clean without check"
+	help
+	  I'm a developer. I know what I'm doing. Just clean the BSP.
+
+config SETUP_HOST_CPP
+	prompt "host CPP"
+	string
+	default "cpp"
+	help
+	  Specify the host preprocessor here.
+
+config SETUP_HOST_CC
+	prompt "host CC"
+	string
+	default "gcc"
+	help
+	  Specify the host C compile here.
+
+config SETUP_HOST_CXX
+	prompt "host CXX"
+	string
+	default "g++"
+	help
+	  Specify the host C++ compile here.
+
+config SETUP_HOST_MAKE
+	prompt "host MAKE"
+	string
+	default "make"
+	help
+	  Specify the host make programm here.
+
+endmenu

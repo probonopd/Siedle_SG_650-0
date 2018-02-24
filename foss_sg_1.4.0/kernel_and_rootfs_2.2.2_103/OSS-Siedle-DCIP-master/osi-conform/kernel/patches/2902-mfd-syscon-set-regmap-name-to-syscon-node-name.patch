@@ -1,0 +1,24 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 6 Mar 2015 15:04:56 +0100
+Subject: [PATCH] mfd: syscon: set regmap name to syscon node name
+
+Since syscon regmaps can't be identified by their device name anymore,
+set the regmap name to the device_node name.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/mfd/syscon.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/mfd/syscon.c b/drivers/mfd/syscon.c
+index af0f899299ca..4cd25f4d62d3 100644
+--- a/drivers/mfd/syscon.c
++++ b/drivers/mfd/syscon.c
+@@ -76,6 +76,7 @@ struct syscon *syscon_register(struct device *dev, struct device_node *np)
+ 		syscon_config.val_format_endian = REGMAP_ENDIAN_LITTLE;
+ 
+ 	syscon_config.max_register = res.end - res.start - 3;
++	syscon_config.name = np->name;
+ 	regmap = regmap_init_mmio(dev, base, &syscon_config);
+ 	if (IS_ERR(regmap)) {
+ 		pr_err("regmap init failed\n");

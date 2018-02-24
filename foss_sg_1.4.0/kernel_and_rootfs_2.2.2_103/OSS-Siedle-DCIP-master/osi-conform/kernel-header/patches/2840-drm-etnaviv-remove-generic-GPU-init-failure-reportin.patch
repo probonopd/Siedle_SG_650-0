@@ -1,0 +1,31 @@
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Fri, 17 Jun 2016 12:30:50 +0200
+Subject: [PATCH] drm/etnaviv: remove generic GPU init failure reporting
+
+The GPU init path now reports any errors which might occur more accurately
+than what is possible with the generic "something failed" message.
+
+Remove the generic reporting, so we don't log an error into dmesg anymore
+if any of the GPU cores are ignored.
+
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ drivers/gpu/drm/etnaviv/etnaviv_drv.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/etnaviv/etnaviv_drv.c b/drivers/gpu/drm/etnaviv/etnaviv_drv.c
+index e8858985f01e..28f7856735bf 100644
+--- a/drivers/gpu/drm/etnaviv/etnaviv_drv.c
++++ b/drivers/gpu/drm/etnaviv/etnaviv_drv.c
+@@ -91,10 +91,8 @@ static void load_gpu(struct drm_device *dev)
+ 			int ret;
+ 
+ 			ret = etnaviv_gpu_init(g);
+-			if (ret) {
+-				dev_err(g->dev, "hw init failed: %d\n", ret);
++			if (ret)
+ 				priv->gpu[i] = NULL;
+-			}
+ 		}
+ 	}
+ }

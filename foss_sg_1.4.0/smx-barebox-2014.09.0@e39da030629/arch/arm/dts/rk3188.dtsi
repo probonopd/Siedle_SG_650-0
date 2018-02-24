@@ -1,0 +1,56 @@
+/*
+ * Copyright (c) 2013 MundoReader S.L.
+ * Author: Heiko Stuebner <heiko@sntech.de>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <arm/rk3xxx.dtsi>
+#include <arm/rk3188-clocks.dtsi>
+#include <arm/rk3188.dtsi>
+
+/ {
+	soc {
+		ethernet@10204000 {
+			compatible = "snps,arc-emac";
+			reg = <0x10204000 0x100>;
+			interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+			clock-frequency = <50000000>;
+			max-speed = <100>;
+			phy = <&phy0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&emac0_pins>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+			phy0: ethernet-phy@0 {
+				reg = <0>;
+			};
+		};
+
+		pinctrl@20008000 {
+			emac0 {
+				emac0_pins: emac0-pins {
+					rockchip,pins = <RK_GPIO3 16 RK_FUNC_2 &pcfg_pull_up>,
+							<RK_GPIO3 17 RK_FUNC_2 &pcfg_pull_up>,
+							<RK_GPIO3 18 RK_FUNC_2 &pcfg_pull_up>,
+							<RK_GPIO3 19 RK_FUNC_2 &pcfg_pull_up>,
+							<RK_GPIO3 20 RK_FUNC_2 &pcfg_pull_up>,
+							<RK_GPIO3 21 RK_FUNC_2 &pcfg_pull_none>,
+							<RK_GPIO3 22 RK_FUNC_2 &pcfg_pull_up>,
+							<RK_GPIO3 23 RK_FUNC_2 &pcfg_pull_up>,
+							<RK_GPIO3 24 RK_FUNC_2 &pcfg_pull_up>,
+							<RK_GPIO3 25 RK_FUNC_2 &pcfg_pull_up>;
+				};
+			};
+		};
+	};
+};

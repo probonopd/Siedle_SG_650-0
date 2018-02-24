@@ -1,0 +1,96 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 17 Mar 2014 13:01:45 +0100
+Subject: [PATCH] HACK: [media] imx-ipuv3-csi: produce black frames while
+ paused
+
+The GStreamer v4l2src element never calls STREAMOFF but hangs in DQBUF
+when we just stop dequeueing frames as a reaction to sync loss. Work
+around this by sending black frames with 25 fps while there is no signal.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 43 ++++++++++++++++++++++++++++--
+ 1 file changed, 41 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 2ac027cf2749..d66393c2d443 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -170,6 +170,8 @@ struct ipucsi {
+ 	struct ipu_media_link		*link;
+ 	struct v4l2_fh			fh;
+ 	bool				paused;
++
++	struct delayed_work		pause_work;
+ };
+ 
+ static struct ipucsi_buffer *to_ipucsi_vb(struct vb2_buffer *vb)
+@@ -362,6 +364,38 @@ static void ipucsi_clear_buffer(struct vb2_buffer *vb, u32 fourcc)
+ 		*p++ = black;
+ }
+ 
++void ipucsi_pause_work(struct work_struct *work)
++{
++	struct ipucsi *ipucsi = container_of(work, struct ipucsi,
++					     pause_work.work);
++	unsigned long flags;
++
++	if (!ipucsi->paused)
++		return;
++
++	spin_lock_irqsave(&ipucsi->lock, flags);
++	if (!list_empty(&ipucsi->capture)) {
++		struct ipucsi_buffer *buf;
++
++		buf = list_entry(ipucsi->capture.next,
++				 struct ipucsi_buffer, queue);
++		list_del_init(ipucsi->capture.next);
++
++		spin_unlock_irqrestore(&ipucsi->lock, flags);
++
++		ipucsi_clear_buffer(&buf->vb,
++				    ipucsi->format.fmt.pix.pixelformat);
++		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
++	} else {
++		spin_unlock_irqrestore(&ipucsi->lock, flags);
++	}
++
++	if (!ipucsi->paused)
++		return;
++
++	schedule_delayed_work(&ipucsi->pause_work, msecs_to_jiffies(40));
++}
++
+ int ipucsi_pause_stream(struct ipucsi *ipucsi)
+ {
+ 	unsigned long flags;
+@@ -407,7 +441,7 @@ int ipucsi_pause_stream(struct ipucsi *ipucsi)
+ 		spin_lock_irqsave(&ipucsi->lock, flags);
+ 	}
+ 
+-	spin_unlock_irqrestore(&ipucsi->lock, flags);
++	schedule_delayed_work(&ipucsi->pause_work, msecs_to_jiffies(40));
+ 
+ 	return 0;
+ }
+@@ -1035,7 +1069,11 @@ static void ipucsi_videobuf_stop_streaming(struct vb2_queue *vq)
+ 		ipu_ic_disable(ipucsi->ic);
+ 	}
+ 
+-	ipucsi->paused = false;
++	if (ipucsi->paused) {
++		/* wait for pause work to finish */
++		ipucsi->paused = false;
++		flush_delayed_work(&ipucsi->pause_work);
++	}
+ 
+ 	spin_lock_irqsave(&ipucsi->lock, flags);
+ 	while (!list_empty(&ipucsi->capture)) {
+@@ -2133,6 +2171,7 @@ static int ipucsi_probe(struct platform_device *pdev)
+ 	INIT_LIST_HEAD(&ipucsi->capture);
+ 	spin_lock_init(&ipucsi->lock);
+ 	mutex_init(&ipucsi->mutex);
++	INIT_DELAYED_WORK(&ipucsi->pause_work, ipucsi_pause_work);
+ 
+ 	ipucsi->ipu = ipu;
+ 	ipucsi->id = pdata->csi;

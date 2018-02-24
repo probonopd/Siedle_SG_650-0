@@ -1,0 +1,90 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 11 Mar 2014 15:59:07 +0100
+Subject: [PATCH] drm/imx: imx-ldb: Create imx_ldb structure earlier
+
+Call devm_kzalloc once in the device probe function instead of possibly
+multiple times in the component bind function to avoid allocating and freeing
+multiple timens in case probing is deferred due to another component missing.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/drm/imx/imx-ldb.c | 44 +++++++++++++++++++++++--------------------
+ 1 file changed, 24 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/gpu/drm/imx/imx-ldb.c b/drivers/gpu/drm/imx/imx-ldb.c
+index 11d83bb7e37f..bf8d6ff4a86b 100644
+--- a/drivers/gpu/drm/imx/imx-ldb.c
++++ b/drivers/gpu/drm/imx/imx-ldb.c
+@@ -719,32 +719,15 @@ MODULE_DEVICE_TABLE(of, imx_ldb_dt_ids);
+ 
+ static int imx_ldb_bind(struct device *dev, struct device *master, void *data)
+ {
++	struct imx_ldb *imx_ldb = dev_get_drvdata(dev);
+ 	struct drm_device *drm = data;
+ 	struct device_node *np = dev->of_node;
+-	const struct of_device_id *of_id =
+-			of_match_device(imx_ldb_dt_ids, dev);
+ 	struct device_node *child;
+ 	const u8 *edidp;
+-	struct imx_ldb *imx_ldb;
+ 	int dual;
+ 	int ret;
+ 	int i;
+ 
+-	imx_ldb = devm_kzalloc(dev, sizeof(*imx_ldb), GFP_KERNEL);
+-	if (!imx_ldb)
+-		return -ENOMEM;
+-
+-	imx_ldb->regmap = syscon_regmap_lookup_by_phandle(np, "gpr");
+-	if (IS_ERR(imx_ldb->regmap)) {
+-		dev_err(dev, "failed to get parent regmap\n");
+-		return PTR_ERR(imx_ldb->regmap);
+-	}
+-
+-	imx_ldb->dev = dev;
+-
+-	if (of_id)
+-		imx_ldb->lvds_mux = of_id->data;
+-
+ 	dual = of_property_read_bool(np, "fsl,dual-channel");
+ 	if (dual)
+ 		imx_ldb->ldb_ctrl |= LDB_SPLIT_MODE_EN;
+@@ -847,8 +830,6 @@ static int imx_ldb_bind(struct device *dev, struct device *master, void *data)
+ 			return ret;
+ 	}
+ 
+-	dev_set_drvdata(dev, imx_ldb);
+-
+ 	return 0;
+ }
+ 
+@@ -878,6 +859,29 @@ static const struct component_ops imx_ldb_ops = {
+ 
+ static int imx_ldb_probe(struct platform_device *pdev)
+ {
++	struct device *dev = &pdev->dev;
++	const struct of_device_id *of_id =
++			of_match_device(imx_ldb_dt_ids, dev);
++	struct device_node *np = dev->of_node;
++	struct imx_ldb *imx_ldb;
++
++	imx_ldb = devm_kzalloc(dev, sizeof(*imx_ldb), GFP_KERNEL);
++	if (!imx_ldb)
++		return -ENOMEM;
++
++	imx_ldb->regmap = syscon_regmap_lookup_by_phandle(np, "gpr");
++	if (IS_ERR(imx_ldb->regmap)) {
++		dev_err(dev, "failed to get parent regmap\n");
++		return PTR_ERR(imx_ldb->regmap);
++	}
++
++	imx_ldb->dev = dev;
++
++	if (of_id)
++		imx_ldb->lvds_mux = of_id->data;
++
++	platform_set_drvdata(pdev, imx_ldb);
++
+ 	return component_add(&pdev->dev, &imx_ldb_ops);
+ }
+ 

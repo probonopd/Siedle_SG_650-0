@@ -1,0 +1,86 @@
+## SECTION=networking
+menuconfig DHCP
+	tristate
+	prompt "dhcp                          "
+	help
+	  This is the DHCP server from version 3 of the Internet Software
+	  Consortium DHCP package. For more information visit the ISC web
+ 	  site at http://www.isc.org/.
+
+	  Dynamic Host Configuration Protocol (DHCP) is a protocol like
+	  BOOTP (actually dhcpd includes much of the functionality of
+	  BOOTPD!). It assigns IP addresses to clients based on lease
+	  times.
+
+ 	  Multiple Ethernet Interfaces are supported by this DHCP package.
+
+if DHCP
+
+config DHCP_SERVER
+	bool
+	prompt "DHCP Server dhcpd"
+	help
+	  This is the main component of the DHCP server, the daemon process
+	  that allows a server to provide a Dynamic Host Configuration
+	  Protocol service to a network.
+	  It takes its configuration from /etc/dhcp3/dhcpd.conf and tracks
+	  issued addresses as records in the dhcpd.leases file.
+
+config DHCP_DHCPD_CONF
+	bool "Install /etc/dhcpd.conf"
+	depends on DHCP_SERVER
+	default y
+	help
+	  Installs (if present) the "./projectroot/etc/dhcpd.conf"
+	  file from your workspace, otherwise a generic one from the
+	  ptxdist installation
+	  ("<PTXDIST>/projectroot/etc/dhcpd.conf").
+
+
+config DHCP_CLIENT
+	bool
+	prompt "DHCP Client dhclient"
+	help
+	  This is a client process to provide the system it runs on
+	  with an IP address. It also handles a lease refresh if it
+	  expires.
+
+if DHCP_CLIENT
+
+config DHCP_DHCLIENT_CONF
+	bool "Install /etc/dhclient.conf"
+	default y
+	help
+	  Installs (if present) the "./projectroot/etc/dhclient.conf"
+	  file from your workspace, otherwise a generic one from the
+	  ptxdist installation
+	  ("<PTXDIST>/projectroot/etc/dhclient.conf").
+
+config DHCP_DHCLIENT_SCRIPT
+	bool "Install /etc/dhclient-script"
+	depends on DHCP_DHCLIENT_CONF
+	help
+	  Installs (if present) the "./projectroot/etc/dhclient-script"
+	  file from your workspace, otherwise a generic one from the
+	  ptxdist installation
+	  ("<PTXDIST>/projectroot/etc/dhclient-script").
+
+endif
+
+config DHCP_RELAY
+	bool
+	prompt "DHCP Relay dhcrelay"
+	help
+	  The Internet Systems Consortium DHCP Relay Agent, dhcrelay, provides a
+	  means for relaying DHCP and BOOTP requests from a subnet to which no
+	  DHCP server is directly connected to one or more DHCP servers on other
+	  subnets.
+
+	  The DHCP Relay Agent listens for DHCP and BOOTP queries and responses.
+	  When a query is received from a client, dhcrelay forwards it to the
+	  list of DHCP servers specified on the command line. When a reply is
+	  received from a server, it is broadcast or unicast (according to the
+	  relay agent's ability or the client's request) on the network from
+	  which the original request came.
+
+endif

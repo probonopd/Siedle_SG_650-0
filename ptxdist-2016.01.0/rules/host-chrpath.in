@@ -1,0 +1,7 @@
+## SECTION=hosttools_noprompt
+
+config HOST_CHRPATH
+	tristate
+	default ALLYES
+	help
+	  Tool to change the rpath of a ELF binary.

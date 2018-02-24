@@ -1,0 +1,29 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 11 Apr 2013 17:55:37 +0200
+Subject: [PATCH] backlight: add device tree alias support
+
+This allows to manually set the number that gets appended to the
+device name with the device tree aliases mechanism.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/video/backlight/pwm_bl.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/video/backlight/pwm_bl.c b/drivers/video/backlight/pwm_bl.c
+index ae3c6b6fd5db..633a5065fdf9 100644
+--- a/drivers/video/backlight/pwm_bl.c
++++ b/drivers/video/backlight/pwm_bl.c
+@@ -142,6 +142,12 @@ static int pwm_backlight_parse_dt(struct device *dev,
+ 	if (!node)
+ 		return -ENODEV;
+ 
++	ret = of_alias_get_id(node, "backlight");
++	if (ret >= 0) {
++		printk("%s: alias = %d\n", __func__, ret);
++		dev_set_name(dev, "%s.%d", node->name, ret);
++	}
++
+ 	memset(data, 0, sizeof(*data));
+ 
+ 	/* determine the number of brightness levels */

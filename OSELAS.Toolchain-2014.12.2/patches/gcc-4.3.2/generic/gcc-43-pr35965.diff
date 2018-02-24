@@ -1,0 +1,47 @@
+From ad5429399a8332dff822d07476286e3662fb26b9 Mon Sep 17 00:00:00 2001
+From: Julian Brown <julian@codesourcery.com>
+Date: Wed, 10 Nov 2010 22:35:50 +0100
+Subject: [PATCH] gcc-43-pr35965: This patch enables -fstack-protector-all on ARM.
+
+See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35965
+
+This patch enables -fstack-protector-all on ARM.
+
+2009-02-24  Julian Brown  <julian@codesourcery.com>
+
+	PR target/35965
+	* config/arm/arm.c (require_pic_register): Only set
+	cfun->machine->pic_reg once per function.
+
+	Patch commited by Doug Kwan <dougkwan@google.com>
+---
+ gcc/config/arm/arm.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/gcc/config/arm/arm.c b/gcc/config/arm/arm.c
+index 217cc7e..8b3b9c6 100644
+--- a/gcc/config/arm/arm.c
++++ b/gcc/config/arm/arm.c
+@@ -3372,7 +3372,8 @@ require_pic_register (void)
+       gcc_assert (can_create_pseudo_p ());
+       if (arm_pic_register != INVALID_REGNUM)
+ 	{
+-	  cfun->machine->pic_reg = gen_rtx_REG (Pmode, arm_pic_register);
++	  if (!cfun->machine->pic_reg)
++	    cfun->machine->pic_reg = gen_rtx_REG (Pmode, arm_pic_register);
+ 
+ 	  /* Play games to avoid marking the function as needing pic
+ 	     if we are being called as part of the cost-estimation
+@@ -3384,7 +3385,8 @@ require_pic_register (void)
+ 	{
+ 	  rtx seq;
+ 
+-	  cfun->machine->pic_reg = gen_reg_rtx (Pmode);
++	  if (!cfun->machine->pic_reg)
++	    cfun->machine->pic_reg = gen_reg_rtx (Pmode);
+ 
+ 	  /* Play games to avoid marking the function as needing pic
+ 	     if we are being called as part of the cost-estimation
+-- 
+1.7.2.3
+

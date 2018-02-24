@@ -1,0 +1,6 @@
+# config for uclibc-headers
+
+config UCLIBC_HEADERS
+	bool
+	# no prompt
+	select KERNEL_HEADERS

@@ -1,0 +1,10 @@
+[Unit]
+Conflicts=telnetd.service
+ConditionKernelCommandLine=ptxdist-devel
+
+[Socket]
+ListenStream=23
+Accept=yes
+
+[Install]
+WantedBy=sockets.target

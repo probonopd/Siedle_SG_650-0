@@ -1,0 +1,103 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 24 Mar 2015 11:19:55 +0100
+Subject: [PATCH] Add 8x16 macroblock tiled NV12 format
+
+This patch adds the GST_VIDEO_FORMAT_NV12_8X16 for 8x16 macroblock tiled,
+chroma-interleaved YUV 4:2:0 frames.
+---
+ gst-libs/gst/video/video-converter.c | 1 +
+ gst-libs/gst/video/video-format.c    | 3 +++
+ gst-libs/gst/video/video-format.h    | 6 ++++--
+ gst-libs/gst/video/video-info.c      | 8 ++++++++
+ win32/common/video-enumtypes.c       | 2 ++
+ 5 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/gst-libs/gst/video/video-converter.c b/gst-libs/gst/video/video-converter.c
+index f29278d02858..75d5f776322a 100644
+--- a/gst-libs/gst/video/video-converter.c
++++ b/gst-libs/gst/video/video-converter.c
+@@ -4001,6 +4001,7 @@ get_scale_format (GstVideoFormat format, gint plane)
+     case GST_VIDEO_FORMAT_Y444_10LE:
+     case GST_VIDEO_FORMAT_GBR_10BE:
+     case GST_VIDEO_FORMAT_GBR_10LE:
++    case GST_VIDEO_FORMAT_NV12_8X16:
+     case GST_VIDEO_FORMAT_NV12_64Z32:
+     case GST_VIDEO_FORMAT_A420_10BE:
+     case GST_VIDEO_FORMAT_A420_10LE:
+diff --git a/gst-libs/gst/video/video-format.c b/gst-libs/gst/video/video-format.c
+index cff818901bfc..56eadb3a2b51 100644
+--- a/gst-libs/gst/video/video-format.c
++++ b/gst-libs/gst/video/video-format.c
+@@ -3557,6 +3557,9 @@ static const VideoFormat formats[] = {
+       DPTH888, PSTR122, PLANE011, OFFS001, SUB422, PACK_NV16),
+   MAKE_YUV_FORMAT (NV24, "raw video", GST_MAKE_FOURCC ('N', 'V', '2', '4'),
+       DPTH888, PSTR122, PLANE011, OFFS001, SUB444, PACK_NV24),
++  MAKE_YUV_FORMAT (NV12_8X16, "raw video",
++      GST_MAKE_FOURCC ('C', 'M', '1', '2'), DPTH888, PSTR122, PLANE011, OFFS001,
++      SUB420, PACK_NV12),
+   MAKE_YUV_T_FORMAT (NV12_64Z32, "raw video",
+       GST_MAKE_FOURCC ('T', 'M', '1', '2'), DPTH8880, PSTR122, PLANE011,
+       OFFS001, SUB420, PACK_NV12_64Z32, TILE_64x32 (ZFLIPZ_2X2)),
+diff --git a/gst-libs/gst/video/video-format.h b/gst-libs/gst/video/video-format.h
+index 86fe297bd7ef..effe50815e07 100644
+--- a/gst-libs/gst/video/video-format.h
++++ b/gst-libs/gst/video/video-format.h
+@@ -86,6 +86,7 @@ G_BEGIN_DECLS
+  * @GST_VIDEO_FORMAT_NV16: planar 4:2:2 YUV with interleaved UV plane
+  * @GST_VIDEO_FORMAT_NV61: planar 4:2:2 YUV with interleaved VU plane (Since 1.6)
+  * @GST_VIDEO_FORMAT_NV24: planar 4:4:4 YUV with interleaved UV plane
++ * @GST_VIDEO_FORMAT_NV12_8X16: NV12 with 8x16 tiling
+  * @GST_VIDEO_FORMAT_NV12_64Z32: NV12 with 64x32 tiling in zigzag pattern
+  * @GST_VIDEO_FORMAT_A420_10BE: planar 4:4:2:0 YUV, 10 bits per channel
+  * @GST_VIDEO_FORMAT_A420_10LE: planar 4:4:2:0 YUV, 10 bits per channel
+@@ -150,6 +151,7 @@ typedef enum {
+   GST_VIDEO_FORMAT_GBR_10LE,
+   GST_VIDEO_FORMAT_NV16,
+   GST_VIDEO_FORMAT_NV24,
++  GST_VIDEO_FORMAT_NV12_8X16,
+   GST_VIDEO_FORMAT_NV12_64Z32,
+   GST_VIDEO_FORMAT_A420_10BE,
+   GST_VIDEO_FORMAT_A420_10LE,
+@@ -495,8 +497,8 @@ gconstpointer  gst_video_format_get_palette          (GstVideoFormat format, gsi
+     "YVYU, Y444, v210, v216, NV12, NV21, NV16, NV61, NV24, GRAY8, GRAY16_BE, " \
+     "GRAY16_LE, v308, RGB16, BGR16, RGB15, BGR15, UYVP, A420, RGB8P, YUV9, YVU9, " \
+     "IYU1, ARGB64, AYUV64, r210, I420_10LE, I420_10BE, I422_10LE, I422_10BE, " \
+-    " Y444_10LE, Y444_10BE, GBR, GBR_10LE, GBR_10BE, NV12_64Z32, A420_10LE, "\
+-    " A420_10BE, A422_10LE, A422_10BE, A444_10LE, A444_10BE }"
++    " Y444_10LE, Y444_10BE, GBR, GBR_10LE, GBR_10BE, NV12_8X16, NV12_64Z32, " \
++    " A420_10LE, A420_10BE, A422_10LE, A422_10BE, A444_10LE, A444_10BE }"
+ 
+ /**
+  * GST_VIDEO_CAPS_MAKE:
+diff --git a/gst-libs/gst/video/video-info.c b/gst-libs/gst/video/video-info.c
+index cb9c777c6a01..ca38c7ea5f92 100644
+--- a/gst-libs/gst/video/video-info.c
++++ b/gst-libs/gst/video/video-info.c
+@@ -825,6 +825,14 @@ fill_planes (GstVideoInfo * info)
+       info->offset[2] = info->offset[1] * 2;
+       info->size = info->stride[0] * height * 3;
+       break;
++    case GST_VIDEO_FORMAT_NV12_8X16:
++      info->stride[0] = GST_ROUND_UP_8 (width);
++      info->stride[1] = info->stride[0];
++      info->offset[0] = 0;
++      info->offset[1] = info->stride[0] * GST_ROUND_UP_16 (height);
++      info->size = info->offset[1] +
++          info->stride[1] * GST_ROUND_UP_16 (height) / 2;
++      break;
+     case GST_VIDEO_FORMAT_NV12_64Z32:
+       info->stride[0] =
+           GST_VIDEO_TILE_MAKE_STRIDE (GST_ROUND_UP_128 (width) / 64,
+diff --git a/win32/common/video-enumtypes.c b/win32/common/video-enumtypes.c
+index bade1905caa8..5d4ff1f965b9 100644
+--- a/win32/common/video-enumtypes.c
++++ b/win32/common/video-enumtypes.c
+@@ -77,6 +77,8 @@ gst_video_format_get_type (void)
+       {GST_VIDEO_FORMAT_GBR_10LE, "GST_VIDEO_FORMAT_GBR_10LE", "gbr-10le"},
+       {GST_VIDEO_FORMAT_NV16, "GST_VIDEO_FORMAT_NV16", "nv16"},
+       {GST_VIDEO_FORMAT_NV24, "GST_VIDEO_FORMAT_NV24", "nv24"},
++      {GST_VIDEO_FORMAT_NV12_8X16, "GST_VIDEO_FORMAT_NV12_8X16",
++          "nv12-8x16"},
+       {GST_VIDEO_FORMAT_NV12_64Z32, "GST_VIDEO_FORMAT_NV12_64Z32",
+           "nv12-64z32"},
+       {GST_VIDEO_FORMAT_A420_10BE, "GST_VIDEO_FORMAT_A420_10BE", "a420-10be"},

@@ -1,0 +1,23 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 14 Jul 2015 08:50:11 +0200
+Subject: [PATCH] [media] coda: mark firmware version 3.1.1 as supported
+
+This firmware version is released as part of firmware-imx-3.14.28.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-bit.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index b2e7841e8366..cee86be356ba 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -783,6 +783,7 @@ static u32 coda_supported_firmwares[] = {
+ 	CODA_FIRMWARE_VERNUM(CODA_960, 2, 1, 5),
+ 	CODA_FIRMWARE_VERNUM(CODA_960, 2, 1, 9),
+ 	CODA_FIRMWARE_VERNUM(CODA_960, 2, 3, 10), /* revision 40778 from firmware-imx-3.5.7-1.0.0 */
++	CODA_FIRMWARE_VERNUM(CODA_960, 3, 1, 1), /* revision 46063 from firmware-imx-3.14.28-1.0.0 */
+ };
+ 
+ static bool coda_firmware_supported(u32 vernum)

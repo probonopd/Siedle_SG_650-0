@@ -1,0 +1,10 @@
+## SECTION=multimedia_directfb
+
+config LITE
+	tristate
+	prompt "lite"
+	select LIBC_PTHREAD
+	select GCCLIBS_GCC_S
+	select DIRECTFB
+	help
+	  LiTE is a Toolkit Engine for DirectFB

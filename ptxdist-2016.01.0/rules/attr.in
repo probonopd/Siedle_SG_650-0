@@ -1,0 +1,26 @@
+## SECTION=disk_and_file
+
+menuconfig ATTR
+	tristate
+	select HOST_GETTEXT if ATTR_GETTEXT
+	prompt "attr                          "
+	help
+	  Utilities for manipulating filesystem extended attributes
+
+	  A set of tools for manipulating extended attributes on
+	  filesystem objects, in particular getfattr(1) and
+	  setfattr(1). An attr(1) command is also provided which is
+	  largely compatible with the SGI IRIX tool of the same name.
+
+if ATTR
+
+config ATTR_TOOLS
+	bool
+	prompt "install tools"
+
+config ATTR_GETTEXT
+	bool
+	depends on ATTR
+	prompt "gettext support"
+
+endif

@@ -1,0 +1,21 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 7 Jul 2015 17:18:28 +0200
+Subject: [PATCH] [media] coda: hook up vidioc_prepare_buf
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-common.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index e8be029cb5c9..8341d31083d9 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -921,6 +921,7 @@ static const struct v4l2_ioctl_ops coda_ioctl_ops = {
+ 	.vidioc_expbuf		= v4l2_m2m_ioctl_expbuf,
+ 	.vidioc_dqbuf		= v4l2_m2m_ioctl_dqbuf,
+ 	.vidioc_create_bufs	= v4l2_m2m_ioctl_create_bufs,
++	.vidioc_prepare_buf	= v4l2_m2m_ioctl_prepare_buf,
+ 
+ 	.vidioc_streamon	= v4l2_m2m_ioctl_streamon,
+ 	.vidioc_streamoff	= v4l2_m2m_ioctl_streamoff,

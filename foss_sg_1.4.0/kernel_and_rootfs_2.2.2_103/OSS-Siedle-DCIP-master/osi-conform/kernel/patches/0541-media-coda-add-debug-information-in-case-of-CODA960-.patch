@@ -1,0 +1,31 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 29 Sep 2014 14:04:28 +0200
+Subject: [PATCH] [media] coda: add debug information in case of CODA960 JPEG
+ error
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-jpeg.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/media/platform/coda/coda-jpeg.c b/drivers/media/platform/coda/coda-jpeg.c
+index 7b99b93a16ef..a69a5350f753 100644
+--- a/drivers/media/platform/coda/coda-jpeg.c
++++ b/drivers/media/platform/coda/coda-jpeg.c
+@@ -1599,6 +1599,16 @@ irqreturn_t coda9_jpeg_irq_handler(int irq, void *data)
+ 				 err_mb, err_mb >> 24, (err_mb >> 12) & 0xfff,
+ 				 err_mb & 0xfff);
+ 		}
++
++v4l2_err(&dev->v4l2_dev,
++	 "cur_pos = %d ext_addr = %x int_addr = %d data_cnt = %d\n",
++	 coda_read(dev, CODA9_REG_JPEG_BBC_CUR_POS),
++	 coda_read(dev, CODA9_REG_JPEG_BBC_EXT_ADDR),
++	 coda_read(dev, CODA9_REG_JPEG_BBC_INT_ADDR),
++	 coda_read(dev, CODA9_REG_JPEG_BBC_DATA_CNT));
++v4l2_err(&dev->v4l2_dev, "word_ptr = %d bit_ptr = %d\n",
++	 coda_read(dev, CODA9_REG_JPEG_GBU_WD_PTR),
++	 coda_read(dev, CODA9_REG_JPEG_GBU_FF_RPTR));
+ 	}
+ 
+ 	ctx = v4l2_m2m_get_curr_priv(dev->m2m_dev);

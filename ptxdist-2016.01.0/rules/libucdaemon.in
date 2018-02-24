@@ -1,0 +1,9 @@
+## SECTION=system_libraries
+config LIBUCDAEMON
+	tristate
+	prompt "libucdaemon"
+	help
+	  libdaemon is a lightweight C library that eases the process
+	  of writing UNIX daemons. It contains a daemonizing fork()
+	  wrapper, a powerful syslog() wrapper, PID file management,
+	  and signal serialization.

@@ -1,0 +1,12 @@
+# Atmel's patch set reviewed and pulled from:
+# http://distribute.atmel.no/tools/opensource/avr-gcc/gcc-4.4.3/
+atmel/0001-Add-support-for-fixed-point-operations.patch
+atmel/0002-Fix-incomplete-check-in-RTL-for-pm-annotation.patch
+atmel/0003-Fix-handling-of-empty-.data-or-.bss-section.patch
+atmel/0004-Add-support-for-XMEGA-devices.patch
+atmel/0005-Add-remove-support-for-devices.patch
+atmel/0006-Add-support-for-more-XMEGA-devices.patch
+atmel/0007-Add-support-for-devices-with-16-gp-registers.patch
+atmel/0008-Adds-OS_main-attribute-feature.patch
+atmel/0009-Adds-AVR-builtin-functions.patch
+atmel/0010-Disable-fixed-point-support-for-avrtiny10-family.patch

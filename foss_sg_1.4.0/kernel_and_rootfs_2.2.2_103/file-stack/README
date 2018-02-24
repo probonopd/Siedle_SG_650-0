@@ -1,0 +1,16 @@
+Prepare GNUPG key:
+$ gpg --homedir . --gen-key
+...
+
+Create update file:
+$ rm -rf update.stack
+$ file-stack update.stack push root.squashfs
+$ gpg --homedir . --detach-sign --sign root.squashfs
+$ file-stack update.stack push root.squashfs.sig
+
+Verify and mount update file:
+$ file-stack update.stack check 2 || exit 1
+$ file-stack update.stack cat 1 > update.sig || exit 1
+$ file-stack update.stack cat 2 | gpgv --homedir . --keyring pubring.gpg update.sig - || exit 1
+$ mount update.stack /mnt/update || exit 1
+$ /mnt/update/updater

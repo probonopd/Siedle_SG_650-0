@@ -1,0 +1,37 @@
+## SECTION=shell_and_console
+
+menuconfig MC
+	tristate
+	select GLIB
+	select NCURSES if MC_USES_NCURSES
+	select SLANG if MC_USES_SLANG
+	select LIBC_NSL
+	select GCCLIBS_GCC_S
+	prompt "midnight commander            "
+	help
+	  midnight commander is a text oriented file manager
+
+comment "build options   ---"
+	depends on MC
+
+choice
+	prompt "Kind of MMI "
+	default MC_USES_NO_PREFERENCE
+	depends on MC
+
+config MC_USES_NO_PREFERENCE
+	bool "no preference"
+	help
+	  Build midnight commander without any external library preference
+
+config MC_USES_NCURSES
+	bool "Use ncurses  "
+	help
+	  Build midnight commander with ncurses
+
+config MC_USES_SLANG
+	bool "Use slang    "
+	help
+	  Build midnight commander with slang
+
+endchoice

@@ -1,0 +1,13 @@
+## SECTION=hosttools_noprompt
+## SECTION=hosttools_platform
+
+config HOST_ATTR
+	tristate
+	default ALLYES
+	help
+	  Utilities for manipulating filesystem extended attributes
+
+	  A set of tools for manipulating extended attributes on
+	  filesystem objects, in particular getfattr(1) and
+	  setfattr(1). An attr(1) command is also provided which is
+	  largely compatible with the SGI IRIX tool of the same name.

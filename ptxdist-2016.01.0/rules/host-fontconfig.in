@@ -1,0 +1,19 @@
+## SECTION=hosttools_noprompt
+
+config HOST_FONTCONFIG
+	tristate
+	select HOST_FREETYPE
+	select HOST_EXPAT
+	default ALLYES
+	help
+	  Fontconfig is a font configuration and
+	  customization library, which does not depend on
+	  the X Window System.  It is designed to locate
+ 	  fonts within the system and select them according
+	  to requirements specified by applications.
+
+	  Fontconfig is not a rasterization library, nor
+	  does it impose a particular rasterization library
+	  on the application.  The X-specific library 'Xft'
+	  uses fontconfig along with freetype to specify and
+ 	  rasterize fonts.

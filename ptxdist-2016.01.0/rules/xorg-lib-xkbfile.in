@@ -1,0 +1,13 @@
+## SECTION=multimedia_xorg_lib
+
+config XORG_LIB_XKBFILE
+	tristate
+	prompt "libxkbfile"
+	select XORG_LIB_X11_XKB
+	select XORG_LIB_X11
+	select XORG_PROTO_KB
+	help
+	  The xkbfile library libxkbfile provides an interface
+	  to read and manipulate description files for XKB,
+	  the X11 keyboard configuration extension.
+

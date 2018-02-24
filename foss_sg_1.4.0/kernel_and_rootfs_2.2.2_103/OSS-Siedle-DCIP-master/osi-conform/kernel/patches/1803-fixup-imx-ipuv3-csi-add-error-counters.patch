@@ -1,0 +1,20 @@
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Date: Mon, 2 Nov 2015 11:28:56 +0100
+Subject: [PATCH] fixup! imx-ipuv3-csi: add error counters
+
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index a9be1fe322e6..4f87df3988c2 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -1138,6 +1138,7 @@ static void ipucsi_videobuf_stop_streaming(struct vb2_queue *vq)
+ 	free_irq(ipucsi->pupe_irq, ipucsi);
+ 	free_irq(ipucsi->nfb4eof_irq, ipucsi);
+ 	free_irq(nfack_irq, ipucsi);
++	free_irq(ipucsi->th_irq, ipucsi);
+ 	ipu_csi_disable(ipucsi->csi);
+ 	ipu_idmac_disable_channel(ipucsi->ipuch);
+ 	if (ipucsi->smfc) {

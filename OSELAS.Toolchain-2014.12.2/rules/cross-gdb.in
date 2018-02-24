@@ -1,0 +1,26 @@
+menuconfig CROSS_GDB
+	bool "cross gdb                   "
+	select HOST_EXPAT
+	select HOST_ZLIB
+	select HOST_XZ
+	help
+	GDB is a source-level debugger, capable of breaking programs
+	at any specific line, displaying variable values, and
+	determining where errors occurred. Currently, it works for C,
+	C++, Fortran, Modula 2 and Java programs. A must-have for any
+	serious programmer.
+
+if CROSS_GDB
+
+config CROSS_GDB_VERSION
+	string
+	prompt "gdb version"
+	default "6.8"
+	help
+	  Specify the version of gdb here.
+
+config CROSS_GDB_MD5
+	string
+	prompt "gdb source md5sum"
+
+endif

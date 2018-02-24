@@ -1,0 +1,195 @@
+From: Andreas Pretzsch <apr@cn-eng.de>
+Date: Mon, 24 Nov 2014 22:42:59 +0100
+Subject: [PATCH] Platform AVP: add driver for AZIO
+
+On the AVP, there is a slot for a plugin module. Currently supported
+is the AZIO870 (1 input, 1 output). Detection is based on the levels
+of IO_X/IO_Y/IO_Z. The input is abstracted as gpio-key, the output
+is abstraced as gpio-led, similar to the other Access devices.
+As the detection based on the GPIOs has to be dynamic, this cannot
+be done with fixed dts entries.
+Therefore, they are commented out in the dts and a dedicated kernel
+driver is used to detect and add them on demand.
+Attn.: GPIOs, keycodes and names are hardcoded in this driver.
+
+Signed-off-by: Andreas Pretzsch <apr@cn-eng.de>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/misc/Kconfig    |   7 +++
+ drivers/misc/Makefile   |   1 +
+ drivers/misc/sss_azio.c | 139 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 147 insertions(+)
+ create mode 100644 drivers/misc/sss_azio.c
+
+diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
+index 4bf7d50b1bc7..6281edcd69ec 100644
+--- a/drivers/misc/Kconfig
++++ b/drivers/misc/Kconfig
+@@ -516,6 +516,13 @@ config SRAM
+ 	  the genalloc API. It is supposed to be used for small on-chip SRAM
+ 	  areas found on many SoCs.
+ 
++config SSS_AZIO
++	bool "Siedle AZIO driver"
++	depends on OF
++	depends on KEYBOARD_GPIO && LEDS_GPIO
++	help
++	  Driver for the AZIO I/O extender (AZIO870) on the Siedle AVP.
++
+ config VEXPRESS_SYSCFG
+ 	bool "Versatile Express System Configuration driver"
+ 	depends on VEXPRESS_CONFIG
+diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
+index 537d7f3b78da..fcea792cf7b9 100644
+--- a/drivers/misc/Makefile
++++ b/drivers/misc/Makefile
+@@ -56,3 +56,4 @@ obj-$(CONFIG_GENWQE)		+= genwqe/
+ obj-$(CONFIG_ECHO)		+= echo/
+ obj-$(CONFIG_VEXPRESS_SYSCFG)	+= vexpress-syscfg.o
+ obj-$(CONFIG_CXL_BASE)		+= cxl/
++obj-$(CONFIG_SSS_AZIO)		+= sss_azio.o
+diff --git a/drivers/misc/sss_azio.c b/drivers/misc/sss_azio.c
+new file mode 100644
+index 000000000000..9c0145b5feb3
+--- /dev/null
++++ b/drivers/misc/sss_azio.c
+@@ -0,0 +1,139 @@
++/*
++ * Copyright 2014 S. Siedle & Soehne Telefon & Telegrafenwerke OHG
++ *
++ * The code contained herein is licensed under the GNU General Public
++ * License. You may obtain a copy of the GNU General Public License
++ * Version 2 or later at the following locations:
++ *
++ * http://www.opensource.org/licenses/gpl-license.html
++ * http://www.gnu.org/copyleft/gpl.html
++ */
++
++// ======================== AZIO I/O extender =========================
++// On the AVP, there is a slot for a plugin module. Currently supported
++// is the AZIO870 (1 input, 1 output). Detection is based on the levels
++// of IO_X/IO_Y/IO_Z. The input is abstracted as gpio-key, the output
++// is abstraced as gpio-led, similar to the other Access devices.
++// As the detection based on the GPIOs has to be dynamic, this cannot
++// be done with fixed dts entries. Therefore we detect and add them
++// here on demand.
++// Remark: The presence of the key resp. LED is used as criteria, so
++//         it has not to be there without a AZIO plugged in.
++// Attn.: GPIOs, keycodes and names are hardcoded here.
++// ====================================================================
++
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/gpio.h>
++#include <linux/leds.h>
++#include <linux/gpio_keys.h>
++#include <uapi/linux/input.h>
++
++#define AVP_GPIO_IO_X	13	// MX6QDL_PAD_SD2_DAT2__GPIO1_IO13 ; 100k PD
++#define AVP_GPIO_IO_Y	15	// MX6QDL_PAD_SD2_DAT0__GPIO1_IO15 ; 100k PD
++#define AVP_GPIO_IO_Z	16	// MX6QDL_PAD_SD1_DAT0__GPIO1_IO16 ; 100k PD
++
++static struct gpio_keys_button AVP_IO_XYZ_inputs_as_gpio_key_table[] = {
++	{
++		.desc			= "RJ45-1_2",	// connecting RJ45 pin 1 to GND (RJ45 pin 2) means active ; provided by AZIO870
++		.gpio			= AVP_GPIO_IO_X,
++		.active_low		= 1,
++		.type			= EV_KEY,
++		.code			= KEY_FN_F2,
++		.debounce_interval	= 50
++	},
++};
++static struct gpio_keys_platform_data AVP_IO_XYZ_inputs_as_gpio_key_pdata = {
++	.buttons	= AVP_IO_XYZ_inputs_as_gpio_key_table,
++	.nbuttons	= ARRAY_SIZE(AVP_IO_XYZ_inputs_as_gpio_key_table),
++	.name		= "AZIO870",
++};
++static struct platform_device AVP_IO_XYZ_inputs_as_gpio_key_dev = {
++	.name	= "gpio-keys",
++	.dev	= {
++		.platform_data = &AVP_IO_XYZ_inputs_as_gpio_key_pdata,
++	},
++};
++
++static struct gpio_led AVP_IO_XYZ_outputs_as_gpio_led[] = {
++	{
++		.name		= "RJ45-7_8",		// active output will connect RJ45 pin 7 and RJ45 pin 8 ; provided by AZIO870
++		.gpio		= AVP_GPIO_IO_Y,
++		.active_low	= 1,
++		.default_state	= LEDS_GPIO_DEFSTATE_OFF,
++	},
++};
++static struct gpio_led_platform_data AVP_IO_XYZ_outputs_as_gpio_led_pdata = {
++	.leds		= AVP_IO_XYZ_outputs_as_gpio_led,
++	.num_leds	= ARRAY_SIZE(AVP_IO_XYZ_outputs_as_gpio_led),
++};
++static struct platform_device AVP_IO_XYZ_outputs_as_gpio_led_dev = {
++	.name	= "leds-gpio",
++	.dev	= {
++		.platform_data = &AVP_IO_XYZ_outputs_as_gpio_led_pdata,
++	},
++};
++
++
++// AZIO870 IO_X is connected to an external source, hence the value of X depends
++// on some external state and can't be used for detection => variant "a" and "b"
++#define XYZ_NONE	(   0    |   0    |   0    )
++#define XYZ_AZIO870_a	( BIT(2) | BIT(1) |   0    )
++#define XYZ_AZIO870_b	(   0    | BIT(1) |   0    )
++
++static struct gpio AVP_IO_XYZ_gpios[] __initdata = {
++	{ AVP_GPIO_IO_X, GPIOF_IN, "AVP IO_X" },
++	{ AVP_GPIO_IO_Y, GPIOF_IN, "AVP IO_Y" },
++	{ AVP_GPIO_IO_Z, GPIOF_IN, "AVP IO_Z" },
++};
++
++static int __init AVP_IO_XYZ_detect(void)
++{
++	int xyz, ret;
++
++	ret = gpio_request_array(AVP_IO_XYZ_gpios, ARRAY_SIZE(AVP_IO_XYZ_gpios));
++	if (ret) {
++		pr_err("SSS AZIO: failed to request IO_X/IO_Y/IO_Z: %d\n", ret);
++		return -1;
++	}
++
++	xyz = 0;
++	if (gpio_get_value(AVP_GPIO_IO_X)) xyz |= BIT(2);
++	if (gpio_get_value(AVP_GPIO_IO_Y)) xyz |= BIT(1);
++	if (gpio_get_value(AVP_GPIO_IO_Z)) xyz |= BIT(0);
++	pr_debug("SSS AZIO: xyz=0x%x\n", xyz);
++
++	gpio_free_array(AVP_IO_XYZ_gpios, ARRAY_SIZE(AVP_IO_XYZ_gpios));
++	return xyz;
++}
++
++static int __init sss_azio_init(void)
++{
++	int io_xyz, ret;
++
++	// AVP only
++	if (!of_machine_is_compatible("siedle,imx6q-avp"))
++		return 0;
++
++	io_xyz = AVP_IO_XYZ_detect();
++	if (io_xyz == XYZ_AZIO870_a || io_xyz == XYZ_AZIO870_b) {
++		pr_info("I/O extender AZIO870 (1 input, 1 output) detected\n");
++		ret = platform_device_register(&AVP_IO_XYZ_inputs_as_gpio_key_dev);
++		if (ret) {
++			pr_err("SSS AZIO: failed to register inputs: %d\n", ret);
++			return ret;
++		}
++		ret = platform_device_register(&AVP_IO_XYZ_outputs_as_gpio_led_dev);
++		if (ret) {
++			pr_err("SSS AZIO: failed to register outputs: %d\n", ret);
++			// platform_device_unregister(&AVP_IO_XYZ_inputs_as_gpio_key_dev);
++			return ret;
++		}
++	}
++	return 0;
++}
++
++module_init(sss_azio_init);
++// unloading not required

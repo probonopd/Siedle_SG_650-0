@@ -1,0 +1,37 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 8 Oct 2014 17:49:08 +0200
+Subject: [PATCH] [media] coda: check for SOI/EOI again in prepare_decode
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-bit.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index 77a4dd1e26ad..fb8ff204dcd8 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -1910,6 +1910,7 @@ static int coda_prepare_decode(struct coda_ctx *ctx)
+ 					struct coda_buffer_meta, list);
+ 
+ 	if (meta && ctx->codec->src_fourcc == V4L2_PIX_FMT_JPEG) {
++		u16 soi, eoi;
+ 
+ 		/* If this is the last buffer in the bitstream, add padding */
+ 		if (meta->end == (ctx->bitstream_fifo.kfifo.in &
+@@ -1924,6 +1925,15 @@ static int coda_prepare_decode(struct coda_ctx *ctx)
+ 
+ 			kfifo_in(&ctx->bitstream_fifo, buf, pad);
+ 		}
++
++		soi = be16_to_cpup((__be16 *)(ctx->bitstream.vaddr + meta->start));
++		eoi = be16_to_cpup((__be16 *)(ctx->bitstream.vaddr + meta->end - 2));
++
++		if (soi != 0xffd8 || eoi != 0xffd9) {
++			v4l2_warn(&ctx->dev->v4l2_dev,
++				  "Invalid markers: %04x..%04x (%x - %x)\n",
++				  soi, eoi, meta->start, meta->end);
++		}
+ 	}
+ 	spin_unlock_irqrestore(&ctx->buffer_meta_lock, flags);
+ 

@@ -1,0 +1,36 @@
+#
+# sysroot support
+#
+config TOOLCHAIN_ENABLE_SYSROOT
+	bool
+	default !TOOLCHAIN_DISABLE_SYSROOT
+
+config TOOLCHAIN_DISABLE_SYSROOT
+	bool
+
+config TOOLCHAIN_CONFIG_SYSROOT
+	string
+	default "--with-sysroot=${SYSROOT}"	if  TOOLCHAIN_ENABLE_SYSROOT
+
+
+#
+# multilib support
+#
+config TOOLCHAIN_ENABLE_MULTILIB
+	bool
+
+config TOOLCHAIN_DISABLE_MULTILIB
+	bool
+	default !TOOLCHAIN_ENABLE_MULTILIB
+
+config TOOLCHAIN_CONFIG_MULTILIB
+	string
+	default "--enable-multilib"	if  TOOLCHAIN_ENABLE_MULTILIB
+	default "--disable-multilib"	if  TOOLCHAIN_DISABLE_MULTILIB
+
+#
+# canadian cross support
+#
+#config TOOLCHAIN_CC
+#	bool
+#	prompt "Canadian Cross"

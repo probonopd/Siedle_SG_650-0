@@ -1,0 +1,9 @@
+## SECTION=multimedia_xorg_font
+
+menuconfig XORG_FONT_SPEEDO
+	depends on MENU_XORG_FONTS
+	bool
+	prompt "xorg speedo fonts             "
+
+source "generated/multimedia_xorg_font_speedo.in"
+

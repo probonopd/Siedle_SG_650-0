@@ -1,0 +1,10 @@
+03c196523caa7627e3d45acd7e6f5ffc  0001-missing-defined-extra-clock-ids.patch
+ddbd346e11c3cd34cfdce7985c044d47  0002-missing-add-BPF_XOR.patch
+0d1078e2cc0db4df258d13b8a3e93ce4  0003-missing-define-__NR_kcmp-if-necessary.patch
+f9cffc04be9a4919217848849fa66acc  0004-missing-define-O_PATH-and-AT_EMPTY_PATH.patch
+749f12f6243dce705077efd9d9de3921  0005-HACK-configure.ac-disable-NLS-to-avoid-unnecessary-d.patch
+f04c990de51ada32a6c310dcbbea8a18  0006-missing-define-syncfs.patch
+186228cccaf5333cbc3adf963ccd7e19  0007-missing-add-more-btrfs-defines.patch
+8199c266544583680a22ef2b699cd53d  0008-btrfs-include-missing.h-before-all-other-local-heade.patch
+d0dd2dd242391f8cfd9a932a80a55891  0100-HACK-systemd-hostnamed-disable-private-network.patch
+817ba4fb5f10762a2e969d1c51aa33e9  series

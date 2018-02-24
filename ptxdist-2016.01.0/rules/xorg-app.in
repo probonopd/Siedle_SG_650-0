@@ -1,0 +1,9 @@
+## SECTION=multimedia_xorg
+
+# xorg application configuration
+
+menu "xorg applications             "
+
+source "generated/multimedia_xorg_app.in"
+
+endmenu

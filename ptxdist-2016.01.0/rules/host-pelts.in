@@ -1,0 +1,8 @@
+## SECTION=test_suites
+
+config HOST_PELTS
+	tristate
+	prompt "pelts"
+	help
+	  Pengutronix Embedded Linux Test Suite
+

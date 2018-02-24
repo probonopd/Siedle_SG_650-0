@@ -1,0 +1,2 @@
+0001-don-t-build-docs-if-doxygen-isn-t-available.patch
+0002-cgicc-config-add-SYSROOT-support.patch

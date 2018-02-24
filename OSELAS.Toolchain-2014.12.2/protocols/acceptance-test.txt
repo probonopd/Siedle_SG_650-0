@@ -1,0 +1,11 @@
+Acceptance Test for OSELAS.Toolchain                           rsc, 2007????-1
+------------------------------------------------------------------------------
+
+Test Engineer: rsc
+
+[ ] check all ptxconfig files refer to the correct ptxdist version
+[ ] check if all PTXCONF_PROJECT entries in ptxconfig have the right
+    version entry (OSELAS.Toolchain-X.Y.Z)
+[ ] remove TODO from release
+[ ] remove EXTERNAL from release
+

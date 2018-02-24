@@ -1,0 +1,63 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 24 Jul 2015 13:02:59 +0200
+Subject: [PATCH] backlight: pwm_bl: add debug information for initial state
+ decision
+
+Add debug information showing how the decision to initially enable or
+disable the backlight was made.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/video/backlight/pwm_bl.c | 22 +++++++++++++++++++---
+ 1 file changed, 19 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/video/backlight/pwm_bl.c b/drivers/video/backlight/pwm_bl.c
+index d24ffcc66a17..bfaf1b9f4625 100644
+--- a/drivers/video/backlight/pwm_bl.c
++++ b/drivers/video/backlight/pwm_bl.c
+@@ -272,16 +272,26 @@ static int pwm_backlight_probe(struct platform_device *pdev)
+ 		pb->enable_gpio = gpio_to_desc(data->enable_gpio);
+ 	}
+ 
++	dev_dbg(&pdev->dev, "%scontrolled via phandle\n",
++		(node && node->phandle) ? "" : "not ");
++
+ 	if (pb->enable_gpio) {
++		bool output, enabled;
++
++		output = gpiod_get_direction(pb->enable_gpio) == GPIOF_DIR_OUT;
++		enabled = gpiod_get_value(pb->enable_gpio);
++		dev_dbg(&pdev->dev, "enable GPIO direction is %sput\n", output ?
++			"out" : "in");
++		dev_dbg(&pdev->dev, "enable GPIO value is %sabled\n", enabled ?
++			"en" : "dis");
++
+ 		/*
+ 		 * If the driver is probed from the device tree and there is a
+ 		 * phandle link pointing to the backlight node, it is safe to
+ 		 * assume that another driver will enable the backlight at the
+ 		 * appropriate time. Therefore, if it is disabled, keep it so.
+ 		 */
+-		if (node && node->phandle &&
+-		    gpiod_get_direction(pb->enable_gpio) == GPIOF_DIR_OUT &&
+-		    gpiod_get_value(pb->enable_gpio) == 0)
++		if (node && node->phandle && output && !enabled)
+ 			initial_blank = FB_BLANK_POWERDOWN;
+ 		else
+ 			gpiod_direction_output(pb->enable_gpio, 1);
+@@ -293,9 +303,15 @@ static int pwm_backlight_probe(struct platform_device *pdev)
+ 		goto err_alloc;
+ 	}
+ 
++	dev_dbg(&pdev->dev, "power supply regulator is %sabled\n",
++		regulator_is_enabled(pb->power_supply) ? "en" : "dis");
++
+ 	if (node && node->phandle && !regulator_is_enabled(pb->power_supply))
+ 		initial_blank = FB_BLANK_POWERDOWN;
+ 
++	dev_dbg(&pdev->dev, "backlight will be initially %sabled\n",
++		(initial_blank == FB_BLANK_UNBLANK) ? "en" : "dis");
++
+ 	pb->pwm = devm_pwm_get(&pdev->dev, NULL);
+ 	if (IS_ERR(pb->pwm) && PTR_ERR(pb->pwm) != -EPROBE_DEFER && !node) {
+ 		dev_err(&pdev->dev, "unable to request PWM, trying legacy API\n");

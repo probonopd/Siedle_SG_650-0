@@ -1,0 +1,90 @@
+From 440b1c138b09206cc28c64c0d6e45e349e8b46dc Mon Sep 17 00:00:00 2001
+From: Andreas Pretzsch <apr@cn-eng.de>
+Date: Sat, 19 Mar 2016 20:43:43 +0100
+Subject: [PATCH] barebox-state: for "dump-shell" cmd, revert to fixed STATE_
+ prefix
+
+As of commit 6d58ca4 "barebox-state: fix export of shell variables:",
+the fixed prefix "STATE_" was replaced by the supplied state name.
+Also in there, all '.' are replaced by '_' in the variable name. Not in
+the state name itself.
+
+The same would be necessary for (at least) '@', because it is invalid
+also inside a shell variable name.
+
+While this might be sensible also for the variable name, at least in
+the state name it shows up depending on dts. And hence breaks the use
+inside a shell eval command.
+
+Now, this could be replaced also with '_'.
+But beside probably not being sufficient for all cases (other chars
+to-be-escaped, also in variable name), it is not clear if this could
+go mainline, as it might break current users setup, when parsing e.g.
+from stdin instead of using shell eval.
+
+Next, we will then have 'state_0_...' instead of previous 'STATE_...'
+which is not necessarily better, even if not breaking shell eval.
+Here, we would have to rework all scripts using the dump-shell command.
+
+So instead of this, just revert to old behaviour and do not make the
+state name part of the variable, but use a fixed prefix 'STATE_' as
+it was in the old state utility before v2015.05.0.
+
+The replacement of '.' by '_' in the variable name is left unchanged,
+as it makes sense, and does not apply to our usecase anyway.
+
+Example of error
+----------------
+Having a dts definition (according to documentation) like
+
+state: state@0 {
+        [...]
+        active_firmware_slot@0 {
+                [...]
+        };
+        [...]
+};
+
+this results in
+
+found state node /state@0:
+state@0 {
+        [...]
+        active_firmware_slot@0 {
+                [...]
+        }
+        [...]
+}
+
+load successful
+state@0_active_firmware_slot="slot1"
+[...]
+
+load successful
+-sh: eval: state@0_active_firmware_slot=slot1: not found
+
+Example with fix
+----------------
+load successful
+STATE_active_firmware_slot="slot1"
+[...]
+
+Signed-off-by: Andreas Pretzsch <apr@cn-eng.de>
+---
+ src/barebox-state.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/barebox-state.c b/src/barebox-state.c
+index bc1010e..d501d32 100644
+--- a/src/barebox-state.c
++++ b/src/barebox-state.c
+@@ -2139,7 +2139,8 @@ int main(int argc, char *argv[])
+ 				*ptr++ = '_';
+ 
+ 			vtype = state_find_type(v->type);
+-			printf("%s_%s=\"%s\"\n", state->name, name, vtype->__get(v));
++			// printf("%s_%s=\"%s\"\n", state->name, name, vtype->__get(v));
++			printf("STATE_%s=\"%s\"\n", name, vtype->__get(v));
+ 		}
+ 	}
+ 

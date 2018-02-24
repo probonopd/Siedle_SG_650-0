@@ -1,0 +1,85 @@
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Date: Wed, 20 May 2015 15:02:53 +0200
+Subject: [PATCH] gstv4l2transform: ignore interlaced video on sink caps
+
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+---
+ sys/v4l2/gstv4l2transform.c | 46 +++++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 42 insertions(+), 4 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2transform.c b/sys/v4l2/gstv4l2transform.c
+index 55d3fc679c79..ed2f85d8991a 100644
+--- a/sys/v4l2/gstv4l2transform.c
++++ b/sys/v4l2/gstv4l2transform.c
+@@ -268,6 +268,40 @@ failed:
+   return FALSE;
+ }
+ 
++/* copies the given caps */
++static GstCaps *
++gst_v4l2_transform_caps_remove_interlace_mode_info (GstCaps * caps)
++{
++  GstStructure *st;
++  GstCapsFeatures *f;
++  gint i, n;
++  GstCaps *res;
++
++  res = gst_caps_new_empty ();
++
++  n = gst_caps_get_size (caps);
++  for (i = 0; i < n; i++) {
++    st = gst_caps_get_structure (caps, i);
++    f = gst_caps_get_features (caps, i);
++
++    /* If this is already expressed by the existing caps
++     * skip this structure */
++    if (i > 0 && gst_caps_is_subset_structure_full (res, st, f))
++      continue;
++
++    st = gst_structure_copy (st);
++    /* Only remove format info for the cases when we can actually convert */
++    if (!gst_caps_features_is_any (f)
++        && gst_caps_features_is_equal (f,
++            GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY))
++      gst_structure_remove_fields (st, "interlace-mode", NULL);
++
++    gst_caps_append_structure_full (res, st, gst_caps_features_copy (f));
++  }
++
++  return res;
++}
++
+ static gboolean
+ gst_v4l2_transform_query (GstBaseTransform * trans, GstPadDirection direction,
+     GstQuery * query)
+@@ -278,6 +312,7 @@ gst_v4l2_transform_query (GstBaseTransform * trans, GstPadDirection direction,
+   switch (GST_QUERY_TYPE (query)) {
+     case GST_QUERY_CAPS:{
+       GstCaps *filter, *caps = NULL, *result = NULL;
++      GstCaps *tmp, *tmp2;
+       GstPad *pad, *otherpad;
+ 
+       gst_query_parse_caps (query, &filter);
+@@ -297,15 +332,18 @@ gst_v4l2_transform_query (GstBaseTransform * trans, GstPadDirection direction,
+       if (!caps)
+         caps = gst_pad_get_pad_template_caps (pad);
+ 
++      tmp = gst_v4l2_transform_caps_remove_interlace_mode_info (caps);
++      gst_caps_unref(caps);
++
+       if (filter) {
+-        GstCaps *tmp = caps;
+-        caps = gst_caps_intersect_full (filter, tmp, GST_CAPS_INTERSECT_FIRST);
++        tmp2 = gst_caps_intersect_full (filter, tmp, GST_CAPS_INTERSECT_FIRST);
+         gst_caps_unref (tmp);
++        tmp = tmp2;
+       }
+ 
+-      result = gst_pad_peer_query_caps (otherpad, caps);
++      result = gst_pad_peer_query_caps (otherpad, tmp);
+       result = gst_caps_make_writable (result);
+-      gst_caps_append (result, caps);
++      gst_caps_append (result, tmp);
+ 
+       GST_DEBUG_OBJECT (self, "Returning %s caps %" GST_PTR_FORMAT,
+           GST_PAD_NAME (pad), result);

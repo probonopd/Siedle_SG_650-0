@@ -1,0 +1,41 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 25 Nov 2014 14:51:00 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: allow continuous frame sizes in BT.656
+ modes
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 20 +++++++-------------
+ 1 file changed, 7 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 0c9464254075..0e43fc3b16ea 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -1597,19 +1597,13 @@ static int ipucsi_enum_framesizes(struct file *file, void *fh,
+ 	if (!fmt && !ipucsifmt->raw)
+ 		return -EINVAL;
+ 
+-	if (mbus_config.type == V4L2_MBUS_BT656) {
+-		fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
+-		fsize->discrete.width = 720;
+-		fsize->discrete.height = fsize->index ? 576 : 480;
+-	} else {
+-		fsize->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
+-		fsize->stepwise.min_width = 1;
+-		fsize->stepwise.min_height = 1;
+-		fsize->stepwise.max_width = ipucsi->format_mbus[1].width;
+-		fsize->stepwise.max_height = ipucsi->format_mbus[1].height;
+-		fsize->stepwise.step_width = 1;
+-		fsize->stepwise.step_height = 1;
+-	}
++	fsize->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
++	fsize->stepwise.min_width = 1;
++	fsize->stepwise.min_height = 1;
++	fsize->stepwise.max_width = ipucsi->format_mbus[1].width;
++	fsize->stepwise.max_height = ipucsi->format_mbus[1].height;
++	fsize->stepwise.step_width = 1;
++	fsize->stepwise.step_height = 1;
+ 
+ 	return 0;
+ }

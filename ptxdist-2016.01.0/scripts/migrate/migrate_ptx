@@ -1,0 +1,257 @@
+#!/bin/sed -f
+
+#
+# from   : ptxdist-1.99.10
+# to     : ptxdist-1.99.11
+# symbol : PTXCONF_BB_CONFIG_* -> PTXCONF_BUSYBOX_*
+# reason : consolidation of busybox config names
+#
+s/^\(\(# \)\?PTXCONF\)_BB_CONFIG_\(.*$\)/\1_BUSYBOX_\3/
+
+#
+# from   : ptxdist-1.99.10
+# to     : ptxdist-1.99.11
+# symbol : PTXCONF_BUSYBOX_FEATURE_GUNZIP_UNCOMPRESS	-> PTXCONF_BUSYBOX_FEATURE_SEAMLESS_Z
+# symbol : PTXCONF_BUSYBOX_FEATURE_TAR_GZIP		-> PTXCONF_BUSYBOX_FEATURE_SEAMLESS_GZ
+# symbol : PTXCONF_BUSYBOX_FEATURE_TAR_BZIP2		-> PTXCONF_BUSYBOX_FEATURE_SEAMLESS_BZ2
+# symbol : PTXCONF_BUSYBOX_FEATURE_TAR_LZMA		-> PTXCONF_BUSYBOX_FEATURE_SEAMLESS_LZMA
+# symbol : PTXCONF_BUSYBOX_FEATURE_TAR_COMPRESS		-> PTXCONF_BUSYBOX_FEATURE_SEAMLESS_Z
+# symbol : PTXCONF_BUSYBOX_FEATURE_DF_INODE		-> PTXCONF_BUSYBOX_FEATURE_DF_FANCY
+# symbol : PTXCONF_BUSYBOX_FEATURE_UNARCHIVE_TAPE	-> (gone)
+# symbol : PTXCONF_BUSYBOX_DEBUG_INIT			-> (gone)
+# symbol : PTXCONF_BUSYBOX_FETCHMAIL			-> (gone)
+# reason : update busybox: 1.10.4 -> 1.13.2
+#
+s/^\(\(# \)\?PTXCONF_BUSYBOX\)_FEATURE_GUNZIP_UNCOMPRESS\(.*$\)/\1_FEATURE_SEAMLESS_Z\3/
+s/^\(\(# \)\?PTXCONF_BUSYBOX\)_FEATURE_TAR_GZIP\(.*$\)/\1_FEATURE_SEAMLESS_GZ\3/
+s/^\(\(# \)\?PTXCONF_BUSYBOX\)_FEATURE_TAR_BZIP2\(.*$\)/\1_FEATURE_SEAMLESS_BZ2\3/
+s/^\(\(# \)\?PTXCONF_BUSYBOX\)_FEATURE_TAR_LZMA\(.*$\)/\1_FEATURE_SEAMLESS_LZMA\3/
+s/^\(\(# \)\?PTXCONF_BUSYBOX\)_FEATURE_TAR_COMPRESS\(.*$\)/\1_FEATURE_SEAMLESS_Z\3/
+s/^\(\(# \)\?PTXCONF_BUSYBOX\)_FEATURE_DF_INODE\(.*$\)/\1_FEATURE_DF_FANCY\3/
+
+#
+# from   : ptxdist-1.99.10
+# to     : ptxdist-1.99.11
+# symbol : PTXCONF_ROOTFS_UDEV__DEFAULT_RULES	-> PTXCONF_UDEV__DEFAULT_RULES
+# symbol : PTXCONF_ROOTFS_ETC_UDEV__CONF	-> PTXCONF_UDEV__ETC_CONF
+#
+s/^\(\(# \)\?PTXCONF_\)ROOTFS_UDEV__DEFAULT_RULES\(.*$\)/\1UDEV__DEFAULT_RULES\3/
+s/^\(\(# \)\?PTXCONF_\)ROOTFS_ETC_UDEV__CONF\(.*$\)/\1UDEV__ETC_CONF\3/
+
+#
+# from	 : ptxdist-1.99.19
+# to	 : ptxdist-1.99.20
+# symbol : BUSYBOX_GETOPT_LONG	-> BUSYBOX_LONG_OPTS
+# reason : update busybox 1.13.2 -> 1.15.2
+#
+s/^\(\(# \)\?PTXCONF_BUSYBOX\)_GETOPT_LONG\(.*$\)/\1_LONG_OPTS\3/
+
+#
+# from   : ptxdist-2010.01.0
+# to     : ptxdist-2010.02.0
+# symbol : BZIP2__*	-> BZIP2_*
+# reason : cleanup
+#
+s/^\(\(# \)\?PTXCONF_BZIP2_\)_\(.*$\)/\1\3/
+
+#
+# from   : ptxdist-2010.01.0
+# to     : ptxdist-2010.02.0
+# symbol : UDEV__*	-> UDEV_*
+# reason : cleanup
+#
+s/^\(\(# \)\?PTXCONF_UDEV_\)_\(.*$\)/\1\3/
+
+#
+# from   : ptxdist-2010.03.0
+# to     : ptxdist-2010.04.0
+# symbol : BUSYBOX_APP_DHCPRELAY -> BUSYBOX_DHCPRELAY
+# symbol : BUSYBOX_APP_DUMPLEASES -> BUSYBOX_DUMPLEASES
+# symbol : BUSYBOX_APP_UDHCPC -> BUSYBOX_UDHCPC
+# symbol : BUSYBOX_APP_UDHCPD -> BUSYBOX_UDHCPD
+# reason : update busybox 1.15.3-> 1.16.1
+#
+s/^\(\(# \)\?PTXCONF_BUSYBOX\)_APP_DHCPRELAY\(.*$\)/\1_DHCPRELAY\3/
+s/^\(\(# \)\?PTXCONF_BUSYBOX\)_APP_DUMPLEASES\(.*$\)/\1_DUMPLEASES\3/
+s/^\(\(# \)\?PTXCONF_BUSYBOX\)_APP_UDHCPC\(.*$\)/\1_UDHCPC\3/
+s/^\(\(# \)\?PTXCONF_BUSYBOX\)_APP_UDHCPD\(.*$\)/\1_UDHCPD\3/
+
+#
+# from   : ptxdist-2010.04.0
+# to     : ptxdist-2010.05.0
+# symbol : LIBPCRE__*			-> LIBPCRE_
+# reason : consolidation of config symbols
+#
+s/^\(\(# \)\?PTXCONF_LIBPCRE_\)_\(.*$\)/\1\3/
+
+#
+# from   : ptxdist-2010.04.0
+# to     : ptxdist-2010.05.0
+# symbol : INETUTILS_SYSLOGD_STARTSRCIPT	-> INETUTILS_SYSLOGD_STARTSCRIPT
+# reason : typo
+#
+s/^\(\(# \)\?PTXCONF_INETUTILS_SYSLOGD\)\(_STARTSRCIPT$\)/\1_STARTSCRIPT/
+
+#
+# from   : ptxdist-2010.05.0
+# to     : ptxdist-2010.06.0
+# symbol : GLIB__*			-> GLIB_
+# reason : consolidation of config symbols
+#
+s/^\(\(# \)\?PTXCONF_GLIB_\)_\(.*$\)/\1\3/
+
+#
+# symbol : SUDO__SENDMAIL		-> SUDO_USE_SENDMAIL
+# symbol : SUDO__ETC_SUDOERS		-> SUDO_INSTALL_ETC_SUDOERS
+# reason : consolidation of config symbols
+#
+s/^\(\(# \)\?PTXCONF_SUDO_\)_\(SENDMAIL\)/\1USE_\3/
+s/^\(\(# \)\?PTXCONF_SUDO_\)_\(ETC_SUDOERS\)/\1INSTALL_\3/
+
+#
+# symbol : UDEV_EXTRA_MODEM_MODESWITCH	-> UDEV_EXTRA_MOBILE_ACTION_MODESWITCH
+# reason : upstream name changed
+#
+s/^\(\(# \)\?PTXCONF_UDEV_EXTRA_\)MODEM\(_MODESWITCH.*$\)/\1MOBILE_ACTION\3/
+
+#
+# symbol : INITMETHOD_BBINIT_LINK_*	-> *_BBINIT_LINK
+# reason : move rc.d links to the package with the init script
+#
+s/^\(\(# \)\?PTXCONF_\)INITMETHOD_BBINIT_ACPID/\1ACPID_BBINIT_LINK/
+s/^\(\(# \)\?PTXCONF_\)INITMETHOD_BBINIT_LINK_\(INETD\|SYSLOGD\)\(.*\)$/\1BUSYBOX_\3_BBINIT_LINK\4\n\1INETUTILS_\3_BBINIT_LINK\4/
+s/^\(\(# \)\?PTXCONF_\)INITMETHOD_BBINIT_LINK_NFSD/\1NFSUTILS_NFSD_BBINIT_LINK/
+s/^\(\(# \)\?PTXCONF_\)INITMETHOD_BBINIT_LINK_NTP\>/\1NTP_NTPD_BBINIT_LINK/
+s/^\(\(# \)\?PTXCONF_\)INITMETHOD_BBINIT_LINK_NTPC\>/\1NTP_NTPC_BBINIT_LINK/
+s/^\(\(# \)\?PTXCONF_\)INITMETHOD_BBINIT_LINK_RSYNCD\(.*\)$/\1RSYNC_BBINIT_LINK\3\n\1RSYNC3_BBINIT_LINK\3/
+s/^\(\(# \)\?PTXCONF_\)INITMETHOD_BBINIT_SMARTD/\1SMARTMONTOOLS_BBINIT_LINK/
+s/^\(\(# \)\?PTXCONF_\)INITMETHOD_BBINIT_LINK_SYSLOG_NG/\1SYSLOGNG_BBINIT_LINK/
+s/^\(\(# \)\?PTXCONF_\)INITMETHOD_BBINIT_LINK_TELNETD\(.*\)$/\1UTELNETD_BBINIT_LINK\3\n\1BUSYBOX_TELNETD_BBINIT_LINK\3/
+s/^\(\(# \)\?PTXCONF_\)INITMETHOD_BBINIT_LINK_\(CROND\|HWCLOCK\|TELNETD\)/\1BUSYBOX_\3_BBINIT_LINK/
+s/^\(\(# \)\?PTXCONF_\)INITMETHOD_BBINIT_LINK_\(ALSA_UTILS\|APACHE2\|AT\|CHRONY\|CONNMAN\|CVS\|DBUS\|DIBBLER_[A-Z]*\|DNSMASQ\|DROPBEAR\|FAKE_OVERLAYFS\|LIGHTTPD\|LVM2\|MYSQL\|NTPCLIENT\|OPENSSH\|PORTMAP\|PPPD\|PROFTPD\|PUREFTPD\|RC_ONCE\|SAMBA\|SPLASHUTILS\|THTTPD\|UDEV\)/\1\3_BBINIT_LINK/
+
+#
+# symbol : PTXCONF_BLUEZ_LIBS -> PTXCONF_BLUEZ
+# reason : upstream merged bluez-libs + bluez-utils -> bluez
+#          PTXCONF_BLUEZ_UTILS is unchanged
+#
+s/^\(\(# \)\?PTXCONF_BLUEZ\)_LIBS/\1/
+
+#
+# from   : ptxdist-2011.01.0
+# to     : ptxdist-2011.02.0
+# symbol : OWFS__*			-> OWFS_
+# reason : consolidation of config symbols
+#
+s/^\(\(# \)\?PTXCONF_OWFS_\)_\(.*$\)/\1\3/
+
+#
+# from   : ptxdist-2011.02.0
+# to     : ptxdist-2011.03.0
+# symbol : E2FSPROGS_INSTALL_UUIDD	-> UTIL_LINUX_NG_UUIDD
+# reason : uuidd is now provided by util-linux
+#
+s/^\(\(# \)\?PTXCONF_\)E2FSPROGS_INSTALL\(_UUIDD\)/\1UTIL_LINUX_NG\3/
+
+#
+# from   : ptxdist-2011.02.0
+# to     : ptxdist-2011.03.0
+# reason : udev rules rewrite
+#
+s/^\(\(# \)\?PTXCONF_UDEV_\)DEFAULT_\(.*\)/\1\3/
+s/^\(\(# \)\?PTXCONF_UDEV_\)EXTRA_\(.*\)_ID/\1PERSISTENT_\3/
+s/^\(\(# \)\?PTXCONF_UDEV_\)EXTRA_RULE_\(GENERATOR\)/\1PERSISTENT_\3/
+s/^\(\(# \)\?PTXCONF_UDEV_\)EXTRA_\(.*\)_DB/\1PERSISTENT_\3/
+s/^\(\(# \)\?PTXCONF_UDEV_\)EXTRA_UDEV_ACL/\1ACL/
+s/^\(\(# \)\?PTXCONF_UDEV_\)EXTRA_COLLECT/\1COLLECT/
+
+#
+# symbol : PTXCONF_IPTABLES_*
+# reason : consolidate protocol and tool symbols
+#
+s/^\(\(# \)\?PTXCONF_IPTABLES\)_INSTALL_IPV6_TOOLS/\1_IPV6/
+s/^\(\(# \)\?PTXCONF_IPTABLES\)_INSTALL_IPV4_TOOLS/\1_IPV4/
+s/^\(\(# \)\?PTXCONF_IPTABLES\)_INSTALL_XTABLES_MULTI/\1_INSTALL_TOOLS/
+
+#
+# from   : ptxdist-2011.04.0
+# to     : ptxdist-2011.05.0
+# symbol : GLIBC_LOCALTIME_LINK -> GLIBC_LOCALTIME
+#          and remove /usr/share/zoneinfo/ prefix
+#
+s,^\(PTXCONF_GLIBC_LOCALTIME_LINK="\)/usr/share/zoneinfo/\(.*\)$,\1\2,
+s/^\(\(# \)\?PTXCONF_GLIBC_LOCALTIME\)_LINK\(.*\)/\1\3/
+
+#
+# from   : ptxdist-2010.04.0
+# to     : ptxdist-2010.05.0
+# symbol : GSTREAMER__*	-> GSTREAMER_*
+# reason : cleanup
+#
+s/^\(\(# \)\?PTXCONF_GSTREAMER_\)_\(.*$\)/\1\3/
+
+#
+# symbol : GLIBC_LOCALTIME	-> TIMEZONE_LOCALTIME
+# reason : cleanup
+#
+s/^\(\(# \)\?PTXCONF_\)GLIBC\(_LOCALTIME\)/\1TIMEZONE\3/
+
+#
+# from   : ptxdist-2013.01.0
+# to     : ptxdist-2013.02.0
+# symbol : HOST_LIBBZ2 -> HOST_BZIP2
+# reason : allign with target package name
+#
+s/^\(\(# \)\?PTXCONF_HOST\)_LIBBZ2/\1_BZIP2/
+
+#
+# from   : ptxdist-2013.04.0
+# to     : ptxdist-2013.05.0
+# symbol : GST*11 -> GST*1
+# reason : allign with target package name
+#
+s/^\(\(# \)\?PTXCONF_GST[A-Z_]*1\)1/\1/
+
+#
+# from   : ptxdist-2014.03.0
+# to     : ptxdist-2014.04.0
+# symbol : PTXCONF_LIBUSB_DISABLE_LOG -> PTXCONF_LIBUSB_LOG
+# reason : inverted logic
+#
+s/^# PTXCONF_LIBUSB_DISABLE_LOG.*$/PTXCONF_LIBUSB_LOG=y/
+s/^PTXCONF_LIBUSB_DISABLE_LOG=y$/# PTXCONF_LIBUSB_LOG is not set/
+
+#
+# from   : ptxdist-2014.12.0
+# to     : ptxdist-2015.01.0
+# symbol : LOWPAN_TOOLS	-> WPAN_TOOLS
+# reason : userspace tool replacement
+#
+s/^\(\(# \)\?PTXCONF_\)LOWPAN_TOOLS/\1WPAN_TOOLS/
+
+#
+# from   : ptxdist-2015.02.0
+# to     : ptxdist-2015.03.0
+# symbol : GNUPG	-> GNUPG + GNUPG_GPG
+# reason : gpg is now optional
+#
+/^\(PTXCONF_\)GNUPG\([^_]*$\)/N
+/^.*GNUPG.*GNUPG.*/p
+/^.*GNUPG.*GNUPG.*/d
+s/^\(\(# \)\?PTXCONF_\)GNUPG\([^\n]*\n\)\(.*\)$/\1GNUPG\3\1GNUPG_GPG\3\4/
+
+#
+# from   : ptxdist-2015.02.0
+# to     : ptxdist-2015.03.0
+# symbol : HACKBENCH -> RT_TESTS_HACKBENCH
+# reason : old tool obsolete, new version is from rt-tests
+#
+s/^\(\(# \)\?PTXCONF_\)HACKBENCH\(.*\)$/\1RT_TESTS\3\n\1RT_TESTS_HACKBENCH=y/
+
+#
+# from   : ptxdist-2015.02.0
+# to     : ptxdist-2015.03.0
+# symbol : BASH_COMPLETION -> BASH_BASHCOMPLETION
+# reason : option renamed
+#
+s/^\(\(# \)\?PTXCONF_\)BASH_COMPLETION/\1BASH_BASHCOMPLETION/

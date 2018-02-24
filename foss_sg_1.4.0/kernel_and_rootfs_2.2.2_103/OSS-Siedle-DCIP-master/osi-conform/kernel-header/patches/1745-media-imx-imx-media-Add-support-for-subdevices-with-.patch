@@ -1,0 +1,129 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 9 Jan 2015 13:00:13 +0100
+Subject: [PATCH] [media] imx: imx-media: Add support for subdevices with
+ multiple outputs
+
+The MIPI CSI-2 host controller and CSI2IPU gasket on i.MX6 have output
+connections to all IPU CSIs. This patch adds support for subdevices with
+multiple outgoing links.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-media.c | 48 +++++++++++++++++++++++++++-------
+ 1 file changed, 39 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-media.c b/drivers/media/platform/imx/imx-media.c
+index 0f4c4a73846f..95d701b9aa0c 100644
+--- a/drivers/media/platform/imx/imx-media.c
++++ b/drivers/media/platform/imx/imx-media.c
+@@ -8,6 +8,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/io.h>
+ #include <linux/irq.h>
++#include <linux/list.h>
+ #include <linux/of_device.h>
+ #include <linux/of_graph.h>
+ #include <media/media-device.h>
+@@ -17,6 +18,8 @@
+ struct ipu_media_controller {
+ 	struct v4l2_device v4l2_dev;
+ 	struct media_device mdev;
++	struct list_head pending_links;
++	struct mutex list_lock;
+ };
+ 
+ static struct ipu_media_controller *ipu_media;
+@@ -35,6 +38,7 @@ struct ipu_media_link {
+ 	int padno;
+ 	struct device_node		*endpoint;
+ 	u32				media_link_flags;
++	struct list_head		list;
+ };
+ 
+ static int ipu_media_bound(struct v4l2_async_notifier *notifier,
+@@ -42,8 +46,7 @@ static int ipu_media_bound(struct v4l2_async_notifier *notifier,
+ 			   struct v4l2_async_subdev *asd)
+ {
+ 	struct ipu_media_controller *im = ipu_media;
+-	struct ipu_media_link *link = container_of(notifier,
+-						   struct ipu_media_link, asn);
++	struct ipu_media_link *link, *tmp;
+ 	struct device_node *np, *rp;
+ 	uint32_t portno = 0;
+ 	int ret;
+@@ -54,14 +57,31 @@ static int ipu_media_bound(struct v4l2_async_notifier *notifier,
+ 			return ret;
+ 	}
+ 
+-	np = link->endpoint;
+-	rp = of_graph_get_remote_port(np);
+-	of_property_read_u32(rp, "reg", &portno);
++	mutex_lock(&im->list_lock);
+ 
+-	ret = media_entity_create_link(&sd->entity, portno, &link->sd->entity,
+-			link->padno, link->media_link_flags);
+-	if (ret)
+-		return ret;
++	list_for_each_entry_safe(link, tmp, &im->pending_links, list) {
++
++		if (link->asd.match_type != V4L2_ASYNC_MATCH_OF ||
++		    sd->dev->of_node != link->asd.match.of.node)
++			continue;
++
++		np = link->endpoint;
++		rp = of_graph_get_remote_port(np);
++		of_property_read_u32(rp, "reg", &portno);
++
++		ret = media_entity_create_link(&sd->entity, portno,
++					       &link->sd->entity, link->padno,
++					       link->media_link_flags);
++		if (ret) {
++			mutex_unlock(&im->list_lock);
++			return ret;
++		}
++
++		/* remove from pending_links */
++		list_del(&link->list);
++	}
++
++	mutex_unlock(&im->list_lock);
+ 
+ 	return 0;
+ }
+@@ -114,6 +134,12 @@ struct ipu_media_link *ipu_media_entity_create_link(struct v4l2_subdev *sd,
+ 	link->asn.num_subdevs = 1;
+ 	link->asn.v4l2_dev = &im->v4l2_dev;
+ 
++	mutex_lock(&im->list_lock);
++
++	list_add(&link->list, &im->pending_links);
++
++	mutex_unlock(&im->list_lock);
++
+ 	ret = v4l2_async_notifier_register(&im->v4l2_dev, &link->asn);
+ 	if (ret) {
+ 		kfree(link);
+@@ -127,6 +153,7 @@ EXPORT_SYMBOL_GPL(ipu_media_entity_create_link);
+ void ipu_media_entity_remove_link(struct ipu_media_link *link)
+ {
+ 	v4l2_async_notifier_unregister(&link->asn);
++	list_del(&link->list);
+ 
+ 	kfree(link);
+ }
+@@ -153,6 +180,8 @@ int ipu_media_device_register(struct device *dev)
+ 	if (!ipu_media)
+ 		return -ENOMEM;
+ 
++	INIT_LIST_HEAD(&ipu_media->pending_links);
++	mutex_init(&ipu_media->list_lock);
+ 	mdev = &ipu_media->mdev;
+ 
+ 	mdev->dev = dev;
+@@ -174,5 +203,6 @@ int ipu_media_device_register(struct device *dev)
+ EXPORT_SYMBOL_GPL(ipu_media_device_register);
+ 
+ MODULE_AUTHOR("Sascha Hauer <s.hauer@pengutronix.de>");
++MODULE_AUTHOR("Philipp Zabel <p.zabel@pengutronix.de>");
+ MODULE_DESCRIPTION("i.MX SoC wide media device");
+ MODULE_LICENSE("GPL");

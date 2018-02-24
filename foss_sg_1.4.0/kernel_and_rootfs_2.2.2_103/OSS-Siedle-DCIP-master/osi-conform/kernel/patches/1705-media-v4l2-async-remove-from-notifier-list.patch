@@ -1,0 +1,24 @@
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Date: Mon, 15 Jul 2013 14:59:59 +0200
+Subject: [PATCH] [media] v4l2 async: remove from notifier list
+
+In v4l2_async_notifier_register remove the notifier from the notifier
+list in case of an error.
+
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+---
+ drivers/media/v4l2-core/v4l2-async.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2-async.c
+index 5bada202b2d3..0642b76d8ca3 100644
+--- a/drivers/media/v4l2-core/v4l2-async.c
++++ b/drivers/media/v4l2-core/v4l2-async.c
+@@ -180,6 +180,7 @@ int v4l2_async_notifier_register(struct v4l2_device *v4l2_dev,
+ 
+ 		ret = v4l2_async_test_notify(notifier, sd, asd);
+ 		if (ret < 0) {
++			list_del(&notifier->list);
+ 			mutex_unlock(&list_lock);
+ 			return ret;
+ 		}

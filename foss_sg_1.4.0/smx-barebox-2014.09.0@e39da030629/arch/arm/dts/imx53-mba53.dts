@@ -1,0 +1,43 @@
+/*
+ * Copyright 2012 Sascha Hauer <s.hauer@pengutronix.de>, Pengutronix
+ * Copyright 2012 Steffen Trumtrar <s.trumtrar@pengutronix.de>, Pengutronix
+ *
+ * The code contained herein is licensed under the GNU General Public
+ * License. You may obtain a copy of the GNU General Public License
+ * Version 2 or later at the following locations:
+ *
+ * http://www.opensource.org/licenses/gpl-license.html
+ * http://www.gnu.org/copyleft/gpl.html
+ */
+
+#include <arm/imx53-mba53.dts>
+
+/ {
+	chosen {
+		linux,stdout-path = &uart2;
+
+		environment-sd {
+			compatible = "barebox,environment";
+			device-path = &esdhc2, "partname:environment";
+			status = "disabled";
+		};
+	};
+};
+
+&esdhc2 {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	partition@0 {
+		label = "environment";
+		reg = <0x80000 0x80000>;
+	};
+};
+
+&usbh1 {
+	phy_type = "utmi";
+};
+
+&usbotg {
+	phy_type = "utmi";
+};

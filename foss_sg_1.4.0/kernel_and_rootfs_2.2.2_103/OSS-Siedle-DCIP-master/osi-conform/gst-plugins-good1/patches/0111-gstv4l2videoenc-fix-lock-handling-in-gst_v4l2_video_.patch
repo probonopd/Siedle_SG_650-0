@@ -1,0 +1,28 @@
+From: Enrico Jorns <ejo@pengutronix.de>
+Date: Tue, 20 Jan 2015 16:56:35 +0100
+Subject: [PATCH] gstv4l2videoenc: fix lock handling in
+ gst_v4l2_video_enc_flush()
+
+---
+ sys/v4l2/gstv4l2videoenc.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2videoenc.c b/sys/v4l2/gstv4l2videoenc.c
+index cabd4d80ec3a..03c8a07a7ec1 100644
+--- a/sys/v4l2/gstv4l2videoenc.c
++++ b/sys/v4l2/gstv4l2videoenc.c
+@@ -273,11 +273,11 @@ gst_v4l2_video_enc_flush (GstVideoEncoder * encoder)
+   if (g_atomic_int_get (&self->processing)) {
+     GST_VIDEO_ENCODER_STREAM_UNLOCK (encoder);
+ 
+-    gst_v4l2_object_unlock_stop (self->v4l2output);
+-    gst_v4l2_object_unlock_stop (self->v4l2capture);
++    gst_v4l2_object_unlock (self->v4l2output);
++    gst_v4l2_object_unlock (self->v4l2capture);
+     gst_pad_stop_task (encoder->srcpad);
+ 
+-    GST_VIDEO_ENCODER_STREAM_UNLOCK (encoder);
++    GST_VIDEO_ENCODER_STREAM_LOCK (encoder);
+ 
+   }
+ 

@@ -1,0 +1,23 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 20 Feb 2014 17:36:50 +0100
+Subject: [PATCH] [media] v4l2-subdev: Export v4l2_subdev_fops
+
+This is needed by the imx-ipuv3-csi driver when compiled as a module.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/v4l2-core/v4l2-subdev.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/v4l2-core/v4l2-subdev.c b/drivers/media/v4l2-core/v4l2-subdev.c
+index 83615b8fb46a..ffb0ab2f6964 100644
+--- a/drivers/media/v4l2-core/v4l2-subdev.c
++++ b/drivers/media/v4l2-core/v4l2-subdev.c
+@@ -497,6 +497,7 @@ const struct v4l2_file_operations v4l2_subdev_fops = {
+ 	.release = subdev_close,
+ 	.poll = subdev_poll,
+ };
++EXPORT_SYMBOL_GPL(v4l2_subdev_fops);
+ 
+ #ifdef CONFIG_MEDIA_CONTROLLER
+ int v4l2_subdev_link_validate_default(struct v4l2_subdev *sd,

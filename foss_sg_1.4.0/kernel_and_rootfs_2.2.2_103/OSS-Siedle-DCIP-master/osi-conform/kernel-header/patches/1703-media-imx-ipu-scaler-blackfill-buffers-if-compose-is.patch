@@ -1,0 +1,85 @@
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Fri, 25 Jul 2014 12:18:42 +0200
+Subject: [PATCH] [media] imx-ipu-scaler: blackfill buffers if compose is
+ active
+
+Userspace assumes that newly created buffers are filled with black
+initially at various locations. For RGB buffers this assertion held
+true as any newly allocated memory is zerofilled, which corresponds
+to black. However for YUV buffers we need to fill the memory with
+valid values on our own.
+
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipu-scaler.c | 51 +++++++++++++++++++++++++++++
+ 1 file changed, 51 insertions(+)
+
+diff --git a/drivers/media/platform/imx/imx-ipu-scaler.c b/drivers/media/platform/imx/imx-ipu-scaler.c
+index 9cdeef737a7e..20524596a1b1 100644
+--- a/drivers/media/platform/imx/imx-ipu-scaler.c
++++ b/drivers/media/platform/imx/imx-ipu-scaler.c
+@@ -525,6 +525,56 @@ static int ipu_scale_buf_prepare(struct vb2_buffer *vb)
+ 	return 0;
+ }
+ 
++static int ipu_scale_buf_init(struct vb2_buffer *vb)
++{
++	struct ipu_scale_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
++	struct ipu_scale_q_data *q_data;
++	struct v4l2_pix_format *pix;
++	struct v4l2_rect *rect;
++	void *vaddr;
++
++	/* only fill output buffers */
++	if (vb->vb2_queue->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
++		return 0;
++
++	q_data = get_q_data(ctx, vb->vb2_queue->type);
++	pix = &q_data->cur_fmt;
++	rect = &q_data->rect;
++
++	/* blackfill the buffer only if there is a compose selection */
++	if (rect->width == pix->width && rect->height == pix->height)
++		return 0;
++
++
++	vaddr = vb2_plane_vaddr(vb, 0);
++	if (!vaddr)
++		return -EINVAL;
++
++	switch (pix->pixelformat) {
++	case V4L2_PIX_FMT_YUV420:
++	case V4L2_PIX_FMT_YVU420:
++		memset(vaddr + pix->bytesperline * pix->height, 0x7f,
++		       pix->bytesperline * pix->height / 2);
++		break;
++	case V4L2_PIX_FMT_RGB32:
++	case V4L2_PIX_FMT_BGR32:
++	case V4L2_PIX_FMT_RGB24:
++	case V4L2_PIX_FMT_BGR24:
++	case V4L2_PIX_FMT_RGB565:
++		/*
++		 * the DMA memory we get is already zero filled,
++		 * which corresponds to black for RGB buffers
++		 */
++		break;
++	default:
++		dev_dbg(ctx->ipu_scaler->dev,
++				"unsupported blackfill format 0x%08x\n",
++				pix->pixelformat);
++	}
++
++	return 0;
++}
++
+ static void ipu_scale_buf_queue(struct vb2_buffer *vb)
+ {
+ 	struct ipu_scale_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
+@@ -548,6 +598,7 @@ static void ipu_scale_stop_streaming(struct vb2_queue *q)
+ 
+ static struct vb2_ops ipu_scale_qops = {
+ 	.queue_setup	= ipu_scale_queue_setup,
++	.buf_init	= ipu_scale_buf_init,
+ 	.buf_prepare	= ipu_scale_buf_prepare,
+ 	.buf_queue	= ipu_scale_buf_queue,
+ 	.wait_prepare	= vb2_ops_wait_prepare,

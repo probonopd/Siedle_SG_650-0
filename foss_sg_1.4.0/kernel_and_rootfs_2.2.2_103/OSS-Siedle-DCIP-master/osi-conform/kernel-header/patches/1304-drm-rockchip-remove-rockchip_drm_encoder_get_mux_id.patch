@@ -1,0 +1,82 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 24 Feb 2015 11:42:08 +0100
+Subject: [PATCH] drm/rockchip: remove rockchip_drm_encoder_get_mux_id
+
+It is replaced by drm_of_encoder_active_endpoint_id.
+
+Suggested-by: Daniel Kurtz <djkurtz@chromium.org>
+Reviewed-by: Daniel Kurtz <djkurtz@chromium.org>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c |  2 +-
+ drivers/gpu/drm/rockchip/rockchip_drm_drv.c | 30 -----------------------------
+ drivers/gpu/drm/rockchip/rockchip_drm_drv.h |  2 --
+ 3 files changed, 1 insertion(+), 33 deletions(-)
+
+diff --git a/drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c b/drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c
+index 80d6fc8a5cee..042eb95921a7 100644
+--- a/drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c
++++ b/drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c
+@@ -201,7 +201,7 @@ static void dw_hdmi_rockchip_encoder_commit(struct drm_encoder *encoder)
+ 	u32 val;
+ 	int mux;
+ 
+-	mux = rockchip_drm_encoder_get_mux_id(hdmi->dev->of_node, encoder);
++	mux = drm_of_encoder_active_endpoint_id(hdmi->dev->of_node, encoder);
+ 	if (mux)
+ 		val = HDMI_SEL_VOP_LIT | (HDMI_SEL_VOP_LIT << 16);
+ 	else
+diff --git a/drivers/gpu/drm/rockchip/rockchip_drm_drv.c b/drivers/gpu/drm/rockchip/rockchip_drm_drv.c
+index f22e1e1ee64a..ed550ed00593 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_drm_drv.c
++++ b/drivers/gpu/drm/rockchip/rockchip_drm_drv.c
+@@ -381,36 +381,6 @@ static const struct dev_pm_ops rockchip_drm_pm_ops = {
+ 				rockchip_drm_sys_resume)
+ };
+ 
+-/*
+- * @node: device tree node containing encoder input ports
+- * @encoder: drm_encoder
+- */
+-int rockchip_drm_encoder_get_mux_id(struct device_node *node,
+-				    struct drm_encoder *encoder)
+-{
+-	struct device_node *ep;
+-	struct drm_crtc *crtc = encoder->crtc;
+-	struct of_endpoint endpoint;
+-	struct device_node *port;
+-	int ret;
+-
+-	if (!node || !crtc)
+-		return -EINVAL;
+-
+-	for_each_endpoint_of_node(node, ep) {
+-		port = of_graph_get_remote_port(ep);
+-		of_node_put(port);
+-		if (port == crtc->port) {
+-			ret = of_graph_parse_endpoint(ep, &endpoint);
+-			of_node_put(ep);
+-			return ret ?: endpoint.id;
+-		}
+-	}
+-
+-	return -EINVAL;
+-}
+-EXPORT_SYMBOL_GPL(rockchip_drm_encoder_get_mux_id);
+-
+ static int compare_of(struct device *dev, void *data)
+ {
+ 	struct device_node *np = data;
+diff --git a/drivers/gpu/drm/rockchip/rockchip_drm_drv.h b/drivers/gpu/drm/rockchip/rockchip_drm_drv.h
+index dc4e5f03ac79..20d6ac1d06ad 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_drm_drv.h
++++ b/drivers/gpu/drm/rockchip/rockchip_drm_drv.h
+@@ -56,8 +56,6 @@ int rockchip_register_crtc_funcs(struct drm_device *dev,
+ 				 const struct rockchip_crtc_funcs *crtc_funcs,
+ 				 int pipe);
+ void rockchip_unregister_crtc_funcs(struct drm_device *dev, int pipe);
+-int rockchip_drm_encoder_get_mux_id(struct device_node *node,
+-				    struct drm_encoder *encoder);
+ int rockchip_drm_crtc_mode_config(struct drm_crtc *crtc, int connector_type,
+ 				  int out_mode);
+ int rockchip_drm_dma_attach_device(struct drm_device *drm_dev,

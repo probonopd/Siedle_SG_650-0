@@ -1,0 +1,22 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 15 Feb 2016 17:24:02 +0100
+Subject: [PATCH] Release 2016.02.0/customers/siedle/multiplatform/20160215-1
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Makefile b/Makefile
+index 720f4dea335e..56ab8af17b21 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,7 +1,7 @@
+ VERSION = 2016
+ PATCHLEVEL = 02
+ SUBLEVEL = 0
+-EXTRAVERSION =
++EXTRAVERSION =-20160215-1
+ NAME = None
+ 
+ # *DOCUMENTATION*

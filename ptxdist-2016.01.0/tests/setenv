@@ -1,0 +1,11 @@
+#!/bin/bash
+
+ptxd_source_kconfig "${PTXDIST_BOARDSETUP}" ||
+ptxd_bailout "Please run 'ptxdist boardsetup' first!"
+
+PTXDIST_SETENV_ENV_IMAGE="$(mktemp "${PTXCONF_BOARDSETUP_TFTP_PATH}/environment_image.XXXXXX")"
+chmod 644 "${PTXDIST_SETENV_ENV_IMAGE}"
+
+"${PTXDIST_TOPDIR}/tests/kwrapper" setenv "${PTXDIST_SETENV_ENV_IMAGE}"
+
+rm -rf "${PTXDIST_SETENV_ENV_IMAGE}"

@@ -1,0 +1,85 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 25 Jan 2016 14:05:56 +0100
+Subject: [PATCH] [media] imx-video-switch: enable first connected input if
+ active input is not connected
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-video-switch.c | 35 +++++++++++++++++++++------
+ 1 file changed, 28 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-video-switch.c b/drivers/media/platform/imx/imx-video-switch.c
+index 779ee75b1cec..8d441adfbce8 100644
+--- a/drivers/media/platform/imx/imx-video-switch.c
++++ b/drivers/media/platform/imx/imx-video-switch.c
+@@ -117,21 +117,23 @@ static bool vidsw_endpoint_disabled(struct device_node *ep)
+ 	struct device_node *rpp;
+ 
+ 	if (!of_device_is_available(ep))
+-		return false;
++		return true;
+ 
+ 	rpp = of_graph_get_remote_port_parent(ep);
++	if (!rpp)
++		return true;
+ 
+ 	return of_device_is_available(rpp);
+ }
+ 
+ static int vidsw_async_init(struct vidsw *vidsw, struct device_node *node)
+ {
+-	struct v4l2_of_endpoint endpoint;
+ 	struct device_node *ep;
+ 	u32 portno;
+ 	int numports;
+ 	int ret;
+ 	int i;
++	bool active_link = false;
+ 
+ 	numports = vidsw->num_pads;
+ 
+@@ -146,20 +148,39 @@ static int vidsw_async_init(struct vidsw *vidsw, struct device_node *node)
+ 	vidsw->subdev.entity.ops = &vidsw_ops;
+ 
+ 	for_each_endpoint_of_node(node, ep) {
+-		unsigned int flag = 0;
+-
+-		if (vidsw_endpoint_disabled(node))
+-			continue;
++		struct v4l2_of_endpoint endpoint;
+ 
+ 		v4l2_of_parse_endpoint(ep, &endpoint);
+ 
+ 		portno = endpoint.base.port;
+-		if (portno == vidsw->num_pads - 1)
++		if (portno >= numports - 1)
++			continue;
++
++		if (vidsw_endpoint_disabled(ep)) {
++			dev_dbg(vidsw->dev, "port %d disabled\n", portno);
+ 			continue;
++		}
+ 
+ 		vidsw->endpoint[portno] = endpoint;
+ 
+ 		if (portno == vidsw->active)
++			active_link = true;
++	}
++
++	for (portno = 0; portno < numports - 1; portno++) {
++		unsigned int flag = 0;
++
++		ep = (struct device_node *)vidsw->endpoint[portno].base.local_node;
++		if (!ep)
++			continue;
++
++		/* If the active input is not connected, use another */
++		if (!active_link) {
++			vidsw_set_active(vidsw, portno);
++			active_link = true;
++		}
++
++		if (portno == vidsw->active)
+ 			flag = MEDIA_LNK_FL_ENABLED;
+ 
+ 		/* FIXME */

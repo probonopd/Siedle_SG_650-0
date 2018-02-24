@@ -1,0 +1,28 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 10 Mar 2015 14:42:02 +0100
+Subject: [PATCH] [media] coda: allow to force tiled decoder output in NV12
+ mode
+
+Since GStreamer doesn't understand CM12 mode, allow to force tiled
+decoder output in NV12 mode via the tiled_output module parameter.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-bit.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index 775b63f4e5a9..4763276b58c9 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -1590,7 +1590,9 @@ static int __coda_start_decoding(struct coda_ctx *ctx)
+ 	if (dst_fourcc == V4L2_PIX_FMT_NV12)
+ 		ctx->frame_mem_ctrl |= CODA_FRAME_CHROMA_INTERLEAVE;
+ 	if (ctx->tiled_map_type == GDI_TILED_FRAME_MB_RASTER_MAP)
+-		ctx->frame_mem_ctrl |= (0x3 << 9) | CODA9_FRAME_TILED2LINEAR;
++		ctx->frame_mem_ctrl |= (0x3 << 9) | ((tiled_output ||
++				       disable_rotator) ? 0 :
++				       CODA9_FRAME_TILED2LINEAR);
+ 	coda_write(dev, ctx->frame_mem_ctrl, CODA_REG_BIT_FRAME_MEM_CTRL);
+ 
+ 	ctx->display_idx = -1;

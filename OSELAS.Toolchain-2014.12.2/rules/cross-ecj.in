@@ -1,0 +1,22 @@
+# config for cross-ecj
+
+menuconfig CROSS_ECJ
+	bool
+	prompt "ecj"
+	depends on CROSS_GCC_LANG_JAVA
+	bool
+
+if CROSS_ECJ
+
+config CROSS_ECJ_VERSION
+	string
+	prompt "ecj version"
+	default "4.3"
+	help
+	  Specify the version of ecj here.
+
+config CROSS_ECJ_MD5
+	string
+	prompt "ecj source md5sum"
+
+endif

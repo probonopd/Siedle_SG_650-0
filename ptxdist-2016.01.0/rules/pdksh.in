@@ -1,0 +1,55 @@
+## SECTION=shell_and_console
+menuconfig PDKSH
+	tristate
+	prompt "pdksh [BROKEN]                "
+	depends on BROKEN
+	help
+	  The Public Domain Korn Shell
+	  PD-ksh is a clone of the AT&T Korn shell.
+
+if PDKSH
+
+config PDKSH_SHLIKE
+	bool
+	prompt "Enable minimal sh like configuration [BROKEN]"
+	depends on BROKEN
+	help
+	  FIXME: This item needs to be documented
+
+config PDKSH_POSIX
+	bool
+	prompt "Enable POSIX behaviour"
+	help
+	  FIXME: This item needs to be documented
+
+config PDKSH_EMACS
+	bool
+	prompt "Enable emacs style line editing"
+	help
+	  FIXME: This item needs to be documented
+
+config PDKSH_VI
+	bool
+	prompt "Enable vi style line editing"
+	help
+	  FIXME: This item needs to be documented
+
+config PDKSH_CMDHISTORY
+	bool
+	prompt "Turn on command history"
+	help
+	  FIXME: This item needs to be documented
+
+config PDKSH_JOBS
+	bool
+	prompt "Enable job control features"
+	help
+	  FIXME: This item needs to be documented
+
+config PDKSH_BRACE_EXPAND
+	bool
+	prompt "Enable ksh brace expansion"
+	help
+	  FIXME: This item needs to be documented
+
+endif

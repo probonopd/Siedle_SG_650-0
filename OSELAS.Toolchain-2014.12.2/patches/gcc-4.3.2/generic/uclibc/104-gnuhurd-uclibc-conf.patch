@@ -1,0 +1,18 @@
+---
+ gcc/config.gcc |    3 +++
+ 1 file changed, 3 insertions(+)
+
+Index: gcc-4.3.1/gcc/config.gcc
+===================================================================
+--- gcc-4.3.1.orig/gcc/config.gcc
++++ gcc-4.3.1/gcc/config.gcc
+@@ -529,6 +529,9 @@ case ${target} in
+     alpha*)
+       tm_file="${cpu_type}/${cpu_type}.h alpha/elf.h alpha/linux.h alpha/linux-elf.h gnu.h ${tm_file}"
+       ;;
++    i[34567]86-*hurd*-*)
++      tm_file="${cpu_type}/${cpu_type}.h i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h i386/gnu.h gnu.h ${tm_file}"
++      ;;
+     i[34567]86-*-*)
+       tm_file="${cpu_type}/${cpu_type}.h i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h linux.h i386/linux.h gnu.h ${tm_file}"
+       ;;

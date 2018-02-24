@@ -1,0 +1,36 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 3 Jun 2014 16:38:55 +0200
+Subject: [PATCH] ARM: dts: imx6qdl: Add MIPI CSI-2 D-PHY compatible and clocks
+
+From the data sheets it is not quite clear what the clock inputs should be named,
+but freescale code calls them "dphy_clk" (would that be per?) and "pixel_clk" and
+connects them to the mipi_core_cfg and emi_podf clocks, respectively.
+The mipi_core_cfg control is called hsi_tx currently, but it really gates a whole
+lot of other clocks, too.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ arch/arm/boot/dts/imx6qdl.dtsi | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/arch/arm/boot/dts/imx6qdl.dtsi b/arch/arm/boot/dts/imx6qdl.dtsi
+index 82c4a81cb924..dedd4ce33f6e 100644
+--- a/arch/arm/boot/dts/imx6qdl.dtsi
++++ b/arch/arm/boot/dts/imx6qdl.dtsi
+@@ -1090,9 +1090,16 @@
+ 			};
+ 
+ 			mipi_csi: mipi@021dc000 {
++				compatible = "fsl,imx6q-mipi-csi2", "dw-mipi-csi2";
+ 				reg = <0x021dc000 0x4000>;
++				clocks = <&clks IMX6QDL_CLK_HSI_TX>,	/* mipi_core_cfg/ipg_clk_root */
++					 <&clks IMX6QDL_CLK_HSI_TX>,	/* mipi_core_cfg/video_27m_clk_root */
++					 <&clks IMX6QDL_CLK_HSI_TX>,	/* mipi_core_cfg/video_27m_clk_root */
++					 <&clks IMX6QDL_CLK_EIM_PODF>;	/* shoid be ipu1_ipu_hsp_clk_root on S/DL, axi_clk_root on D/Q */
++				clock-names = "pclk", "cfg", "ref", "pixel";
+ 				#address-cells = <1>;
+ 				#size-cells = <0>;
++				status = "disabled";
+ 			};
+ 
+ 			mipi_dsi: mipi@021e0000 {

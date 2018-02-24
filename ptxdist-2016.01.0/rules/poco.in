@@ -1,0 +1,18 @@
+## SECTION=system_libraries
+
+config POCO
+	tristate
+	select GCCLIBS_CXX
+	select GCCLIBS_GCC_S
+	select LIBC_M
+	select LIBC_DL
+	select LIBC_RT
+	select LIBC_PTHREAD
+	select ZLIB
+	select LIBPCRE
+	select EXPAT
+	prompt "poco"
+	help
+	  The POCO C++ Libraries (POrtable COmponents) are open source C++ class
+	  libraries that simplify and accelerate the development of
+	  network-centric, portable applications in C++.

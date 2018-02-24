@@ -1,0 +1,90 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 1 Dec 2015 13:05:31 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: warn about black fill and buffer done
+ ourselves
+
+We are not allowed to mark buffers as done that are not active,
+or while the queue is not ins streaming state.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 41 +++++++++++++++++++++++++-----
+ 1 file changed, 35 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 4f87df3988c2..2aa318498ba5 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -387,7 +387,8 @@ void ipucsi_pause_work(struct work_struct *work)
+ 		return;
+ 
+ 	spin_lock_irqsave(&ipucsi->lock, flags);
+-	if (!list_empty(&ipucsi->capture)) {
++	if (!list_empty(&ipucsi->capture) &&
++	    ipucsi->vb2_vidq.start_streaming_called) {
+ 		struct ipucsi_buffer *buf;
+ 
+ 		buf = list_entry(ipucsi->capture.next,
+@@ -396,9 +397,16 @@ void ipucsi_pause_work(struct work_struct *work)
+ 
+ 		spin_unlock_irqrestore(&ipucsi->lock, flags);
+ 
+-		ipucsi_clear_buffer(&buf->vb,
+-				    ipucsi->format.fmt.pix.pixelformat);
+-		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
++		if (!ipucsi->vb2_vidq.start_streaming_called)
++			dev_err(ipucsi->dev, "trying to blackfill buffer while not streaming\n");
++		else
++			ipucsi_clear_buffer(&buf->vb.vb2_buf,
++					    ipucsi->format.fmt.pix.pixelformat);
++
++		if (!ipucsi->vb2_vidq.start_streaming_called)
++			dev_err(ipucsi->dev, "buffer done while not streaming\n");
++		else
++			vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_ERROR);
+ 	} else {
+ 		spin_unlock_irqrestore(&ipucsi->lock, flags);
+ 	}
+@@ -409,6 +417,20 @@ void ipucsi_pause_work(struct work_struct *work)
+ 	schedule_delayed_work(&ipucsi->pause_work, msecs_to_jiffies(40));
+ }
+ 
++static const char *buffer_state_name(enum vb2_buffer_state state)
++{
++	switch (state) {
++	case VB2_BUF_STATE_DEQUEUED: 	return "DEQUEUED";
++	case VB2_BUF_STATE_PREPARING: 	return "PREPARING";
++	case VB2_BUF_STATE_PREPARED: 	return "PREPARED";
++	case VB2_BUF_STATE_QUEUED: 	return "QUEUED";
++	case VB2_BUF_STATE_ACTIVE: 	return "ACTIVE";
++	case VB2_BUF_STATE_DONE: 	return "DONE";
++	case VB2_BUF_STATE_ERROR: 	return "ERROR";
++	default:			return NULL;
++	}
++};
++
+ int ipucsi_pause_stream(struct ipucsi *ipucsi)
+ {
+ 	unsigned long flags;
+@@ -446,12 +468,19 @@ int ipucsi_pause_stream(struct ipucsi *ipucsi)
+ 
+ 		spin_unlock_irqrestore(&ipucsi->lock, flags);
+ 
++		if (buf->vb.vb2_buf.state != VB2_BUF_STATE_ACTIVE) {
++			dev_err(ipucsi->dev,
++				"trying to blackfill buffer in %s state\n",
++				buffer_state_name(buf->vb.vb2_buf.state));
++			return 0;
++		}
++
+ 		ipucsi_clear_buffer(&buf->vb.vb2_buf,
+ 				    ipucsi->format.fmt.pix.pixelformat);
+ 
+ 		vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_DONE);
+-
+-		spin_lock_irqsave(&ipucsi->lock, flags);
++	} else {
++		spin_unlock_irqrestore(&ipucsi->lock, flags);
+ 	}
+ 
+ 	schedule_delayed_work(&ipucsi->pause_work, msecs_to_jiffies(40));

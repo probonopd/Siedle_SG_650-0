@@ -1,0 +1,43 @@
+From: Michael Olbrich <m.olbrich@pengutronix.de>
+Date: Thu, 11 Nov 2010 06:01:25 +0100
+Subject: [PATCH] Revert "kconfig: make comments stand out in menuconfig"
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+kconfig: make comments stand out in menuconfig
+
+MatÄj Laitl <strohel@gmail.com> noticed that there was no way
+to distingush between comments and un-selectable menu lines.
+This patch marks comments with *** comment ***
+
+Cc: MatÄj Laitl <strohel@gmail.com>
+Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
+
+This reverts commit 48874077ddd6c0c444758059af2cf77c10204ece
+
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Michael Olbrich <m.olbrich@pengutronix.de>
+---
+ scripts/kconfig/mconf.c | 8 --------
+ 1 file changed, 8 deletions(-)
+
+diff --git a/scripts/kconfig/mconf.c b/scripts/kconfig/mconf.c
+index 59184bb..a86ed7c 100644
+--- a/scripts/kconfig/mconf.c
++++ b/scripts/kconfig/mconf.c
+@@ -504,14 +504,6 @@ static void build_conf(struct menu *menu)
+ 				if (single_menu_mode && menu->data)
+ 					goto conf_childs;
+ 				return;
+-			case P_COMMENT:
+-				if (prompt) {
+-					child_count++;
+-					item_make("   %*c*** %s ***", indent + 1, ' ', _(prompt));
+-					item_set_tag(':');
+-					item_set_data(menu);
+-				}
+-				break;
+ 			default:
+ 				if (prompt) {
+ 					child_count++;

@@ -1,0 +1,40 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 9 Feb 2015 14:08:13 +0100
+Subject: [PATCH] [media] coda: add timestamp to coda_bit_queue trace event
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/trace.h | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/platform/coda/trace.h b/drivers/media/platform/coda/trace.h
+index f20666a4aa89..f0ff26a40775 100644
+--- a/drivers/media/platform/coda/trace.h
++++ b/drivers/media/platform/coda/trace.h
+@@ -88,6 +88,7 @@ DECLARE_EVENT_CLASS(coda_buf_meta_class,
+ 	TP_STRUCT__entry(
+ 		__field(int, minor)
+ 		__field(int, index)
++		__field(s64, timestamp)
+ 		__field(int, start)
+ 		__field(int, end)
+ 		__field(int, ctx)
+@@ -96,14 +97,15 @@ DECLARE_EVENT_CLASS(coda_buf_meta_class,
+ 	TP_fast_assign(
+ 		__entry->minor = ctx->fh.vdev->minor;
+ 		__entry->index = buf->vb2_buf.index;
++		__entry->timestamp = timeval_to_ns(&buf->timestamp);
+ 		__entry->start = meta->start;
+ 		__entry->end = meta->end;
+ 		__entry->ctx = ctx->idx;
+ 	),
+ 
+-	TP_printk("minor = %d, index = %d, start = 0x%x, end = 0x%x, ctx = %d",
+-		  __entry->minor, __entry->index, __entry->start, __entry->end,
+-		  __entry->ctx)
++	TP_printk("minor = %d, index = %d, timestamp = %lld, start = 0x%x, end = 0x%x, ctx = %d",
++		  __entry->minor, __entry->index, __entry->timestamp,
++		   __entry->start, __entry->end, __entry->ctx)
+ );
+ 
+ DEFINE_EVENT(coda_buf_meta_class, coda_bit_queue,

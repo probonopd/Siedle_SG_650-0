@@ -1,0 +1,7 @@
+9ffdfa500d19f0d0190eb7a67b8db969  mysql-5.0.26_configure.in
+d82150ca5f776cf264092a4287bc286b  mysql-5.0.26_comp_err_gen_lex_hash.diff
+b9077a2a026c182eedd29ecd75db2adf  mysql-5.0.26_factorial.diff
+17ad681768fab2b5d54be67b53b80a34  mysql-5.1.14-beta-query_cache.diff
+da30fbe09d03711ace89bcfc4ad260ac  mysql-5.1.14-beta-install-to-usr-lib.diff
+d5dadd86869e893d479a6a56cdb8b224  mysql-5.1.34_my_error-fix_dangling_pointer.diff
+a2bd2a67a329ed827b81c14d810e8c32  series

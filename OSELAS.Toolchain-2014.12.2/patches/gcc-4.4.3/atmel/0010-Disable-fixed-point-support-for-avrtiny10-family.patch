@@ -1,0 +1,84 @@
+From 5a7ed15db57921c434b1b3002ecd6dfaf61d8d7e Mon Sep 17 00:00:00 2001
+From: Stephan Linz <linz@li-pro.net>
+Date: Wed, 27 Apr 2011 19:51:30 +0200
+Subject: [PATCH 10/10] Disable fixed point support for avrtiny10 family
+
+Not yet committed patch written by Eric Weddington.
+
+Atmel adds preliminary support for fixed point arithmetic. This is
+not supported for all the devices, even for avrtiny10 familiy.
+
+Original ATMEL patch from:
+http://distribute.atmel.no/tools/opensource/avr-gcc/gcc-4.4.3/62-gcc-4.4.3-avrtiny10-non-fixedpoint.patch
+
+Signed-off-by: Stephan Linz <linz@li-pro.net>
+---
+ gcc/config/avr/avr.c   |   19 ++++++++++++++++---
+ gcc/config/fixed-bit.c |    4 ++--
+ 2 files changed, 18 insertions(+), 5 deletions(-)
+
+diff --git a/gcc/config/avr/avr.c b/gcc/config/avr/avr.c
+index edbfd17..f7c6256 100644
+--- a/gcc/config/avr/avr.c
++++ b/gcc/config/avr/avr.c
+@@ -429,6 +429,16 @@ avr_scalar_mode_supported_p (enum machine_mode mode)
+   return default_scalar_mode_supported_p (mode);
+ }
+ 
++/* Implement TARGET_FIXED_POINT_SUPPORTED_P.  */
++static bool
++avr_fixed_point_supported_p ()
++{
++   if (AVR_TINY)
++      return false;
++
++  return default_fixed_point_supported_p ();
++}
++
+ int avr_case_values_threshold = 30000;
+ 
+ /* Initialize the GCC target structure.  */
+@@ -482,15 +492,18 @@ int avr_case_values_threshold = 30000;
+ #undef TARGET_HARD_REGNO_SCRATCH_OK
+ #define TARGET_HARD_REGNO_SCRATCH_OK avr_hard_regno_scratch_ok
+ 
++#undef TARGET_SCALAR_MODE_SUPPORTED_P
++#define TARGET_SCALAR_MODE_SUPPORTED_P avr_scalar_mode_supported_p
++
++#undef TARGET_FIXED_POINT_SUPPORTED_P
++#define TARGET_FIXED_POINT_SUPPORTED_P avr_fixed_point_supported_p
++
+ #undef TARGET_INIT_BUILTINS
+ #define TARGET_INIT_BUILTINS avr_init_builtins
+ 
+ #undef TARGET_EXPAND_BUILTIN
+ #define TARGET_EXPAND_BUILTIN avr_expand_builtin
+ 
+-#undef TARGET_SCALAR_MODE_SUPPORTED_P
+-#define TARGET_SCALAR_MODE_SUPPORTED_P avr_scalar_mode_supported_p
+-
+ struct gcc_target targetm = TARGET_INITIALIZER;
+ 
+ void
+diff --git a/gcc/config/fixed-bit.c b/gcc/config/fixed-bit.c
+index 40ac2e2..3513cf9 100644
+--- a/gcc/config/fixed-bit.c
++++ b/gcc/config/fixed-bit.c
+@@ -41,7 +41,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+    Floating-point: SF, DF
+    Ex: If we define FROM_QQ and TO_SI, the conversion from QQ to SI is
+    generated.  */
+-
++#if !defined (__AVR_TINY__)
+ #include "tconfig.h"
+ #include "tsystem.h"
+ #include "coretypes.h"
+@@ -1213,4 +1213,4 @@ SATFRACT (FROM_FLOAT_C_TYPE a)
+   return c;
+ }
+ #endif /* defined(SATFRACT) && FROM_TYPE == 3 && TO_TYPE == 4  */
+-
++#endif /* __AVR_TINY__ */
+-- 
+1.6.0.4
+

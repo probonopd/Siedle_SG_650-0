@@ -1,0 +1,27 @@
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+Date: Thu, 5 Nov 2015 17:17:32 +0900
+Subject: [PATCH] reset: remove redundant $(CONFIG_RESET_CONTROLLER) from
+ Makefile
+
+The directory drivers/reset/ is guarded by CONFIG_RESET_CONTROLLER
+in driver/Makefile.
+
+CONFIG_RESET_CONTROLLER is boolean, so it always evaluates to 'y'
+in drivers/reset/Makefile.
+
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/reset/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/reset/Makefile b/drivers/reset/Makefile
+index 85d5904e5480..f191cf33be16 100644
+--- a/drivers/reset/Makefile
++++ b/drivers/reset/Makefile
+@@ -1,4 +1,4 @@
+-obj-$(CONFIG_RESET_CONTROLLER) += core.o
++obj-y += core.o
+ obj-$(CONFIG_ARCH_LPC18XX) += reset-lpc18xx.o
+ obj-$(CONFIG_ARCH_SOCFPGA) += reset-socfpga.o
+ obj-$(CONFIG_ARCH_BERLIN) += reset-berlin.o

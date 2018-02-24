@@ -1,0 +1,85 @@
+config LIBC_HEADERS
+	bool
+	select GLIBC_HEADERS		if LIBC_GLIBC
+	select UCLIBC_HEADERS		if LIBC_UCLIBC
+	select W32API_HEADERS		if LIBC_MINGW
+	select MINGW_RUNTIME_HEADERS	if LIBC_MINGW
+
+config LIBC_FIRST
+	bool
+	select CROSS_GCC_FIRST
+	
+	select GLIBC_FIRST		if LIBC_GLIBC
+	select UCLIBC			if LIBC_UCLIBC
+	select NEWLIB			if LIBC_NEWLIB
+	select W32API			if LIBC_MINGW
+	select MINGW_RUNTIME		if LIBC_MINGW
+	select AVRLIB			if LIBC_AVR
+
+config LIBC
+	bool
+	default y
+	select CROSS_GCC
+	select GLIBC			if LIBC_GLIBC
+
+choice
+	prompt "C library"
+	default LIBC_GLIBC
+
+	config LIBC_GLIBC
+		bool
+		prompt "glibc           "
+
+	config LIBC_UCLIBC
+		bool
+		prompt "uClibc          "
+
+	config LIBC_NEWLIB
+		bool
+		prompt "newlib          "
+
+	config LIBC_MINGW
+		bool
+		prompt "mingw           "
+
+	config LIBC_AVR
+		bool
+		prompt "AVR-8 libc      "
+		help
+		  This is the special C library for various 8 bit AVR
+		  microcontrollers (harvard architecture)
+
+endchoice
+
+
+#
+# sysroot support
+#
+config TOOLCHAIN_ENABLE_SYSROOT
+	bool
+	default !TOOLCHAIN_DISABLE_SYSROOT
+
+config TOOLCHAIN_DISABLE_SYSROOT
+	bool
+
+config TOOLCHAIN_CONFIG_SYSROOT
+	string
+	default "--with-sysroot=${SYSROOT}"	if  TOOLCHAIN_ENABLE_SYSROOT
+
+
+#
+# multilib support
+#
+config TOOLCHAIN_ENABLE_MULTILIB
+	bool
+
+config TOOLCHAIN_DISABLE_MULTILIB
+	bool
+	default !TOOLCHAIN_ENABLE_MULTILIB
+
+config TOOLCHAIN_CONFIG_MULTILIB
+	string
+	default "--enable-multilib"	if  TOOLCHAIN_ENABLE_MULTILIB
+	default "--disable-multilib"	if  TOOLCHAIN_DISABLE_MULTILIB
+
+

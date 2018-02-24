@@ -1,0 +1,8 @@
+## SECTION=system_libraries
+config INOTIFY_TOOLS
+	tristate
+	prompt "inotify-tools"
+	help
+	  Command line tools for inotify
+	  http://inotify-tools.sourceforge.net/
+

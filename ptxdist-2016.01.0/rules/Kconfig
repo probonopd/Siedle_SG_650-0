@@ -1,0 +1,146 @@
+#
+# config/Kconfig: Main menu structure definition
+# Copyright (C) Robert Schwebel <r.schwebel@pengutronix.de> 2002-2008
+#
+
+source "generated/ptxdist_version.in"
+
+config _ptxconfig_MAGIC__
+	bool
+	option modules
+	default y
+
+comment "--------- Host Options -------------"
+
+menu "PTXdist Options               "
+source "generated/ptxdist_options.in"
+endmenu
+
+menu "Host Tools                    "
+source "generated/hosttools.in"
+source "generated/hosttools_noprompt.in"
+endmenu
+
+menu "Cross Tools                   "
+source "generated/crosstools.in"
+endmenu
+
+menu "Debug Tools                   "
+source "generated/debug_tools.in"
+endmenu
+
+comment "------------------------------------"
+
+menu "Root Filesystem               "
+source "generated/rootfs.in"
+endmenu
+
+menu "Core (libc, locales)          "
+source "generated/core.in"
+endmenu
+
+menuconfig CORE_INITRAMFS
+	bool "Core (initramfs)              "
+if CORE_INITRAMFS
+source "generated/initramfs.in"
+endif
+
+
+comment "------------------------------------"
+
+menu "Shell & Console Tools         "
+source "generated/shell_and_console.in"
+endmenu
+
+menu "Scripting Languages           "
+source "generated/scripting_languages.in"
+endmenu
+
+menu "Bytecode Engines / VMs        "
+source "generated/bytecode_engines.in"
+endmenu
+
+menu "Networking Tools              "
+source "generated/networking.in"
+menu "IPv4 -> IPv6 Transition Tools "
+source "generated/networking_ipv6_transition.in"
+endmenu
+endmenu
+
+menu "Disk and File Utilities       "
+source "generated/disk_and_file.in"
+endmenu
+
+menu "Communication Utilities       "
+source "generated/communication.in"
+endmenu
+
+menu "Applications                  "
+source "generated/applications.in"
+endmenu
+
+menu "Editors                       "
+source "generated/editors.in"
+endmenu
+
+menu "System Libraries              "
+source "generated/system_libraries.in"
+endmenu
+
+menu "Security                      "
+menu "SELinux                       "
+source "generated/selinux.in"
+endmenu
+source "generated/security.in"
+endmenu
+
+menu "Middleware                    "
+source "generated/middleware.in"
+endmenu
+
+menu "Scientific Apps               "
+source "generated/scientific.in"
+endmenu
+
+menu "Web Applications              "
+source "generated/web.in"
+endmenu
+
+menu "Test Suites                   "
+source "generated/test_suites.in"
+endmenu
+
+#menu "Development Tools             "
+#source "generated/development.in"
+#endmenu
+
+menu "Games                         "
+source "generated/games.in"
+endmenu
+
+menu "Graphics & Multimedia         "
+source "generated/graphics_and_multimedia.in"
+endmenu
+
+comment "------------------------------------"
+
+menu "Bare Metal                    "
+source "generated/bare_metal.in"
+endmenu
+
+comment "------------------------------------"
+
+menuconfig STAGING
+	prompt "Staging                       "
+	bool
+	default y
+	help
+	  Packages that are unmaintained and somewhat broken are moved here
+	  to give users the chance to fix them. A package is removed if it
+	  is not fixed after one year in staging.
+	  The package help text should indicate when the package will be
+	  removed.
+
+if STAGING
+source "generated/staging.in"
+endif

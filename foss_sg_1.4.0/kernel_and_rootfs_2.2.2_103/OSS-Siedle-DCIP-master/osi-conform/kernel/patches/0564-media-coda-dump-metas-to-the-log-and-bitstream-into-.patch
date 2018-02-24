@@ -1,0 +1,79 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 17 Jan 2017 17:28:04 +0100
+Subject: [PATCH] [media] coda: dump metas to the log and bitstream into a
+ device coredump on small payload error
+
+If start_streaming is called with less than 512 bytes payload in the
+bitstream ringbuffer, the decoder can not start. Dump the metas and the
+first five bytes of each buffer to the log, and write the complete
+bitstream into a device coredump for debugging purposes.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-common.c | 32 +++++++++++++++++++++++++++++--
+ 1 file changed, 30 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index d6d0c53933c8..a1969d0f96ca 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -14,6 +14,7 @@
+ #include <linux/clk.h>
+ #include <linux/debugfs.h>
+ #include <linux/delay.h>
++#include <linux/devcoredump.h>
+ #include <linux/firmware.h>
+ #include <linux/gcd.h>
+ #include <linux/genalloc.h>
+@@ -1544,6 +1545,29 @@ void coda_free_aux_buf(struct coda_dev *dev,
+ 	}
+ }
+ 
++static void coda_dump_metas(struct coda_ctx *ctx, unsigned int payload)
++{
++	struct v4l2_device *v4l2_dev = &ctx->dev->v4l2_dev;
++	struct coda_buffer_meta *meta;
++	void *dump;
++
++
++	list_for_each_entry(meta, &ctx->buffer_meta_list, list) {
++		char *buf = ctx->bitstream.vaddr + meta->start;
++
++		v4l2_err(v4l2_dev,
++			 "\tmeta %d: %u - %u (%02x %02x %02x %02x %02x)\n",
++			 meta->sequence, meta->start, meta->end,
++			 buf[0], buf[1], buf[2], buf[3], buf[4]);
++	}
++
++	dump = vmalloc(payload);
++	if (dump) {
++		memcpy(dump, ctx->bitstream.vaddr, payload);
++		dev_coredumpv(ctx->dev->v4l2_dev.dev, dump, payload, GFP_KERNEL);
++	}
++}
++
+ static int coda_start_streaming(struct vb2_queue *q, unsigned int count)
+ {
+ 	struct coda_ctx *ctx = vb2_get_drv_priv(q);
+@@ -1551,6 +1575,7 @@ static int coda_start_streaming(struct vb2_queue *q, unsigned int count)
+ 	struct coda_q_data *q_data_src, *q_data_dst;
+ 	struct v4l2_m2m_buffer *m2m_buf, *tmp;
+ 	struct vb2_v4l2_buffer *buf;
++	unsigned int payload;
+ 	struct list_head list;
+ 	int ret = 0;
+ 
+@@ -1567,8 +1592,11 @@ static int coda_start_streaming(struct vb2_queue *q, unsigned int count)
+ 			coda_fill_bitstream(ctx, &list);
+ 			mutex_unlock(&ctx->bitstream_mutex);
+ 
+-			if (coda_get_bitstream_payload(ctx) < 512) {
+-				v4l2_err(v4l2_dev, "start payload < 512\n");
++			payload = coda_get_bitstream_payload(ctx);
++			if (payload < 512) {
++				v4l2_err(v4l2_dev, "start payload: %u < 512, count: %u\n",
++					 payload, count);
++				coda_dump_metas(ctx, payload);
+ 				ret = -EINVAL;
+ 				goto err;
+ 			}

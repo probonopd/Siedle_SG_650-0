@@ -1,0 +1,53 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 5 Sep 2016 12:48:55 +0200
+Subject: [PATCH] [media] coda: create device core dump with bitstream buffer
+ on timeout
+
+The CODA PIC_RUN timeout usually occurs because the firmware is waiting
+for something. In addition to the register file, also dump the current
+bitstream buffer to help analyze the issue.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-bit.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index cee86be356ba..469612ef72e0 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -13,6 +13,7 @@
+  */
+ 
+ #include <linux/clk.h>
++#include <linux/devcoredump.h>
+ #include <linux/irqreturn.h>
+ #include <linux/kernel.h>
+ #include <linux/log2.h>
+@@ -413,14 +414,26 @@ static void coda_dump_regs(struct coda_dev *dev)
+ void coda_bit_debug_timeout(struct coda_ctx *ctx)
+ {
+ 	struct device *dev = ctx->fh.vdev->dev_parent;
++	size_t dump_size = 512 + ctx->bitstream.size;
++	void *dump;
++	int i;
+ 
+ 	dev_err(dev, "bitstream payload: %d\n", coda_get_bitstream_payload(ctx));
+ 	coda_kfifo_sync_from_device(ctx);
+ 	dev_err(dev, "bitstream payload: %d\n", coda_get_bitstream_payload(ctx));
+ 
++	dump = vmalloc(dump_size);
++
+ 	clk_prepare_enable(ctx->dev->clk_per);
+ 	coda_dump_regs(ctx->dev);
++	if (dump)
++		for (i = 0; i <= 0x1fc; i += 4)
++			*(u32 *)(dump + i) = coda_read(ctx->dev, i);
+ 	clk_disable_unprepare(ctx->dev->clk_per);
++	if (dump) {
++		memcpy(dump + 512, ctx->bitstream.vaddr, ctx->bitstream.size);
++		dev_coredumpv(dev, dump, dump_size, GFP_KERNEL);
++	}
+ }
+ 
+ static void coda_parabuf_write(struct coda_ctx *ctx, int index, u32 value)

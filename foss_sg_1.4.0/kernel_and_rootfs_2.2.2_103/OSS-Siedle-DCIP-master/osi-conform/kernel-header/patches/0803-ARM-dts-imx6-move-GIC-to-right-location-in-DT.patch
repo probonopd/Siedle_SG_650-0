@@ -1,0 +1,48 @@
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Wed, 2 Dec 2015 13:06:08 +0100
+Subject: [PATCH] ARM: dts: imx6: move GIC to right location in DT
+
+No functional change, just moving the node to place where it
+belongs according to its unit address.
+
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ arch/arm/boot/dts/imx6qdl.dtsi | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/arch/arm/boot/dts/imx6qdl.dtsi b/arch/arm/boot/dts/imx6qdl.dtsi
+index bb6e9559014b..977f836a9266 100644
+--- a/arch/arm/boot/dts/imx6qdl.dtsi
++++ b/arch/arm/boot/dts/imx6qdl.dtsi
+@@ -48,15 +48,6 @@
+ 		usbphy1 = &usbphy2;
+ 	};
+ 
+-	intc: interrupt-controller@00a01000 {
+-		compatible = "arm,cortex-a9-gic";
+-		#interrupt-cells = <3>;
+-		interrupt-controller;
+-		reg = <0x00a01000 0x1000>,
+-		      <0x00a00100 0x100>;
+-		interrupt-parent = <&intc>;
+-	};
+-
+ 	clocks {
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+@@ -156,6 +147,15 @@
+ 			clocks = <&clks IMX6QDL_CLK_TWD>;
+ 		};
+ 
++		intc: interrupt-controller@00a01000 {
++			compatible = "arm,cortex-a9-gic";
++			#interrupt-cells = <3>;
++			interrupt-controller;
++			reg = <0x00a01000 0x1000>,
++			      <0x00a00100 0x100>;
++			interrupt-parent = <&intc>;
++		};
++
+ 		L2: l2-cache@00a02000 {
+ 			compatible = "arm,pl310-cache";
+ 			reg = <0x00a02000 0x1000>;

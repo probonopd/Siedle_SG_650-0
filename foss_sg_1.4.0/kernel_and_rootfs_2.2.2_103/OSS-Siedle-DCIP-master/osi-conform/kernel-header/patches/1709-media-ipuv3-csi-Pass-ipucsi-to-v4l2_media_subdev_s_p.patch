@@ -1,0 +1,45 @@
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Date: Thu, 31 Oct 2013 12:16:47 +0100
+Subject: [PATCH] [media] ipuv3-csi: Pass ipucsi to v4l2_media_subdev_s_power
+
+Makes it easier to access ipucsi from v4l2_media_subdev_s_power which
+is needed in subsequent patches.
+
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 5d26b8ab6338..eae57ae1b7ee 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -1072,8 +1072,9 @@ disable:
+ 	return ret;
+ }
+ 
+-int v4l2_media_subdev_s_power(struct media_entity *entity, int enable)
++int v4l2_media_subdev_s_power(struct ipucsi *ipucsi, int enable)
+ {
++	struct media_entity *entity = &ipucsi->subdev.entity;
+ 	struct media_entity_graph graph;
+ 	struct media_entity *first;
+ 	struct v4l2_subdev *sd;
+@@ -1123,7 +1124,7 @@ static int ipucsi_open(struct file *file)
+ 		goto out;
+ 
+ 	if (v4l2_fh_is_singular_file(file))
+-		ret = v4l2_media_subdev_s_power(&ipucsi->subdev.entity, 1);
++		ret = v4l2_media_subdev_s_power(ipucsi, 1);
+ 
+ out:
+ 	mutex_unlock(&ipucsi->mutex);
+@@ -1136,7 +1137,7 @@ static int ipucsi_release(struct file *file)
+ 
+ 	mutex_lock(&ipucsi->mutex);
+ 	if (v4l2_fh_is_singular_file(file)) {
+-		v4l2_media_subdev_s_power(&ipucsi->subdev.entity, 0);
++		v4l2_media_subdev_s_power(ipucsi, 0);
+ 
+ 		vb2_fop_release(file);
+ 	} else {

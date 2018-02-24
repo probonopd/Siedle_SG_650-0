@@ -1,0 +1,9 @@
+## SECTION=multimedia_libs
+
+config LIBVORBIS
+	tristate
+	prompt "libvorbis"
+	select LIBC_M
+	select LIBOGG
+	help
+	  Vorbis is a free audio codec, usually used with the Ogg streaming format.

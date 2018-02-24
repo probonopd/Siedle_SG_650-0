@@ -1,0 +1,22 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 29 Jan 2014 15:22:40 +0100
+Subject: [PATCH] Input: edt-ft5x06: Fix GAIN parameter range to 2..31
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/input/touchscreen/edt-ft5x06.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/input/touchscreen/edt-ft5x06.c b/drivers/input/touchscreen/edt-ft5x06.c
+index a9d97d577a7e..37ac1f27202b 100644
+--- a/drivers/input/touchscreen/edt-ft5x06.c
++++ b/drivers/input/touchscreen/edt-ft5x06.c
+@@ -466,7 +466,7 @@ out:
+ }
+ 
+ static EDT_ATTR(gain, S_IWUSR | S_IRUGO, WORK_REGISTER_GAIN,
+-		M09_REGISTER_GAIN, 0, 31);
++		M09_REGISTER_GAIN, 2, 31);
+ static EDT_ATTR(offset, S_IWUSR | S_IRUGO, WORK_REGISTER_OFFSET,
+ 		M09_REGISTER_OFFSET, 0, 31);
+ static EDT_ATTR(threshold, S_IWUSR | S_IRUGO, WORK_REGISTER_THRESHOLD,

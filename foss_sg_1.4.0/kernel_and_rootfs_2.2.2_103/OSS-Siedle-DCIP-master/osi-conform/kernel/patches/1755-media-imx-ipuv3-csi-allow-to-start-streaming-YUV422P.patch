@@ -1,0 +1,22 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 25 Jan 2016 12:28:38 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: allow to start streaming YUV422P
+ frames
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 43d6d3970346..82181efaa0d3 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -817,6 +817,7 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 		case V4L2_PIX_FMT_YUV420:
+ 		case V4L2_PIX_FMT_YVU420:
+ 		case V4L2_PIX_FMT_NV12:
++		case V4L2_PIX_FMT_YUV422P:
+ 			/* HACK: Allow setting YUV 4:2:0 format on grayscale sources */
+ 			if (ipucsifmt->fourcc != V4L2_PIX_FMT_GREY) {
+ 				ipu_cpmem_set_stride(ipucsi->ipuch, width);

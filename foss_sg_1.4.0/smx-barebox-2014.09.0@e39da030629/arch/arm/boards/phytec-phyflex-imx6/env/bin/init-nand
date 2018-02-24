@@ -1,0 +1,77 @@
+#!/bin/sh
+
+rootfsimage=
+rootvolumesize=128M
+force=
+usage=
+
+while getopt "f:s:yh" opt; do
+        if [ ${opt} = f ]; then
+                rootfsimage=${OPTARG}
+	fi
+        if [ ${opt} = s ]; then
+                rootvolumesize=${OPTARG}
+	fi
+        if [ ${opt} = y ]; then
+                force=1
+	fi
+        if [ ${opt} = h ]; then
+                usage=1
+	fi
+done
+
+if [ -n "${usage}" ]; then
+	echo "usage: init-nand OPTIONS"
+	echo "options:"
+	echo "-f <image>   root ubifs image to flash"
+	echo "-s <size>    root volume size (default 128M)"
+	echo "-y           yes. Don\'t ask questions"
+	echo "-h           This help"
+	exit 0
+fi
+
+if [ -z "${force}" ]; then
+	readline "Warning. This will erase your nand flash. Type \'yes\' to continue: " answer
+
+	if [ ${answer} != yes ]; then
+		exit 1
+	fi
+fi
+
+if [ -n "${rootfsimage}" ]; then
+	if [ ! -f "${rootfsimage}" ]; then
+		echo "Cannot access ${rootfsimage}"
+		exit 1
+	fi
+fi
+
+ubiformat -y /dev/nand0.ubi
+if [ $? != 0 ]; then
+	echo "Failed to format nand flash"
+	exit 1;
+fi
+
+ubiattach /dev/nand0.ubi
+if [ $? != 0 ]; then
+	echo "Failed to ubiattach nand flash"
+	exit 1;
+fi
+
+ubimkvol /dev/ubi0 root $rootvolumesize
+if [ $? != 0 ]; then
+	echo "Failed to create root volume"
+	exit 1;
+fi
+
+if [ -n ${rootfsimage} ]; then
+	echo "Copying $rootfsimage to /dev/ubi0.root"
+	cp -v $rootfsimage /dev/ubi0.root
+	if [ $? != 0 ]; then
+		echo "Failed to flash root volume"
+		exit 1;
+	fi
+fi
+
+ubidetach /dev/ubi0
+
+echo "NAND initialized successfully"

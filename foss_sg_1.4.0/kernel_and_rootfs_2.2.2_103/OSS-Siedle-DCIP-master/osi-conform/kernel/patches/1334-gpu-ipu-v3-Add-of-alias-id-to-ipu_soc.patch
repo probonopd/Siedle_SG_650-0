@@ -1,0 +1,45 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 15 Aug 2014 15:17:12 +0200
+Subject: [PATCH] gpu: ipu-v3: Add of-alias id to ipu_soc
+
+Use device tree alias to determine IPU number. This will be used to name
+the media entities.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-common.c | 2 ++
+ drivers/gpu/ipu-v3/ipu-prv.h    | 1 +
+ 2 files changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-common.c b/drivers/gpu/ipu-v3/ipu-common.c
+index 6b9a7ac7ece2..912e8f9f8d97 100644
+--- a/drivers/gpu/ipu-v3/ipu-common.c
++++ b/drivers/gpu/ipu-v3/ipu-common.c
+@@ -1240,6 +1240,7 @@ static int ipu_probe(struct platform_device *pdev)
+ {
+ 	const struct of_device_id *of_id =
+ 			of_match_device(imx_ipu_dt_ids, &pdev->dev);
++	struct device_node *np = pdev->dev.of_node;
+ 	struct ipu_soc *ipu;
+ 	struct resource *res;
+ 	unsigned long ipu_base;
+@@ -1268,6 +1269,7 @@ static int ipu_probe(struct platform_device *pdev)
+ 		ipu->channel[i].ipu = ipu;
+ 	ipu->devtype = devtype;
+ 	ipu->ipu_type = devtype->type;
++	ipu->id = of_alias_get_id(np, "ipu");
+ 
+ 	spin_lock_init(&ipu->lock);
+ 	mutex_init(&ipu->channel_lock);
+diff --git a/drivers/gpu/ipu-v3/ipu-prv.h b/drivers/gpu/ipu-v3/ipu-prv.h
+index 3dacc002d2c8..a2242e6c031b 100644
+--- a/drivers/gpu/ipu-v3/ipu-prv.h
++++ b/drivers/gpu/ipu-v3/ipu-prv.h
+@@ -361,6 +361,7 @@ struct ipu_soc {
+ 	void __iomem		*cm_reg;
+ 	void __iomem		*idmac_reg;
+ 
++	int			id;
+ 	int			usecount;
+ 
+ 	struct clk		*clk;

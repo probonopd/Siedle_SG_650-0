@@ -1,0 +1,58 @@
+From 4d77caf0107881b1a73a8ca12531d8523f72ed17 Mon Sep 17 00:00:00 2001
+From: Robert Schwebel <r.schwebel@pengutronix.de>
+Date: Fri, 26 Feb 2010 12:29:56 +0100
+Subject: [PATCH 2/6] [fbcmap] remove obsolete gnu extension
+
+make[2]: Entering directory `.../fbutils-20041102-1/fbcmap'
+arm-v4t-linux-gnueabi-g++ -Wall -I../include -O2  -M -E *.C > .depend
+arm-v4t-linux-gnueabi-g++ -Wall -I../include -O2  -c fbcmap.C -o fbcmap.o
+fbcmap.C: In function 'int main(int, char**)':
+fbcmap.C:118: error: expected primary-expression before '?' token
+
+The GNU extension ">?" for MAX isn't supported any more
+
+Signed-off-by: Robert Schwebel <r.schwebel@pengutronix.de>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+ fbcmap/fbcmap.C |   11 ++++++++---
+ 1 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/fbcmap/fbcmap.C b/fbcmap/fbcmap.C
+index c61f19a..30075c3 100644
+--- a/fbcmap/fbcmap.C
++++ b/fbcmap/fbcmap.C
+@@ -13,6 +13,12 @@
+ #include "framebuffer.h"
+ #include "util.h"
+ 
++#ifndef MAX
++#define MAX(a, b) ((a > b) ? a : b)
++#endif
++#ifndef MIN
++#define MIN(a, b) ((a < b) ? a : b)
++#endif
+ 
+ bool Opt_version = false;
+ bool Opt_verbose = false;
+@@ -113,8 +119,7 @@ int main(int argc, char *argv[])
+ 	    break;
+ 
+ 	case FB_VISUAL_DIRECTCOLOR:
+-	    numcolorcells = 1<<(var.red.length >? var.green.length >?
+-				var.blue.length);
++	    numcolorcells = 1<<(MAX(MAX(var.red.length,var.green.length),var.blue.length));
+ 	    break;
+ 
+ 	case FB_VISUAL_PSEUDOCOLOR:
+@@ -143,7 +148,7 @@ int main(int argc, char *argv[])
+ 	}
+ 	cmap.Set(fb);
+     } else if (!strcmp(Opt_command, "vga")) {
+-	u_int len = cmap.len <? 16;
++	u_int len = MIN(cmap.len,16);
+ 	memcpy(cmap.red, VGA_Red, len*sizeof(*cmap.red));
+ 	memcpy(cmap.green, VGA_Green, len*sizeof(*cmap.green));
+ 	memcpy(cmap.blue, VGA_Blue, len*sizeof(*cmap.blue));
+-- 
+1.7.0
+

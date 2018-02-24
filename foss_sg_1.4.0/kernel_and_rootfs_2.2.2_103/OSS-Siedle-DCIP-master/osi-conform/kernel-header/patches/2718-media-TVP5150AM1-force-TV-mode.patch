@@ -1,0 +1,38 @@
+From: Andreas Pretzsch <apr@cn-eng.de>
+Date: Wed, 15 Jun 2016 11:10:10 +0200
+Subject: [PATCH] [media] TVP5150AM1: force TV mode
+
+TVP5150AM1 has bits 5:4 of the Operation Mode Controls Register as
+TV/VCR mode, where 0 is automatic detection, 2 is VCR (nonstandard)
+video mode, and 3 is TV (standard video) mode.
+With autodetection enabled (default), unstable signals will cause a
+switch to VCR mode, disabling the comb filters and enabling the
+chrominance trap filter.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/i2c/tvp5150.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/i2c/tvp5150.c b/drivers/media/i2c/tvp5150.c
+index d2f22c326443..50dfc9cc069a 100644
+--- a/drivers/media/i2c/tvp5150.c
++++ b/drivers/media/i2c/tvp5150.c
+@@ -339,7 +339,7 @@ static int tvp5150_log_status(struct v4l2_subdev *sd)
+ 
+ static inline void tvp5150_selmux(struct v4l2_subdev *sd)
+ {
+-	int opmode = 0;
++	int opmode = 0x30;	/* TV mode */
+ 	struct tvp5150 *decoder = to_tvp5150(sd);
+ 	int input = 0;
+ 	int val;
+@@ -397,7 +397,7 @@ static const struct i2c_reg_value tvp5150_init_default[] = {
+ 		TVP5150_ANAL_CHL_CTL,0x15
+ 	},
+ 	{ /* 0x02 */
+-		TVP5150_OP_MODE_CTL,0x00
++		TVP5150_OP_MODE_CTL,0x30	/* TV mode */
+ 	},
+ 	{ /* 0x03 */
+ 		TVP5150_MISC_CTL,0x01

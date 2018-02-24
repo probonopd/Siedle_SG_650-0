@@ -1,0 +1,29 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 15 Jan 2015 16:16:25 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: add MIPI CSI-2 support
+
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 63a044890071..5cad6888de67 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -215,6 +215,16 @@ static int local_ipu_csi_init_interface(struct ipucsi *ipucsi,
+ 	if (ret)
+ 		return ret;
+ 
++	if (mbus_config.type == V4L2_MBUS_CSI2) {
++		/* CSI data source is MCT (MIPI) */
++		ipu_set_csi_src_mux(ipucsi->ipu, ipucsi->id, true);
++
++		ipu_csi_set_mipi_datatype(ipucsi->csi, /*VC*/ 0,
++					  &ipucsi->format_mbus[0]);
++	} else {
++		ipu_set_csi_src_mux(ipucsi->ipu, ipucsi->id, false);
++	}
++
+ #if 0
+ 	if (ipucsi->ctrl_test_pattern->val) {
+ 		BUG_ON(ipucsi->ctrl_test_pattern->val > ARRAY_SIZE(csi_test_ctrl_patterns));

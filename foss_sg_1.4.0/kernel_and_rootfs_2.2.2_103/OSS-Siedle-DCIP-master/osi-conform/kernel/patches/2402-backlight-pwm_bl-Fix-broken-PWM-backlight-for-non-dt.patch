@@ -1,0 +1,55 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 10 Dec 2015 09:59:56 +0100
+Subject: [PATCH] backlight: pwm_bl: Fix broken PWM backlight for non-dt
+ platforms
+
+Commit ee65ad0e2a9e ("backlight: pwm_bl: Avoid backlight flicker when
+probed from DT") tries to dereference the device of_node pointer
+unconditionally, causing a NULL pointer dereference on non-dt platforms.
+Fix it by replacing the phandle variable with a node variable and
+by checking that for NULL before dereferencing it.
+
+Reported-by: Robert Jarzmik <robert.jarzmik@free.fr>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/video/backlight/pwm_bl.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/video/backlight/pwm_bl.c b/drivers/video/backlight/pwm_bl.c
+index 3011d3aa0316..d24ffcc66a17 100644
+--- a/drivers/video/backlight/pwm_bl.c
++++ b/drivers/video/backlight/pwm_bl.c
+@@ -204,8 +204,8 @@ static int pwm_backlight_probe(struct platform_device *pdev)
+ 	struct platform_pwm_backlight_data defdata;
+ 	struct backlight_properties props;
+ 	struct backlight_device *bl;
++	struct device_node *node = pdev->dev.of_node;
+ 	struct pwm_bl_data *pb;
+-	phandle phandle = pdev->dev.of_node->phandle;
+ 	int initial_blank = FB_BLANK_UNBLANK;
+ 	int ret;
+ 
+@@ -279,7 +279,7 @@ static int pwm_backlight_probe(struct platform_device *pdev)
+ 		 * assume that another driver will enable the backlight at the
+ 		 * appropriate time. Therefore, if it is disabled, keep it so.
+ 		 */
+-		if (phandle &&
++		if (node && node->phandle &&
+ 		    gpiod_get_direction(pb->enable_gpio) == GPIOF_DIR_OUT &&
+ 		    gpiod_get_value(pb->enable_gpio) == 0)
+ 			initial_blank = FB_BLANK_POWERDOWN;
+@@ -293,12 +293,11 @@ static int pwm_backlight_probe(struct platform_device *pdev)
+ 		goto err_alloc;
+ 	}
+ 
+-	if (phandle && !regulator_is_enabled(pb->power_supply))
++	if (node && node->phandle && !regulator_is_enabled(pb->power_supply))
+ 		initial_blank = FB_BLANK_POWERDOWN;
+ 
+ 	pb->pwm = devm_pwm_get(&pdev->dev, NULL);
+-	if (IS_ERR(pb->pwm) && PTR_ERR(pb->pwm) != -EPROBE_DEFER
+-	    && !pdev->dev.of_node) {
++	if (IS_ERR(pb->pwm) && PTR_ERR(pb->pwm) != -EPROBE_DEFER && !node) {
+ 		dev_err(&pdev->dev, "unable to request PWM, trying legacy API\n");
+ 		pb->legacy = true;
+ 		pb->pwm = pwm_request(data->pwm_id, "pwm-backlight");

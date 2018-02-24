@@ -1,0 +1,9 @@
+## SECTION=kernel
+
+config KERNEL_@PACKAGE@
+	tristate
+	prompt "Linux kernel (@package@)"
+	select HOST_LIBKMOD
+	#select HOST_U_BOOT_TOOLS
+	help
+	  FIXME

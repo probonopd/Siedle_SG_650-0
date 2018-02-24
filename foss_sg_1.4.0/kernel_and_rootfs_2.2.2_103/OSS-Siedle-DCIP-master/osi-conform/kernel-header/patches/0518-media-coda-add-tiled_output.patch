@@ -1,0 +1,61 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 10 Mar 2015 12:15:15 +0100
+Subject: [PATCH] [media] coda: add tiled_output
+
+Since the output rotator unit can't handle the chroma channels of the macroblock
+tiled NV12 format properly, the decoder isn't allowed to use this format by
+default, unless tiled_output is set.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-bit.c    | 4 ++++
+ drivers/media/platform/coda/coda-common.c | 8 +++-----
+ drivers/media/platform/coda/coda.h        | 1 +
+ 3 files changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index 3de20494b12c..775b63f4e5a9 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -40,6 +40,10 @@
+ #define CODA_DEFAULT_GAMMA	4096
+ #define CODA9_DEFAULT_GAMMA	24576	/* 0.75 * 32768 */
+ 
++int tiled_output = 0;
++module_param(tiled_output, int, 0644);
++MODULE_PARM_DESC(tiled_output, "Output tiled buffers from the decoder even though the rotator doesn't work");
++
+ static void coda_free_bitstream_buffer(struct coda_ctx *ctx);
+ 
+ static inline int coda_is_initialized(struct coda_dev *dev)
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index 86db40d8e062..9d4ad7c3bec0 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -597,11 +597,9 @@ static int coda_s_fmt(struct coda_ctx *ctx, struct v4l2_format *f)
+ 
+ 	switch (f->fmt.pix.pixelformat) {
+ 	case V4L2_PIX_FMT_NV12:
+-		if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT) {
+-			ctx->tiled_map_type = GDI_TILED_FRAME_MB_RASTER_MAP;
+-			if (!disable_tiling)
+-				break;
+-		}
++		ctx->tiled_map_type = GDI_TILED_FRAME_MB_RASTER_MAP;
++		if (tiled_output || (!disable_tiling && !disable_rotator))
++			break;
+ 		/* else fall through */
+ 	case V4L2_PIX_FMT_YUV420:
+ 	case V4L2_PIX_FMT_YVU420:
+diff --git a/drivers/media/platform/coda/coda.h b/drivers/media/platform/coda/coda.h
+index ce5f5adbd20d..00626b0fa9dd 100644
+--- a/drivers/media/platform/coda/coda.h
++++ b/drivers/media/platform/coda/coda.h
+@@ -239,6 +239,7 @@ struct coda_ctx {
+ };
+ 
+ extern int coda_debug;
++extern int tiled_output;
+ 
+ void coda_write(struct coda_dev *dev, u32 data, u32 reg);
+ unsigned int coda_read(struct coda_dev *dev, u32 reg);

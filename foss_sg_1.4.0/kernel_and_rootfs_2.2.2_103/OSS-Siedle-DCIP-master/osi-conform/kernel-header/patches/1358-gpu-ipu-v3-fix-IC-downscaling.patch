@@ -1,0 +1,29 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 24 Jan 2017 18:47:39 +0100
+Subject: [PATCH] gpu: ipu-v3: fix IC downscaling
+
+The IPU IC resize section can downscale bilinearly up to a factor
+of 16383/8192 (~1.9999) before the decimating downscale unit needs
+to be engaged.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-ic.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-ic.c b/drivers/gpu/ipu-v3/ipu-ic.c
+index f91519c9d4f3..5f5e6b8940ec 100644
+--- a/drivers/gpu/ipu-v3/ipu-ic.c
++++ b/drivers/gpu/ipu-v3/ipu-ic.c
+@@ -1388,9 +1388,9 @@ struct image_convert_ctx *ipu_image_convert_prepare(struct ipu_soc *ipu,
+ 	}
+ 
+ 	/* compute static decimator coefficients */
+-	while ((in->rect.width >> h_downsize_coeff) > out->rect.width)
++	while ((in->rect.width >> h_downsize_coeff) >= out->rect.width * 2)
+ 		h_downsize_coeff++;
+-	while ((in->rect.height >> v_downsize_coeff) > out->rect.height)
++	while ((in->rect.height >> v_downsize_coeff) >= out->rect.height * 2)
+ 		v_downsize_coeff++;
+ 
+ 	/* move and crop the output image according to IDMAC limitations */

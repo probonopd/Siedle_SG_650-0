@@ -1,0 +1,6 @@
+95597b27fdea7a71d743a8a8895caae5  0001-eglibc-fts-without-LFS.patch
+86cdfe587d8d2723b2021fdf96d0161a  0002-glibc-xattr-types.patch
+2fde4c1daf1db8b09dc475daba577316  0003-hide-dlsym-error.patch
+a3533dab9a959a464ad5e621860c244e  0100-add-FAKEROOT_SYSROOT-prefix-for-relocation.patch
+55e3d483fe193477a13ce63c945b4688  0101-fakeroot-disable-build-of-doc-and-test.patch
+de444173918d78039cc5521224af8d03  series

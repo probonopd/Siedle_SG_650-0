@@ -1,0 +1,32 @@
+# config for mingw-runtime
+
+menuconfig MINGW_RUNTIME
+	bool
+	select W32API
+
+	select TOOLCHAIN_ENABLE_SYSROOT
+	select TOOLCHAIN_DISABLE_MULTILIB
+
+	select CROSS_GCC_FIRST
+	select CROSS_GCC_ENABLE_CXA_ATEXIT
+	select CROSS_GCC_DISABLE_SJLJ_EXCEPTIONS
+	select CROSS_GCC_DISABLE_LIBSSP
+	select CROSS_GCC_ENABLE_SHARED
+	select CROSS_GCC_THREADS_WIN32
+
+	prompt "mingw-runtime               "
+
+if MINGW_RUNTIME
+
+config MINGW_RUNTIME_VERSION
+	string
+	prompt "mingw-runtime version"
+	default "3.15.1"
+	help
+	  Specify the mingw-runtime version here.
+
+config MINGW_RUNTIME_MD5
+	string
+	prompt "mingw-runtime source md5sum"
+
+endif

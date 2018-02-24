@@ -1,0 +1,245 @@
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Date: Mon, 18 May 2015 14:17:10 +0200
+Subject: [PATCH] [media] imx-ipu-vdic: align with scaler, handle SEQ_TB, drop
+ userptr support
+
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipu-vdic.c | 111 +++++++++++++-----------------
+ 1 file changed, 47 insertions(+), 64 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipu-vdic.c b/drivers/media/platform/imx/imx-ipu-vdic.c
+index 20d6eec0f916..d846b44ee893 100644
+--- a/drivers/media/platform/imx/imx-ipu-vdic.c
++++ b/drivers/media/platform/imx/imx-ipu-vdic.c
+@@ -63,9 +63,9 @@ struct ipu_vdic_dev {
+ 	atomic_t		num_inst;
+ 	spinlock_t		irqlock;
+ 
++	struct vb2_alloc_ctx	*alloc_ctx;
+ 	struct v4l2_m2m_dev	*m2m_dev;
+ 	struct mutex		dev_mutex;
+-	struct ipuv3_channel	*ipu_ch[4];
+ };
+ 
+ /* Per-queue, driver-specific private data */
+@@ -77,7 +77,6 @@ struct ipu_vdic_ctx {
+ 	struct ipu_vdic_dev	*ipu_vdic;
+ 
+ 	struct v4l2_fh		fh;
+-	struct vb2_alloc_ctx	*alloc_ctx;
+ 	struct ipu_vdic_q_data	q_data[2];
+ 
+ 	struct vb2_v4l2_buffer *in_p, *in;
+@@ -156,9 +155,13 @@ static void device_run(void *priv)
+ 
+ 		memset(image, 0, sizeof(*image));
+ 		image->pix.width = pix->width;
+-		image->pix.height = pix->height / 2;
++		image->pix.height = pix->height;
++		if (pix->field != V4L2_FIELD_SEQ_TB
++		    && pix->field != V4L2_FIELD_SEQ_BT)
++			image->pix.height /= 2;
+ 		image->pix.bytesperline = pix->bytesperline;
+ 		image->pix.pixelformat = pix->pixelformat;
++		image->pix.field = pix->field;
+ 		image->rect.left = 0;
+ 		image->rect.top = 0;
+ 		image->rect.width = pix->width;
+@@ -181,12 +184,16 @@ static void device_run(void *priv)
+ 		image_in[1].phys0 = vb2_dma_contig_plane_dma_addr(&ctx->in->vb2_buf, 0);
+ 		image_in[2].phys0 = vb2_dma_contig_plane_dma_addr(&ctx->in->vb2_buf, 0) +
+ 			pix->bytesperline;
+-	} else {
+-		image_in[0].phys0 = vb2_dma_contig_plane_dma_addr(&ctx->in_p->vb2_buf, 0) +
+-			pix->bytesperline * pix->height / 2;
++	} else if (pix->field == V4L2_FIELD_SEQ_TB ||
++		   pix->field == V4L2_FIELD_SEQ_BT) {
++		/*
++		 * We calculate the field offsets inside the rect fields.
++		 * Otherwise we would need to calculate each top offset
++		 * seperatly
++		 */
++		image_in[0].phys0 = vb2_dma_contig_plane_dma_addr(&ctx->in_p->vb2_buf, 0);
+ 		image_in[1].phys0 = vb2_dma_contig_plane_dma_addr(&ctx->in->vb2_buf, 0);
+-		image_in[2].phys0 = vb2_dma_contig_plane_dma_addr(&ctx->in->vb2_buf, 0) +
+-			pix->bytesperline * pix->height / 2;
++		image_in[2].phys0 = vb2_dma_contig_plane_dma_addr(&ctx->in->vb2_buf, 0);
+ 	}
+ 
+ 	q_data = get_q_data(ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE);
+@@ -217,32 +224,15 @@ static int vidioc_querycap(struct file *file, void *priv,
+ 	strncpy(cap->card, MEM2MEM_NAME, sizeof(cap->card) - 1);
+ 	strncpy(cap->bus_info, "platform:" MEM2MEM_NAME,
+ 		sizeof(cap->bus_info) - 1);
+-	/*
+-	 * This is only a mem-to-mem video device. The capture and output
+-	 * device capability flags are left for backward compatibility and
+-	 * are scheduled for removal.
+-	 */
+-	cap->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
+-			   V4L2_CAP_VIDEO_M2M | V4L2_CAP_STREAMING;
++	cap->device_caps = V4L2_CAP_VIDEO_M2M | V4L2_CAP_STREAMING;
+ 	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
+ 
+ 	return 0;
+ }
+ 
+-static int vidioc_enum_fmt_vid_cap(struct file *file, void *priv,
+-				   struct v4l2_fmtdesc *f)
+-{
+-	return ipu_enum_fmt(file, priv, f);
+-}
+-
+-static int vidioc_enum_fmt_vid_out(struct file *file, void *priv,
+-				   struct v4l2_fmtdesc *f)
+-{
+-	return ipu_enum_fmt(file, priv, f);
+-}
+-
+-static int vidioc_g_fmt(struct ipu_vdic_ctx *ctx, struct v4l2_format *f)
++static int vidioc_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
+ {
++	struct ipu_vdic_ctx *ctx = priv;
+ 	struct vb2_queue *vq;
+ 	struct ipu_vdic_q_data *q_data;
+ 	struct v4l2_pix_format *pix;
+@@ -257,18 +247,6 @@ static int vidioc_g_fmt(struct ipu_vdic_ctx *ctx, struct v4l2_format *f)
+ 	return ipu_g_fmt(f, pix);
+ }
+ 
+-static int vidioc_g_fmt_vid_out(struct file *file, void *priv,
+-				struct v4l2_format *f)
+-{
+-	return vidioc_g_fmt(priv, f);
+-}
+-
+-static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
+-				struct v4l2_format *f)
+-{
+-	return vidioc_g_fmt(priv, f);
+-}
+-
+ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
+ 				  struct v4l2_format *f)
+ {
+@@ -352,13 +330,13 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
+ static const struct v4l2_ioctl_ops ipu_vdic_ioctl_ops = {
+ 	.vidioc_querycap	= vidioc_querycap,
+ 
+-	.vidioc_enum_fmt_vid_cap = vidioc_enum_fmt_vid_cap,
+-	.vidioc_g_fmt_vid_cap	= vidioc_g_fmt_vid_cap,
++	.vidioc_enum_fmt_vid_cap = ipu_enum_fmt,
++	.vidioc_g_fmt_vid_cap	= vidioc_g_fmt,
+ 	.vidioc_try_fmt_vid_cap	= vidioc_try_fmt_vid_cap,
+ 	.vidioc_s_fmt_vid_cap	= vidioc_s_fmt,
+ 
+-	.vidioc_enum_fmt_vid_out = vidioc_enum_fmt_vid_out,
+-	.vidioc_g_fmt_vid_out	= vidioc_g_fmt_vid_out,
++	.vidioc_enum_fmt_vid_out = ipu_enum_fmt,
++	.vidioc_g_fmt_vid_out	= vidioc_g_fmt,
+ 	.vidioc_try_fmt_vid_out	= vidioc_try_fmt_vid_out,
+ 	.vidioc_s_fmt_vid_out	= vidioc_s_fmt,
+ 
+@@ -376,7 +354,6 @@ static const struct v4l2_ioctl_ops ipu_vdic_ioctl_ops = {
+ 	.vidioc_enum_framesizes = vidioc_enum_framesizes,
+ };
+ 
+-
+ /*
+  * Queue operations
+  */
+@@ -403,12 +380,7 @@ static int ipu_vdic_queue_setup(struct vb2_queue *vq,
+ 	*nplanes = 1;
+ 	*nbuffers = count;
+ 	sizes[0] = size;
+-
+-	ctx->alloc_ctx = vb2_dma_contig_init_ctx(ctx->ipu_vdic->dev);
+-	if (IS_ERR(ctx->alloc_ctx))
+-		return PTR_ERR(ctx->alloc_ctx);
+-
+-	alloc_ctxs[0] = ctx->alloc_ctx;
++	alloc_ctxs[0] = ctx->ipu_vdic->alloc_ctx;
+ 
+ 	dev_dbg(ctx->ipu_vdic->dev, "get %d buffer(s) of size %d each.\n",
+ 		count, size);
+@@ -482,7 +454,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
+ 
+ 	memset(src_vq, 0, sizeof(*src_vq));
+ 	src_vq->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+-	src_vq->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
++	src_vq->io_modes = VB2_MMAP | VB2_DMABUF;
+ 	src_vq->drv_priv = ctx;
+ 	src_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
+ 	src_vq->ops = &ipu_vdic_qops;
+@@ -496,7 +468,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
+ 
+ 	memset(dst_vq, 0, sizeof(*dst_vq));
+ 	dst_vq->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+-	dst_vq->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
++	dst_vq->io_modes = VB2_MMAP | VB2_DMABUF;
+ 	dst_vq->drv_priv = ctx;
+ 	dst_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
+ 	dst_vq->ops = &ipu_vdic_qops;
+@@ -507,6 +479,19 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
+ 	return vb2_queue_init(dst_vq);
+ }
+ 
++#define DEFAULT_WIDTH	720
++#define DEFAULT_HEIGHT	576
++static const struct ipu_vdic_q_data ipu_vdic_q_data_default = {
++	.cur_fmt = {
++		.width = DEFAULT_WIDTH,
++		.height = DEFAULT_HEIGHT,
++		.pixelformat = V4L2_PIX_FMT_YUV420,
++		.bytesperline = DEFAULT_WIDTH,
++		.sizeimage = DEFAULT_WIDTH * DEFAULT_HEIGHT * 3 / 2,
++		.colorspace = V4L2_COLORSPACE_REC709,
++	},
++};
++
+ /*
+  * File operations
+  */
+@@ -514,9 +499,6 @@ static int ipu_vdic_open(struct file *file)
+ {
+ 	struct ipu_vdic_dev *ipu_vdic = video_drvdata(file);
+ 	struct ipu_vdic_ctx *ctx = NULL;
+-	const int width = 720;
+-	const int height = 576;
+-	int i;
+ 
+ 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+ 	if (!ctx)
+@@ -537,14 +519,11 @@ static int ipu_vdic_open(struct file *file)
+ 		return ret;
+ 	}
+ 
+-	for (i = 0; i < 2; i++) {
+-		ctx->q_data[i].cur_fmt.width = width;
+-		ctx->q_data[i].cur_fmt.height = height;
+-		ctx->q_data[i].cur_fmt.bytesperline = width;
+-		ctx->q_data[i].cur_fmt.pixelformat = V4L2_PIX_FMT_YUV420;
+-		ctx->q_data[i].cur_fmt.sizeimage = width * height * 3 / 2;
+-		ctx->q_data[i].cur_fmt.colorspace = V4L2_COLORSPACE_REC709;
+-	}
++	ctx->q_data[V4L2_M2M_SRC] = ipu_vdic_q_data_default;
++	ctx->q_data[V4L2_M2M_SRC].cur_fmt.field = V4L2_FIELD_SEQ_TB;
++
++	ctx->q_data[V4L2_M2M_DST] = ipu_vdic_q_data_default;
++	ctx->q_data[V4L2_M2M_SRC].cur_fmt.field = V4L2_FIELD_NONE;
+ 
+ 	atomic_inc(&ipu_vdic->num_inst);
+ 
+@@ -616,6 +595,10 @@ static int ipu_vdic_probe(struct platform_device *pdev)
+ 	spin_lock_init(&ipu_vdic->irqlock);
+ 	mutex_init(&ipu_vdic->dev_mutex);
+ 
++	ipu_vdic->alloc_ctx = vb2_dma_contig_init_ctx(&pdev->dev);
++	if (IS_ERR(ipu_vdic->alloc_ctx))
++		return PTR_ERR(ipu_vdic->alloc_ctx);
++
+ 	ret = v4l2_device_register(&pdev->dev, &ipu_vdic->v4l2_dev);
+ 	if (ret)
+ 		return ret;

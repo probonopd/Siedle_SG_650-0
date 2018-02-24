@@ -1,0 +1,11 @@
+## SECTION=qt
+
+config ARORA
+	tristate
+	prompt "arora"
+	select QT4
+	select QT4_BUILD_WEBKIT
+	select QT4_BUILD_QTXMLPATTERNS
+	help
+	  Arora is a lightweight web browser based on Qt4 (WebKit).
+	  Project page: http://code.google.com/p/arora/

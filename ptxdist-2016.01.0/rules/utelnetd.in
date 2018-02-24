@@ -1,0 +1,22 @@
+## SECTION=networking
+menuconfig UTELNETD
+	depends on !BUSYBOX_TELNETD || ALLYES
+	tristate
+	prompt "utelnetd                      "
+	help
+	  utelnet is a very small telnetd implementation.
+
+if UTELNETD
+
+config UTELNETD_STARTSCRIPT
+	bool
+	default y
+	prompt "install /etc/init.d/utelnetd"
+
+config UTELNETD_SYSTEMD_UNIT
+	bool
+	default y
+	depends on SYSTEMD
+	prompt "install systemd service files"
+
+endif

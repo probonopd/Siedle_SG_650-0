@@ -1,0 +1,36 @@
+/dts-v1/;
+
+#include "ar9331.dtsi"
+
+/ {
+	model = "TP-LINK MR3020";
+	compatible = "tplink,mr3020";
+
+	memory {
+		reg = <0x00000000 0x2000000>;
+	};
+};
+
+&serial0 {
+	status = "okay";
+};
+
+&spi {
+	num-chipselects = <1>;
+	status = "okay";
+
+	/* Spansion S25FL032PIF SPI flash */
+	spiflash: m25p80@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "m25p80";
+		spi-max-frequency = <104000000>;
+		reg = <0>;
+	};
+};
+
+/ {
+	aliases {
+		spiflash = &spiflash;
+	};
+};

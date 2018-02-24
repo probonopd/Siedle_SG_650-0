@@ -1,0 +1,95 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 7 Jul 2015 13:15:50 +0200
+Subject: [PATCH] [media] tvp5150: configurable delay for sync lock event
+
+Wait for a configurable delay after the synchronisation lock
+interrupt before enabling TVP5150 data output and the CSI.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/i2c/tvp5150.c | 43 +++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 41 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/i2c/tvp5150.c b/drivers/media/i2c/tvp5150.c
+index 80acd2534225..b4e5d7d64725 100644
+--- a/drivers/media/i2c/tvp5150.c
++++ b/drivers/media/i2c/tvp5150.c
+@@ -47,7 +47,9 @@ struct tvp5150 {
+ 	struct v4l2_rect rect;
+ 	struct regmap *regmap;
+ 	struct reset_control *rstc;
++	struct delayed_work sync_work;
+ 	int irq;
++	int sync_lock_delay_msec;
+ 
+ 	v4l2_std_id norm;	/* Current set standard */
+ 	v4l2_std_id detected_norm;
+@@ -900,6 +902,28 @@ static int tvp5150_reset(struct v4l2_subdev *sd, u32 val)
+ 	return 0;
+ }
+ 
++#define TVP5150_INT_A_LOCK_STATUS	BIT(7)
++#define TVP5150_INT_A_LOCK		BIT(6)
++
++#define TVP5150_INT_B_H_V_LOCK		BIT(1)
++
++#define TVP5150_STATUS_1_VSYNC_LOCK	BIT(2)
++#define TVP5150_STATUS_1_HSYNC_LOCK	BIT(1)
++
++static void tvp5150_sync_work(struct work_struct *work)
++{
++	struct tvp5150 *decoder = container_of(to_delayed_work(work),
++					       struct tvp5150, sync_work);
++	unsigned int s;
++
++	regmap_read(decoder->regmap, TVP5150_STATUS_REG_1, &s);
++
++	v4l2_subdev_notify(&decoder->sd, V4L2_SUBDEV_SYNC_LOCK_NOTIFY,
++			   &decoder->lock);
++	regmap_update_bits(decoder->regmap, TVP5150_MISC_CTL,
++			   0xd, decoder->lock ? decoder->oe : 0);
++}
++
+ static irqreturn_t tvp5150_isr(int irq, void *dev_id)
+ {
+ 	struct tvp5150 *decoder = dev_id;
+@@ -912,8 +936,20 @@ static irqreturn_t tvp5150_isr(int irq, void *dev_id)
+ 
+ 		if (status & TVP5150_INT_A_LOCK) {
+ 			decoder->lock = !!(status & TVP5150_INT_A_LOCK_STATUS);
+-			regmap_update_bits(decoder->regmap, TVP5150_MISC_CTL,
+-					   0xd, decoder->lock ? decoder->oe : 0);
++
++			if (!decoder->lock || decoder->sync_lock_delay_msec == 0) {
++				if (decoder->sync_lock_delay_msec)
++					cancel_delayed_work(&decoder->sync_work);
++
++				v4l2_subdev_notify(&decoder->sd,
++						   V4L2_SUBDEV_SYNC_LOCK_NOTIFY,
++						   &decoder->lock);
++				regmap_update_bits(decoder->regmap, TVP5150_MISC_CTL,
++						   0xd, decoder->lock ? decoder->oe : 0);
++			} else {
++				schedule_delayed_work(&decoder->sync_work,
++						      msecs_to_jiffies(decoder->sync_lock_delay_msec));
++			}
+ 		}
+ 
+ 		return IRQ_HANDLED;
+@@ -1574,6 +1610,7 @@ static int tvp5150_probe(struct i2c_client *c,
+ 	map = devm_regmap_init_i2c(c, &tvp5150_config);
+ 	if (IS_ERR(map))
+ 		return PTR_ERR(map);
++	of_property_read_u32(c->dev.of_node, "sync-lock-delay-ms", &core->sync_lock_delay_msec);
+ 	core->regmap = map;
+ 	sd = &core->sd;
+ 	v4l2_i2c_subdev_init(sd, c, &tvp5150_ops);
+@@ -1667,6 +1704,8 @@ static int tvp5150_probe(struct i2c_client *c,
+ 	}
+ 	v4l2_ctrl_handler_setup(&core->hdl);
+ 
++	INIT_DELAYED_WORK(&core->sync_work, tvp5150_sync_work);
++
+ 	core->irq = c->irq;
+ 	tvp5150_reset(sd, 0);
+ 

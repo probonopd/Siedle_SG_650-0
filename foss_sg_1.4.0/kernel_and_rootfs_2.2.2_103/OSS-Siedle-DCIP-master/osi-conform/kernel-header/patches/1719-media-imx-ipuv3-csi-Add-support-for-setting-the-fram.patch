@@ -1,0 +1,150 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 12 Sep 2014 15:22:34 +0200
+Subject: [PATCH] [media] imx-ipuv3-csi: Add support for setting the frame rate
+ of the v4l2 video device
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 95 ++++++++++++++++++++++++++++--
+ 1 file changed, 90 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index aa9206bdcad2..dbc53a075208 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -165,7 +165,7 @@ struct ipucsi {
+ 	struct v4l2_subdev		subdev;
+ 	struct media_pad		subdev_pad[5];
+ 	struct v4l2_mbus_framefmt	format_mbus[2];
+-	struct v4l2_fract		timeperframe;
++	struct v4l2_fract		timeperframe[2];
+ 	struct ipu_media_link		*link;
+ 	struct v4l2_fh			fh;
+ 	bool				paused;
+@@ -1249,17 +1249,92 @@ static int ipucsi_g_frame_interval(struct v4l2_subdev *subdev,
+ {
+ 	struct ipucsi *ipucsi = container_of(subdev, struct ipucsi, subdev);
+ 
+-	fi->interval = ipucsi->timeperframe;
++	if (fi->pad > 4)
++		return -EINVAL;
++
++	fi->interval = ipucsi->timeperframe[(fi->pad == 0) ? 0 : 1];
+ 
+         return 0;
+ }
+ 
++/*
++ * struct ipucsi_skip_desc - CSI frame skipping descriptor
++ * @keep - number of frames kept per max_ratio frames
++ * @max_ratio - width of skip_smfc, written to MAX_RATIO bitfield
++ * @skip_smfc - skip pattern written to the SKIP_SMFC bitfield
++ */
++struct ipucsi_skip_desc {
++	u8 keep;
++	u8 max_ratio;
++	u8 skip_smfc;
++};
++
++static const struct ipucsi_skip_desc ipucsi_skip[12] = {
++	{ 1, 1, 0x00 }, /* Keep all frames */
++	{ 5, 6, 0x10 }, /* Skip every sixth frame */
++	{ 4, 5, 0x08 }, /* Skip every fifth frame */
++	{ 3, 4, 0x04 }, /* Skip every fourth frame */
++	{ 2, 3, 0x02 }, /* Skip every third frame */
++	{ 3, 5, 0x0a }, /* Skip frames 1 and 3 of every 5 */
++	{ 1, 2, 0x01 }, /* Skip every second frame */
++	{ 2, 5, 0x0b }, /* Keep frames 1 and 4 of every 5 */
++	{ 1, 3, 0x03 }, /* Keep one in three frames */
++	{ 1, 4, 0x07 }, /* Keep one in four frames */
++	{ 1, 5, 0x0f }, /* Keep one in five frames */
++	{ 1, 6, 0x1f }, /* Keep one in six frames */
++};
++
+ static int ipucsi_s_frame_interval(struct v4l2_subdev *subdev,
+ 				   struct v4l2_subdev_frame_interval *fi)
+ {
+ 	struct ipucsi *ipucsi = container_of(subdev, struct ipucsi, subdev);
++	const struct ipucsi_skip_desc *skip;
++	struct v4l2_fract *want, *in;
++	int err, min_err = INT_MAX;
++	int i, best_i = 0;
++
++	if (fi->pad > 4)
++		return -EINVAL;
++
++	if (fi->pad == 0) {
++		/* Believe what we are told about the input frame rate */
++		ipucsi->timeperframe[0] = fi->interval;
++		return 0;
++	}
+ 
+-	ipucsi->timeperframe = fi->interval;
++	want = &fi->interval;
++	in = &ipucsi->timeperframe[0];
++
++	if (want->numerator == 0 || want->denominator == 0 ||
++	    in->denominator == 0) {
++		ipucsi->timeperframe[1] = ipucsi->timeperframe[0];
++		fi->interval = ipucsi->timeperframe[1];
++		return 0;
++	}
++
++	/* Find the reduction closest to the requested timeperframe */
++	for (i = 0; i < ARRAY_SIZE(ipucsi_skip); i++) {
++		skip = &ipucsi_skip[i];
++		err = 1000 * in->numerator * skip->max_ratio * want->denominator
++		      / (in->denominator * skip->keep * want->numerator) - 1000;
++		if (abs(err) < min_err) {
++			min_err = abs(err);
++			best_i = i;
++		}
++	}
++
++	skip = &ipucsi_skip[best_i];
++
++	ipu_csi_set_skip_smfc(ipucsi->csi, skip->skip_smfc, skip->max_ratio - 1, 0);
++
++	fi->interval.numerator = in->numerator * skip->max_ratio;
++	fi->interval.denominator = in->denominator * skip->keep;
++	ipucsi->timeperframe[1] = fi->interval;
++
++	dev_dbg(ipucsi->dev, "skip: %d/%d -> %d/%d frames:%d pattern:0x%x\n",
++	       in->numerator, in->denominator,
++	       fi->interval.numerator, fi->interval.denominator,
++	       skip->max_ratio, skip->skip_smfc);
+ 
+ 	return 0;
+ }
+@@ -1466,7 +1541,7 @@ static int ipucsi_g_parm(struct file *file, void *fh,
+ 		return -EINVAL;
+ 
+ 	sp->parm.capture.capability = V4L2_CAP_TIMEPERFRAME;
+-	sp->parm.capture.timeperframe = ipucsi->timeperframe;
++	sp->parm.capture.timeperframe = ipucsi->timeperframe[1];
+ 
+ 	return 0;
+ }
+@@ -1475,11 +1550,21 @@ static int ipucsi_s_parm(struct file *file, void *fh,
+ 			 struct v4l2_streamparm *sp)
+ {
+ 	struct ipucsi *ipucsi = video_drvdata(file);
++	struct v4l2_subdev_frame_interval fi;
+ 
+ 	if (sp->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+ 		return -EINVAL;
+ 
+-	sp->parm.capture.timeperframe = ipucsi->timeperframe;
++	/*
++	 * FIXME - should this be able to call s_frame_interval on the
++	 * connected CSI subdevice? For now we have to, since media-ctl
++	 * only sets the frame interval on pad 0.
++	 */
++	fi.pad = 1;
++	fi.interval = sp->parm.capture.timeperframe;
++	ipucsi_s_frame_interval(&ipucsi->subdev, &fi);
++
++	sp->parm.capture.timeperframe = ipucsi->timeperframe[1];
+ 
+ 	return 0;
+ }

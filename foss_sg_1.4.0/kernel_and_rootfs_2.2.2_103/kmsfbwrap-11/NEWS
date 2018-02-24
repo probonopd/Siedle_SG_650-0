@@ -1,0 +1,54 @@
+kmsfbwrap 11
+========
+Add ARGB4444 framebuffer support
+Don't use hardcoded DRM device, but search for usable one
+
+kmsfbwrap 10
+========
+Fix read/write implementation for block sizes >= 128 KiB.
+Fix FBIO_WAITFORVSYNC to be really synchronous
+Add support for libpng16.
+Add support for more RGB formats, some with separate alpha plane.
+Report error codes if drmModeAddFB2 fails.
+
+kmsfbwrap 9
+========
+Add support for changing mode via fbset on non-shared fullscreen framebuffers.
+Add support for ARGB1555 format.
+Read arguments from /etc/kmsfb-manage.conf if none are passed.
+Add init support.
+Put splash image on separate framebuffer in tripple buffer mode.
+
+kmsfbwrap 8
+========
+Add frame rate (vertical refresh frequency) selection support.
+
+kmsfbwrap 7
+========
+Add PNG splash support.
+
+kmsfbwrap 6
+========
+Add overlay plane support and alpha transparency support.
+
+kmsfbwrap 5
+========
+Try to auto-detect any unspecified parameter.
+
+kmsfbwrap 4
+========
+Cleanups all over the place. All FBs are now handled by BGI.
+Configuration syntax changed a bit to make things simpler.
+
+libkmsfbwrap 3
+========
+Add BGI support, using cuse to implement a fake framebuffer in userspace
+suitable for the i.MX 3d blob drivers.
+
+libkmsfbwrap 2
+========
+Use calloc to get zeroed memory
+
+libkmsfbwrap 1
+========
+Initial release.

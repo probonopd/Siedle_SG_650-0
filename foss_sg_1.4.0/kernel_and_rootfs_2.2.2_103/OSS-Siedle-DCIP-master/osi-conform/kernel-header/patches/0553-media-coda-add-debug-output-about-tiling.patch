@@ -1,0 +1,26 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 2 Feb 2016 09:54:41 +0100
+Subject: [PATCH] [media] coda: add debug output about tiling
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-common.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index a14f996d2541..5e71464856f5 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -706,9 +706,10 @@ static int coda_s_fmt(struct coda_ctx *ctx, struct v4l2_format *f)
+ 	}
+ 
+ 	v4l2_dbg(1, coda_debug, &ctx->dev->v4l2_dev,
+-		"Setting format for type %d, wxh: %dx%d, fmt: %4.4s\n",
++		"Setting format for type %d, wxh: %dx%d, fmt: %4.4s %c\n",
+ 		f->type, q_data->width, q_data->height,
+-		(char *)&q_data->fourcc);
++		(char *)&q_data->fourcc,
++		(ctx->tiled_map_type == GDI_LINEAR_FRAME_MAP) ? 'L' : 'T');
+ 
+ 	return 0;
+ }

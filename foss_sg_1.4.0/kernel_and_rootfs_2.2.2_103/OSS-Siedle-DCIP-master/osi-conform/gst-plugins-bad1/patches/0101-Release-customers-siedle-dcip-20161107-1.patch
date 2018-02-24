@@ -1,0 +1,22 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 7 Nov 2016 16:21:25 +0100
+Subject: [PATCH] Release customers/siedle/dcip/20161107-1
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ configure.ac | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configure.ac b/configure.ac
+index f0a1e17132e8..a4e18d026373 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -3,7 +3,7 @@ AC_PREREQ([2.69])
+ dnl initialize autoconf
+ dnl when going to/from release please set the nano (fourth number) right !
+ dnl releases only do Wall, git and prerelease does Werror too
+-AC_INIT([GStreamer Bad Plug-ins],[1.8.3],[http://bugzilla.gnome.org/enter_bug.cgi?product=GStreamer],[gst-plugins-bad])
++AC_INIT([GStreamer Bad Plug-ins],[1.8.3.20161107-1],[http://bugzilla.gnome.org/enter_bug.cgi?product=GStreamer],[gst-plugins-bad])
+ 
+ AG_GST_INIT
+ 

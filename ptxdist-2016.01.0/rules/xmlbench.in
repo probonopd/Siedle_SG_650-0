@@ -1,0 +1,11 @@
+## SECTION=test_suites
+
+menuconfig XMLBENCH
+	depends on BROKEN
+	tristate
+	prompt "xmlbench [BROKEN]"
+	help
+	  xmlbench provides benchmarking toolset for all
+	  available multiplatform C/C++ (and some Java)
+	  XML parsers.
+

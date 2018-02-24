@@ -1,0 +1,37 @@
+From: Bastian Stender <bst@pengutronix.de>
+Date: Thu, 12 Jan 2017 10:48:09 +0100
+Subject: [PATCH] [media] imx-ipu-ovl: set -ENOMEM on
+ kzalloc/dma_alloc_coherent failure
+
+The return value of ipu_ovl_vidioc_reqbufs must be adjusted when memory
+allocation fails. Otherwise vout->idle_list will be always empty
+leading to no frame processing whatsoever.
+
+Signed-off-by: Bastian Stender <bst@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipu-ovl.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipu-ovl.c b/drivers/media/platform/imx/imx-ipu-ovl.c
+index 90733cc82fcd..bc2389ce5248 100644
+--- a/drivers/media/platform/imx/imx-ipu-ovl.c
++++ b/drivers/media/platform/imx/imx-ipu-ovl.c
+@@ -347,14 +347,17 @@ static int ipu_ovl_vidioc_reqbufs(struct file *file, void *fh,
+ 
+ 	for (i = 0; i < NUMBUFS; i++) {
+ 		q = kzalloc(sizeof (*q), GFP_KERNEL);
+-		if (!q)
++		if (!q) {
++			ret = -ENOMEM;
+ 			goto free_dma;
++		}
+ 
+ 		q->size = vout->width_base * vout->height_base * 2;
+ 		q->virt = dma_alloc_coherent(NULL, q->size, &q->phys,
+ 					     GFP_DMA | GFP_KERNEL);
+ 		if (!q->virt) {
+ 			kfree(q);
++			ret = -ENOMEM;
+ 			goto free_dma;
+ 		}
+ 		q->vout = vout;

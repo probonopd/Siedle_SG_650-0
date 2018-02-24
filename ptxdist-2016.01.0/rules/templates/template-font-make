@@ -1,0 +1,69 @@
+# -*-makefile-*-
+#
+# Copyright (C) @YEAR@ by @AUTHOR@
+#
+# See CREDITS for details about who has contributed to this project.
+#
+# For further information about the PTXdist project and license conditions
+# see the README file.
+#
+
+#
+# We provide this package
+#
+PACKAGES-$(PTXCONF_@PACKAGE@) += @package@
+
+#
+# Paths and names
+#
+@PACKAGE@_VERSION	:= @VERSION@
+@PACKAGE@_MD5		:=
+@PACKAGE@		:= @package_filename@-$(@PACKAGE@_VERSION)
+@PACKAGE@_SUFFIX		:= @SUFFIX@
+@PACKAGE@_URL		:= @URL@/$(@PACKAGE@).$(@PACKAGE@_SUFFIX)
+@PACKAGE@_SOURCE		:= $(SRCDIR)/$(@PACKAGE@).$(@PACKAGE@_SUFFIX)
+@PACKAGE@_DIR		:= $(BUILDDIR)/$(@PACKAGE@)
+
+ifdef PTXCONF_@PACKAGE@
+$(STATEDIR)/xorg-fonts.targetinstall.post: $(STATEDIR)/@package@.targetinstall
+endif
+
+# ----------------------------------------------------------------------------
+# Get
+# ----------------------------------------------------------------------------
+
+#$(@PACKAGE@_SOURCE):
+#	@$(call targetinfo)
+#	@$(call get, @PACKAGE@)
+
+# ----------------------------------------------------------------------------
+# Prepare
+# ----------------------------------------------------------------------------
+
+#
+# autoconf
+#
+@PACKAGE@_CONF_TOOL	:= autoconf
+@PACKAGE@_CONF_OPT	:= \
+	$(CROSS_AUTOCONF_USR) \
+	--with-fontdir=$(XORG_FONTDIR)/truetype
+
+# ----------------------------------------------------------------------------
+# Target-Install
+# ----------------------------------------------------------------------------
+
+$(STATEDIR)/@package@.targetinstall:
+	@$(call targetinfo)
+
+	@mkdir -p $(XORG_FONTS_DIR_INSTALL)/truetype
+
+	@find $(@PACKAGE@_DIR) \
+		-name "*.ttf" \
+		| \
+		while read file; do \
+		install -m 644 $${file} $(XORG_FONTS_DIR_INSTALL)/truetype; \
+	done
+
+	@$(call touch)
+
+# vim: syntax=make

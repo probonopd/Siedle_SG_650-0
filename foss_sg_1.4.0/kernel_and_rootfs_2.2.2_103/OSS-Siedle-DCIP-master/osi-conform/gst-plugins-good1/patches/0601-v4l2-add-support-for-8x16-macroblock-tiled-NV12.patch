@@ -1,0 +1,77 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 24 Mar 2015 11:28:28 +0100
+Subject: [PATCH] v4l2: add support for 8x16 macroblock tiled NV12
+
+---
+ sys/v4l2/ext/videodev2.h |  1 +
+ sys/v4l2/gstv4l2object.c | 10 ++++++++++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/sys/v4l2/ext/videodev2.h b/sys/v4l2/ext/videodev2.h
+index 68e82be4467e..efb01f183ea0 100644
+--- a/sys/v4l2/ext/videodev2.h
++++ b/sys/v4l2/ext/videodev2.h
+@@ -517,6 +517,7 @@ struct v4l2_pix_format {
+ #define V4L2_PIX_FMT_NV61    v4l2_fourcc('N', 'V', '6', '1') /* 16  Y/CrCb 4:2:2  */
+ #define V4L2_PIX_FMT_NV24    v4l2_fourcc('N', 'V', '2', '4') /* 24  Y/CbCr 4:4:4  */
+ #define V4L2_PIX_FMT_NV42    v4l2_fourcc('N', 'V', '4', '2') /* 24  Y/CrCb 4:4:4  */
++#define V4L2_PIX_FMT_CM12    v4l2_fourcc('C', 'M', '1', '2') /* 12  Y/CbCr 4:2:0 8x16 macroblocks */
+ 
+ /* two non contiguous planes - one Y, one Cr + Cb interleaved  */
+ #define V4L2_PIX_FMT_NV12M   v4l2_fourcc('N', 'M', '1', '2') /* 12  Y/CbCr 4:2:0  */
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index fea3c6da49d8..462d00b9fc52 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -150,6 +150,7 @@ static const GstV4L2FormatDesc gst_v4l2_formats[] = {
+   /* two planes -- one Y, one Cr + Cb interleaved  */
+   {V4L2_PIX_FMT_NV12, TRUE, GST_V4L2_RAW},
+   {V4L2_PIX_FMT_NV12M, TRUE, GST_V4L2_RAW},
++  {V4L2_PIX_FMT_CM12, TRUE, GST_V4L2_RAW},
+   {V4L2_PIX_FMT_NV12MT, TRUE, GST_V4L2_RAW},
+   {V4L2_PIX_FMT_NV12MT_16X16, TRUE, GST_V4L2_RAW},
+   {V4L2_PIX_FMT_NV21, TRUE, GST_V4L2_RAW},
+@@ -1295,6 +1296,7 @@ gst_v4l2_object_format_get_rank (const struct v4l2_fmtdesc *fmt)
+ 
+     case V4L2_PIX_FMT_NV12:    /* 12  Y/CbCr 4:2:0  */
+     case V4L2_PIX_FMT_NV12M:   /* Same as NV12      */
++    case V4L2_PIX_FMT_CM12:    /* NV12 8x16 tile   */
+     case V4L2_PIX_FMT_NV12MT:  /* NV12 64x32 tile   */
+     case V4L2_PIX_FMT_NV21:    /* 12  Y/CrCb 4:2:0  */
+     case V4L2_PIX_FMT_NV21M:   /* Same as NV21      */
+@@ -1554,6 +1556,9 @@ gst_v4l2_object_v4l2fourcc_to_video_format (guint32 fourcc)
+     case V4L2_PIX_FMT_NV12M:
+       format = GST_VIDEO_FORMAT_NV12;
+       break;
++    case V4L2_PIX_FMT_CM12:
++      format = GST_VIDEO_FORMAT_NV12_8X16;
++      break;
+     case V4L2_PIX_FMT_NV12MT:
+       format = GST_VIDEO_FORMAT_NV12_64Z32;
+       break;
+@@ -1701,6 +1706,7 @@ gst_v4l2_object_v4l2fourcc_to_bare_struct (guint32 fourcc)
+     case V4L2_PIX_FMT_ABGR32:
+     case V4L2_PIX_FMT_NV12:    /* 12  Y/CbCr 4:2:0  */
+     case V4L2_PIX_FMT_NV12M:
++    case V4L2_PIX_FMT_CM12:
+     case V4L2_PIX_FMT_NV12MT:
+     case V4L2_PIX_FMT_NV21:    /* 12  Y/CrCb 4:2:0  */
+     case V4L2_PIX_FMT_NV21M:
+@@ -1943,6 +1949,9 @@ gst_v4l2_object_get_caps_info (GstV4l2Object * v4l2object, GstCaps * caps,
+         fourcc = V4L2_PIX_FMT_NV12;
+         fourcc_nc = V4L2_PIX_FMT_NV12M;
+         break;
++      case GST_VIDEO_FORMAT_NV12_8X16:
++        fourcc_nc = V4L2_PIX_FMT_CM12;
++        break;
+       case GST_VIDEO_FORMAT_NV12_64Z32:
+         fourcc_nc = V4L2_PIX_FMT_NV12MT;
+         break;
+@@ -3346,6 +3355,7 @@ gst_v4l2_object_extrapolate_stride (const GstVideoFormatInfo * finfo,
+ 
+   switch (finfo->format) {
+     case GST_VIDEO_FORMAT_NV12:
++    case GST_VIDEO_FORMAT_NV12_8X16:
+     case GST_VIDEO_FORMAT_NV12_64Z32:
+     case GST_VIDEO_FORMAT_NV21:
+     case GST_VIDEO_FORMAT_NV16:

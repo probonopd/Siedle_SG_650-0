@@ -1,0 +1,11 @@
+## SECTION=qt
+
+config SHIBOKEN
+	tristate
+	prompt "shiboken"
+	select HOST_CMAKE
+	select HOST_SHIBOKEN
+	select PYTHON
+	select QT4
+	help
+	  FIXME

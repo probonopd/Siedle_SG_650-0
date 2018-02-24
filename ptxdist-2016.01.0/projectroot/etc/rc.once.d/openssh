@@ -1,0 +1,53 @@
+#!/bin/sh
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+get_hostkeys() {
+	[ -f /etc/ssh/sshd_config ] || return
+	sed -n 's/^HostKey[ \t][ \t]*\(.*\)/\1/p' /etc/ssh/sshd_config
+}
+
+host_keys_required() {
+	hostkeys="$(get_hostkeys)"
+	if [ "$hostkeys" ]; then
+		echo "$hostkeys"
+	else
+		# No HostKey directives found, so we pick secure defaults
+		echo /etc/ssh/ssh_host_ed25519_key
+		echo /etc/ssh/ssh_host_rsa_key
+	fi
+}
+
+create_key() {
+	msg="$1"
+	shift
+	hostkeys="$1"
+	shift
+	file="$1"
+	shift
+
+	if echo "$hostkeys" | grep -x "$file" >/dev/null; then
+		echo "$msg; this may take some time ..."
+		rm -f $file &&
+		ssh-keygen -q -f "$file" -N '' "$@" || return
+		echo "$msg; done."
+	fi
+}
+
+create_keys() {
+	hostkeys="$(host_keys_required)"
+
+	create_key "Creating DSA key" \
+		"$hostkeys" /etc/ssh/ssh_host_dsa_key -t dsa &&
+	create_key "Creating ECDSA key" \
+		"$hostkeys" /etc/ssh/ssh_host_ecdsa_key -t ecdsa &&
+	create_key "Creating ED25519 key" \
+		"$hostkeys" /etc/ssh/ssh_host_ed25519_key -t ed25519 &&
+	create_key "Creating RSA key" \
+		"$hostkeys" /etc/ssh/ssh_host_rsa_key -t rsa -b 4096
+}
+
+if ! create_keys; then
+	echo "Generating SSH keys failed!"
+	exit 1
+fi

@@ -1,0 +1,32 @@
+menuconfig AVRLIB
+	bool
+
+	select TOOLCHAIN_DISABLE_SYSROOT
+	select TOOLCHAIN_ENABLE_MULTILIB
+
+	select CROSS_GCC_FIRST
+	select CROSS_GCC_DISABLE_CXA_ATEXIT
+	select CROSS_GCC_ENABLE_SJLJ_EXCEPTIONS
+	select CROSS_GCC_DISABLE_LIBSSP
+	select CROSS_GCC_DISABLE_SHARED
+	select CROSS_GCC_THREADS_SINGLE
+
+	prompt "AVR libc                    "
+	help
+	  Build the multi C library for the harvard based AVR
+	  architecture
+
+if AVRLIB
+
+config AVRLIB_VERSION
+	string
+	prompt "avr libc version"
+	default "1.6.2"
+	help
+	  Specify the AVR libc version here.
+
+config AVRLIB_MD5
+	string
+	prompt "avr libc source md5sum"
+
+endif

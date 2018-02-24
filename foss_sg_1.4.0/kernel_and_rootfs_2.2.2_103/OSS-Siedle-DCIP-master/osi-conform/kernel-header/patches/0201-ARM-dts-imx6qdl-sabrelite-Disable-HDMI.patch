@@ -1,0 +1,22 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 7 Aug 2015 18:51:03 +0200
+Subject: [PATCH] ARM: dts: imx6qdl-sabrelite: Disable HDMI
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ arch/arm/boot/dts/imx6qdl-sabrelite.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/imx6qdl-sabrelite.dtsi b/arch/arm/boot/dts/imx6qdl-sabrelite.dtsi
+index 1a69a3420ac8..2606bd80057b 100644
+--- a/arch/arm/boot/dts/imx6qdl-sabrelite.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-sabrelite.dtsi
+@@ -278,7 +278,7 @@
+ 
+ &hdmi {
+ 	ddc-i2c-bus = <&i2c2>;
+-	status = "okay";
++	status = "disabled";
+ };
+ 
+ &i2c1 {

@@ -1,0 +1,120 @@
+/*
+ * Copyright 2011 Freescale Semiconductor, Inc.
+ * Copyright 2011 Linaro Ltd.
+ * Copyright 2013-2014 Data-Modul AG
+ *
+ * The code contained herein is licensed under the GNU General Public
+ * License. You may obtain a copy of the GNU General Public License
+ * Version 2 or later at the following locations:
+ *
+ * http://www.opensource.org/licenses/gpl-license.html
+ * http://www.gnu.org/copyleft/gpl.html
+ */
+
+#include <arm/imx6q-dmo-edmqmx6.dts>
+
+/ {
+	chosen {
+		linux,stdout-path = &uart2;
+
+		environment-sd {
+			compatible = "barebox,environment";
+			device-path = &usdhc3, "partname:barebox-environment";
+			status = "disabled";
+		};
+
+		environment-emmc {
+			compatible = "barebox,environment";
+			device-path = &usdhc4, "partname:barebox-environment";
+			status = "disabled";
+		};
+
+		environment-spi {
+			compatible = "barebox,environment";
+			device-path = &flash, "partname:barebox-environment";
+			status = "disabled";
+		};
+	};
+};
+
+&ecspi5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ecspi_5_1>;
+	fsl,spi-num-chipselects = <1>;
+	cs-gpios = <&gpio1 12 0>;
+	status = "okay";
+
+	flash: m25p80@0 {
+		compatible = "m25p80";
+		spi-max-frequency = <40000000>;
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		partition@0 {
+			label = "barebox";
+			reg = <0x0 0x80000>;
+		};
+
+		partition@1 {
+			label = "barebox-environment";
+			reg = <0x80000 0x20000>;
+		};
+	};
+};
+
+&iomuxc {
+	pfuze {
+		pinctrl_pfuze_1: pfuze100grp1 {
+			fsl,pins = <
+				MX6QDL_PAD_EIM_D20__GPIO3_IO20 0x198c0
+			>;
+		};
+	};
+
+	ecspi5 {
+		pinctrl_ecspi_5_1: ecspi5rp-1 {
+			fsl,pins = <
+				MX6QDL_PAD_SD1_DAT0__ECSPI5_MISO 0x80000000
+				MX6QDL_PAD_SD1_CMD__ECSPI5_MOSI  0x80000000
+				MX6QDL_PAD_SD1_CLK__ECSPI5_SCLK  0x80000000
+				MX6QDL_PAD_SD2_DAT3__GPIO1_IO12  0x80000000
+			>;
+		};
+	};
+};
+
+&i2c2 {
+	pinctrl-0 = <&pinctrl_i2c2
+	             &pinctrl_stmpe1
+	             &pinctrl_stmpe2
+	             &pinctrl_pfuze_1>;
+};
+
+&usdhc3 {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	partition@0 {
+		label = "barebox";
+		reg = <0x0 0x80000>;
+	};
+	partition@1 {
+		label = "barebox-environment";
+		reg = <0x80000 0x80000>;
+	};
+};
+
+&usdhc4 {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	partition@0 {
+		label = "barebox";
+		reg = <0x0 0x80000>;
+	};
+	partition@1 {
+		label = "barebox-environment";
+		reg = <0x80000 0x80000>;
+	};
+};

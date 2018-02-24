@@ -1,0 +1,25 @@
+From: =?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>
+Date: Fri, 28 Mar 2014 09:48:59 +0100
+Subject: [PATCH] pwm: imx: indentation cleanup
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Lothar Waßmann <LW@KARO-electronics.de>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/pwm/pwm-imx.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/pwm/pwm-imx.c b/drivers/pwm/pwm-imx.c
+index d600fd5cd4ba..554bc58423de 100644
+--- a/drivers/pwm/pwm-imx.c
++++ b/drivers/pwm/pwm-imx.c
+@@ -38,6 +38,7 @@
+ #define MX3_PWMCR_DOZEEN		(1 << 24)
+ #define MX3_PWMCR_WAITEN		(1 << 23)
+ #define MX3_PWMCR_DBGEN			(1 << 22)
++#define MX3_PWMCR_POUTC			(1 << 18)
+ #define MX3_PWMCR_CLKSRC_IPG_HIGH	(2 << 16)
+ #define MX3_PWMCR_CLKSRC_IPG		(1 << 16)
+ #define MX3_PWMCR_SWR			(1 << 3)

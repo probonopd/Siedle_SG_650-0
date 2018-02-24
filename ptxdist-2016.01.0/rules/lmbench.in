@@ -1,0 +1,10 @@
+## SECTION=test_suites
+
+config LMBENCH
+	tristate
+	select LIBC_M
+	select GCCLIBS_GCC_S
+	prompt "lmbench"
+	help
+	  Various tools for performance analysis
+

@@ -1,0 +1,9 @@
+541a7368a4cc03be0a97fbd8e8a77219  0001-make-ubifs-optional.patch
+af5d18f74f944f9e373205a0f37c7a3f  0002-Make-liblzo-optional-for-ubifs-tools.patch
+9955ad1973aeb33e15e1cab153f0d071  0003-mkfs.ubifs-change-add_directory-argument-to-existing.patch
+d1c76c54aeace2a9c04c58234a520be5  0004-mkfs.ubifs-use-xmalloc-xzalloc-for-allocating-memory.patch
+491272ee8511ad523f191e535d9ecc78  0005-mkfs.ubifs-simplify-make_path-with-xasprintf.patch
+098b13b1b45979e842dcda2c92ccd417  0006-mkfs.ubifs-Add-extended-attribute-support.patch
+af4af833088e71fa48af00fd9592616c  0007-mkfs.ubifs-Optionally-create-extended-attribute-with.patch
+50239bfa7b4a237a9ca7ef4c7d202d8b  0008-flashcp-Use-llu-to-print-filestat.st_size.patch
+285c9183fc07c594d6c5edd80ea3306c  series

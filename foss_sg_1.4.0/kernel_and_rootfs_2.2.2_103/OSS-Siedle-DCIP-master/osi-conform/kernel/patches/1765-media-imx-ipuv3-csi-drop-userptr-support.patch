@@ -1,0 +1,22 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 27 Nov 2015 16:11:58 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: drop userptr support
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 0e95d1db26fa..6b6634b67583 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -2002,7 +2002,7 @@ static int ipucsi_vb2_init(struct ipucsi *ipucsi)
+ 
+ 	q = &ipucsi->vb2_vidq;
+ 	q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+-	q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
++	q->io_modes = VB2_MMAP | VB2_DMABUF;
+ 	q->drv_priv = ipucsi;
+ 	q->ops = &ipucsi_videobuf_ops;
+ 	q->mem_ops = &vb2_dma_contig_memops;

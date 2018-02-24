@@ -1,0 +1,42 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 3 Jun 2016 14:59:22 +0200
+Subject: [PATCH] [media] tvp5150: NTSC is transmitted bottom field first
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/i2c/tvp5150.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/drivers/media/i2c/tvp5150.c b/drivers/media/i2c/tvp5150.c
+index ecec08fa71fc..d2f22c326443 100644
+--- a/drivers/media/i2c/tvp5150.c
++++ b/drivers/media/i2c/tvp5150.c
+@@ -1409,6 +1409,7 @@ static int tvp5150_set_format(struct v4l2_subdev *sd,
+ 	struct tvp5150 *decoder = to_tvp5150(sd);
+ 	struct v4l2_mbus_framefmt *mbus_format;
+ 	struct v4l2_rect *crop;
++	int fmt;
+ 
+ 	crop = tvp5150_get_pad_crop(decoder, sd, cfg, format->pad,
+ 				    format->which);
+@@ -1420,6 +1421,20 @@ static int tvp5150_set_format(struct v4l2_subdev *sd,
+ 	mbus_format->width = crop->width;
+ 	mbus_format->height = crop->height;
+ 
++	regmap_read(decoder->regmap, TVP5150_VIDEO_STD, &fmt);
++	switch (fmt) {
++	case VIDEO_STD_NTSC_4_43_BIT:
++	case VIDEO_STD_NTSC_MJ_BIT:
++		mbus_format->field = V4L2_FIELD_SEQ_BT;
++		break;
++	case VIDEO_STD_PAL_BDGHIN_BIT:
++	case VIDEO_STD_PAL_M_BIT:
++	case VIDEO_STD_PAL_COMBINATION_N_BIT:
++	case VIDEO_STD_SECAM_BIT:
++		mbus_format->field = V4L2_FIELD_SEQ_TB;
++		break;
++	}
++
+ 	format->format = *mbus_format;
+ 
+ 	if (format->which == V4L2_SUBDEV_FORMAT_ACTIVE) {

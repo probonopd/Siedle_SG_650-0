@@ -1,0 +1,33 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 3 Feb 2014 14:57:45 +0100
+Subject: [PATCH] HACK: dts: pfla02: Guess ramp delay on DA9063 BCORE1 and
+ BCORE2
+
+It is not known how this ramp value relates to reality. On DA9063
+this setting could be configurable. 6.25 mV/us ramp speed was the
+fixed value on DA9052.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi b/arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi
+index 559f50f89126..79436065171a 100644
+--- a/arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi
+@@ -135,12 +135,14 @@
+ 				regulator-min-microvolt = <730000>;
+ 				regulator-max-microvolt = <1380000>;
+ 				regulator-always-on;
++				regulator-ramp-delay = <6250>;
+ 			};
+ 
+ 			vddsoc_reg: bcore2 {
+ 				regulator-min-microvolt = <730000>;
+ 				regulator-max-microvolt = <1380000>;
+ 				regulator-always-on;
++				regulator-ramp-delay = <6250>;
+ 			};
+ 
+ 			vdd_ddr3_reg: bpro {

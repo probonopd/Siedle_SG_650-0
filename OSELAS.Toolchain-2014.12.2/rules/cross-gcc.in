@@ -1,0 +1,213 @@
+# config for cross-gcc
+
+menuconfig CROSS_GCC
+	bool
+	prompt "gcc                         "
+	select CROSS_BINUTILS
+	select LIBC_FIRST
+	select HOST_GMP		if CROSS_GCC_43
+	select HOST_MPFR	if CROSS_GCC_43
+	select HOST_MPC		if CROSS_GCC_43
+	select HOST_ZLIB	if CROSS_GCC_43
+	select HOST_LIBELF	if CROSS_GCC_45
+	select HOST_CLOOG	if CROSS_GCC_48
+	select CROSS_ECJ	if CROSS_GCC_LANG_JAVA
+
+if CROSS_GCC
+
+config CROSS_GCC_VERSION
+	string
+	prompt "gcc version"
+	default "4.3.2"
+	help
+	  Specify the version of gcc here.
+
+config CROSS_GCC_MD5
+	string
+	prompt "gcc source md5sum"
+
+config CROSS_GCC_DL_VERSION
+	string
+	prompt "gcc download version"
+	default "${PTXCONF_CROSS_GCC_VERSION}"
+	help
+	  The version of the downloaded archive. For some releases
+	  such as Linaro gcc, this can differ from CROSS_GCC_VERSION
+
+config CROSS_GCC_PKGVERSION
+	string
+	default "${PTXCONF_PROJECT}" if CROSS_GCC_DL_VERSION = "${PTXCONF_CROSS_GCC_VERSION}"
+	default "${PTXCONF_PROJECT} ${PTXCONF_CROSS_GCC_DL_VERSION}" if CROSS_GCC_DL_VERSION != "${PTXCONF_CROSS_GCC_VERSION}"
+
+config CROSS_GCC_43
+	bool
+	prompt "additional deps for gcc >= 4.3"
+	default y
+	help
+	  Add new dependencies for gcc >= 4.3: "GMP" and "MPFR"
+
+config CROSS_GCC_45
+	bool
+	prompt "additional deps for gcc >= 4.5"
+	select CROSS_GCC_43
+	default y
+	help
+	  Add new dependencies for gcc >= 4.5: "libelf"
+
+config CROSS_GCC_48
+	bool
+	prompt "additional deps for gcc >= 4.8"
+	select CROSS_GCC_45
+	default y
+	help
+	  Add new dependencies for gcc >= 4.8: "cloog"
+
+config CROSS_GCC_SERIES
+	string
+	default "series"
+	prompt "gcc patch series file"
+
+config CROSS_GCC_CONFIG_EXTRA
+	string
+	prompt "extra configure options"
+	help
+	  Add these extra options to the gcc configure script.
+
+comment "Additional supported languages:"
+
+config CROSS_GCC_LANG_C
+	bool
+	default y
+	help
+	  As GCC is a compiler collection, you it can support various languages
+	  Select this for standard C support
+
+config CROSS_GCC_LANG_CXX
+	bool
+	prompt "C++"
+	default y
+	help
+	  As GCC is a compiler collection, it can support various languages.
+	  Select this for C++ support
+
+config CROSS_GCC_LANG_FORTRAN
+	bool
+	prompt "Fortran"
+	help
+	  As GCC is a compiler collection, it can support various languages.
+	  Select this for Fortran support
+
+config CROSS_GCC_LANG_JAVA
+	bool
+	prompt "Java"
+	help
+	  As GCC is a compiler collection, it can support various languages.
+	  Select this for Java support
+
+source "workspace/rules/cross-ecj.in"
+
+endif
+
+###
+### --with-newlib
+###
+config CROSS_GCC_CONFIG_LIBC
+	string
+	default "--with-newlib"			if LIBC_NEWLIB
+
+
+###
+### __cxa_atexit
+###
+config CROSS_GCC_ENABLE_CXA_ATEXIT
+	bool
+	default !CROSS_GCC_DISABLE_CXA_ATEXIT
+
+config CROSS_GCC_DISABLE_CXA_ATEXIT
+	bool
+
+config CROSS_GCC_CONFIG_CXA_ATEXIT
+	string
+	default "--enable-__cxa_atexit"		if CROSS_GCC_ENABLE_CXA_ATEXIT
+	default "--disable-__cxa_atexit"	if CROSS_GCC_DISABLE_CXA_ATEXIT
+
+
+###
+### sjlj-exceptions
+###
+config CROSS_GCC_ENABLE_SJLJ_EXCEPTIONS
+	bool
+
+config CROSS_GCC_DISABLE_SJLJ_EXCEPTIONS
+	bool
+	default !CROSS_GCC_ENABLE_SJLJ_EXCEPTIONS
+
+config CROSS_GCC_CONFIG_SJLJ_EXCEPTIONS
+	string
+	default "--enable-sjlj-exceptions"	if CROSS_GCC_ENABLE_SJLJ_EXCEPTIONS
+	default "--disable-sjlj-exceptions"	if CROSS_GCC_DISABLE_SJLJ_EXCEPTIONS
+
+###
+### libssp
+###
+config CROSS_GCC_ENABLE_LIBSSP
+	bool
+
+config CROSS_GCC_DISABLE_LIBSSP
+	bool
+	default !CROSS_GCC_ENABLE_LIBSSP
+
+config CROSS_GCC_CONFIG_LIBSSP
+	string
+	default "--enable-libssp"		if CROSS_GCC_ENABLE_LIBSSP
+	default "--disable-libssp"		if CROSS_GCC_DISABLE_LIBSSP
+
+
+###
+### shared
+###
+config CROSS_GCC_ENABLE_SHARED
+	bool
+	default !CROSS_GCC_DISABLE_SHARED
+
+config CROSS_GCC_DISABLE_SHARED
+	bool
+
+config CROSS_GCC_CONFIG_SHARED
+	string
+	default "--enable-shared"	if CROSS_GCC_ENABLE_SHARED
+	default "--disable-shared"	if CROSS_GCC_DISABLE_SHARED
+
+
+###
+### threads
+###
+config CROSS_GCC_THREADS_SINGLE
+	bool
+
+config CROSS_GCC_THREADS_POSIX
+	bool
+
+config CROSS_GCC_THREADS_WIN32
+	bool
+
+config CROSS_GCC_THREADS
+	string
+	default "posix"		if CROSS_GCC_THREADS_POSIX
+	default "single"	if CROSS_GCC_THREADS_SINGLE
+	default "win32"		if CROSS_GCC_THREADS_WIN32
+
+###
+### first
+###
+config CROSS_GCC_FIRST
+	bool
+	select CROSS_BINUTILS
+	select LIBC_HEADERS
+	select HOST_GMP		if CROSS_GCC_43
+	select HOST_MPFR	if CROSS_GCC_43
+	select HOST_MPC		if CROSS_GCC_43
+	select HOST_ZLIB	if CROSS_GCC_43
+	select HOST_LIBELF	if CROSS_GCC_45
+	select HOST_CLOOG	if CROSS_GCC_48
+

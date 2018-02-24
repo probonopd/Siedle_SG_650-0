@@ -1,0 +1,80 @@
+## SECTION=networking
+
+menuconfig NETWORKMANAGER
+	tristate
+	select LIBC_M
+	select LIBC_DL
+	select LIBC_PTHREAD
+	select LIBC_RT
+	select NCURSES			if NETWORKMANAGER_NMTUI
+	select LIBNEWT			if NETWORKMANAGER_NMTUI
+	select DBUS
+	select DBUS_GLIB
+	select READLINE			# for 'nmcli'
+	select LIBUUID
+	select GNUTLS
+	select LIBNL3
+	select HOST_INTLTOOL		# why? NLS is disabled!!!
+	select LIBNDP
+	select UDEV			if RUNTIME
+	select LIBGUDEV
+	select MODEMMANAGER		if NETWORKMANAGER_WWAN
+	select PPP			if NETWORKMANAGER_PPP
+	select PPP_PLUGINS		if NETWORKMANAGER_PPP
+	select WPA_SUPPLICANT		if NETWORKMANAGER_WIRELESS && RUNTIME
+	select WPA_SUPPLICANT_CTRL_IFACE_DBUS if NETWORKMANAGER_WIRELESS && RUNTIME
+	select DBUS_PYTHON		if NETWORKMANAGER_EXAMPLES && RUNTIME
+	select SYSTEMD			if NETWORKMANAGER_SYSTEMD_UNIT
+	prompt "networkmanager                "
+	help
+	  NetworkManager is a tool to automate network configuration as far as
+	  possible. The project web site is here:
+
+	  http://projects.gnome.org/NetworkManager/
+
+if NETWORKMANAGER
+
+config NETWORKMANAGER_STARTSCRIPT
+	depends on !INITMETHOD_SYSTEMD
+	bool
+	default y
+	prompt "install /etc/init.d/NetworkManager"
+
+config NETWORKMANAGER_NM_ONLINE
+	bool
+	prompt "install nm-online"
+	help
+	  Install the 'nm-online' tool to detect online state.
+
+config NETWORKMANAGER_NMTUI
+	bool
+	prompt "install nmtui"
+	help
+	  Build and install the 'nmtui' tool.
+
+config NETWORKMANAGER_SYSTEMD_UNIT
+	bool
+	default y
+	depends on INITMETHOD_SYSTEMD
+	prompt "install systemd unit files for Network Manager"
+
+config NETWORKMANAGER_WIRELESS
+	bool
+	prompt "enable wireless support"
+
+config NETWORKMANAGER_WWAN
+	bool
+	prompt "enable WWAN support"
+	help
+	  Enable ModemManager interface support, wwan and bluetooth
+	  plugins depend on it.
+
+config NETWORKMANAGER_PPP
+	bool
+	prompt "enable ppp support"
+
+config NETWORKMANAGER_EXAMPLES
+	bool
+	prompt "install examples for Network Manager"
+
+endif

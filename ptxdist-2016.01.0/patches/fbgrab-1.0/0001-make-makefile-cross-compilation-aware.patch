@@ -1,0 +1,37 @@
+From: Roland Hostettler <r.hostettler@gmx.ch>
+Date: Tue, 16 Aug 2011 17:35:19 +0200
+Subject: [PATCH] make makefile cross compilation aware
+
+The upstream makefile is not usable for cross compilation.
+[wsa] Simplified 'strip' support
+
+Signed-off-by: Robert Schwebel <r.schwebel@pengutronix.de>
+Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
+---
+ Makefile |   11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 14c63cb..8ae5dc8 100644
+--- a/Makefile
++++ b/Makefile
+@@ -4,13 +4,12 @@
+ ###
+ 
+ fbgrab: fbgrab.c
+-	splint +posixlib fbgrab.c
+-	gcc -g -Wall fbgrab.c -lpng -lz -o fbgrab
++#	splint +posixlib fbgrab.c
++	${CC} ${CPPFLAGS} fbgrab.c ${LDLIBS} -o fbgrab
+ 
+ install:
+-	strip fbgrab
+-	install fbgrab /usr/bin/fbgrab
+-	install fbgrab.1.man /usr/man/man1/fbgrab.1
++	install -s fbgrab ${DESTDIR}/usr/bin/fbgrab
++	install fbgrab.1.man ${DESTDIR}/usr/man/man1/fbgrab.1
+ 
+ clean:
+-	rm -f fbgrab *~ \#*\#
+\ No newline at end of file
++	rm -f fbgrab *~ \#*\#

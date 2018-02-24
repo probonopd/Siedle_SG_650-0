@@ -1,0 +1,47 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 13 Aug 2014 17:25:56 +0200
+Subject: [PATCH] gpu: ipu-v3: increase burst size to 64 pixels for planar
+ 4:2:0 and 4:2:2 formats
+
+This patch increases the default burst size to 64 pixels for planar formats.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-cpmem.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-cpmem.c b/drivers/gpu/ipu-v3/ipu-cpmem.c
+index 694f7208ad03..50b9cef17110 100644
+--- a/drivers/gpu/ipu-v3/ipu-cpmem.c
++++ b/drivers/gpu/ipu-v3/ipu-cpmem.c
+@@ -629,26 +629,26 @@ int ipu_cpmem_set_fmt(struct ipuv3_channel *ch, u32 drm_fourcc)
+ 		/* pix format */
+ 		ipu_ch_param_write_field(ch, IPU_FIELD_PFS, 2);
+ 		/* burst size */
+-		ipu_ch_param_write_field(ch, IPU_FIELD_NPB, 31);
++		ipu_ch_param_write_field(ch, IPU_FIELD_NPB, 63);
+ 		break;
+ 	case DRM_FORMAT_YUV422:
+ 	case DRM_FORMAT_YVU422:
+ 		/* pix format */
+ 		ipu_ch_param_write_field(ch, IPU_FIELD_PFS, 1);
+ 		/* burst size */
+-		ipu_ch_param_write_field(ch, IPU_FIELD_NPB, 31);
++		ipu_ch_param_write_field(ch, IPU_FIELD_NPB, 63);
+ 		break;
+ 	case DRM_FORMAT_NV12:
+ 		/* pix format */
+ 		ipu_ch_param_write_field(ch, IPU_FIELD_PFS, 4);
+ 		/* burst size */
+-		ipu_ch_param_write_field(ch, IPU_FIELD_NPB, 31);
++		ipu_ch_param_write_field(ch, IPU_FIELD_NPB, 63);
+ 		break;
+ 	case DRM_FORMAT_NV16:
+ 		/* pix format */
+ 		ipu_ch_param_write_field(ch, IPU_FIELD_PFS, 3);
+ 		/* burst size */
+-		ipu_ch_param_write_field(ch, IPU_FIELD_NPB, 31);
++		ipu_ch_param_write_field(ch, IPU_FIELD_NPB, 63);
+ 		break;
+ 	case DRM_FORMAT_UYVY:
+ 		/* bits/pixel */

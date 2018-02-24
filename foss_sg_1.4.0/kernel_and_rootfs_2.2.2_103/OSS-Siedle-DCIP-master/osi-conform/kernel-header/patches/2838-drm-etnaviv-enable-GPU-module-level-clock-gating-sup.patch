@@ -1,0 +1,97 @@
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Date: Thu, 21 Jan 2016 15:20:45 +0000
+Subject: [PATCH] drm/etnaviv: enable GPU module level clock gating support
+
+Enable GPU module level hardware clock gating, using the conditions
+found in the galcore v5 driver.
+
+v2 lst: Split out clock gating enable into separate function, as
+there might be more conditions needed for new hardware.
+
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ drivers/gpu/drm/etnaviv/etnaviv_gpu.c  | 44 ++++++++++++++++++++++++++++++++++
+ drivers/gpu/drm/etnaviv/state_hi.xml.h |  7 ++++++
+ 2 files changed, 51 insertions(+)
+
+diff --git a/drivers/gpu/drm/etnaviv/etnaviv_gpu.c b/drivers/gpu/drm/etnaviv/etnaviv_gpu.c
+index 735b9b33ca50..6c8805eb9834 100644
+--- a/drivers/gpu/drm/etnaviv/etnaviv_gpu.c
++++ b/drivers/gpu/drm/etnaviv/etnaviv_gpu.c
+@@ -487,6 +487,47 @@ static int etnaviv_hw_reset(struct etnaviv_gpu *gpu)
+ 	return 0;
+ }
+ 
++static void etnaviv_gpu_enable_mlcg(struct etnaviv_gpu *gpu)
++{
++	u32 pmc, ppc;
++
++	/* enable clock gating */
++	ppc = gpu_read(gpu, VIVS_PM_POWER_CONTROLS);
++	ppc |= VIVS_PM_POWER_CONTROLS_ENABLE_MODULE_CLOCK_GATING;
++
++	/* Disable stall module clock gating for 4.3.0.1 and 4.3.0.2 revs */
++	if (gpu->identity.revision == 0x4301 ||
++	    gpu->identity.revision == 0x4302)
++		ppc |= VIVS_PM_POWER_CONTROLS_DISABLE_STALL_MODULE_CLOCK_GATING;
++
++	gpu_write(gpu, VIVS_PM_POWER_CONTROLS, ppc);
++
++	pmc = gpu_read(gpu, VIVS_PM_MODULE_CONTROLS);
++
++	/* Disable PA clock gating for GC400+ except for GC420 */
++	if (gpu->identity.model >= chipModel_GC400 &&
++	    gpu->identity.model != chipModel_GC420)
++		pmc |= VIVS_PM_MODULE_CONTROLS_DISABLE_MODULE_CLOCK_GATING_PA;
++
++	/*
++	 * Disable PE clock gating on revs < 5.0.0.0 when HZ is
++	 * present without a bug fix.
++	 */
++	if (gpu->identity.revision < 0x5000 &&
++	    gpu->identity.minor_features0 & chipMinorFeatures0_HZ &&
++	    !(gpu->identity.minor_features1 &
++	      chipMinorFeatures1_DISABLE_PE_GATING))
++		pmc |= VIVS_PM_MODULE_CONTROLS_DISABLE_MODULE_CLOCK_GATING_PE;
++
++	if (gpu->identity.revision < 0x5422)
++		pmc |= BIT(15); /* Unknown bit */
++
++	pmc |= VIVS_PM_MODULE_CONTROLS_DISABLE_MODULE_CLOCK_GATING_RA_HZ;
++	pmc |= VIVS_PM_MODULE_CONTROLS_DISABLE_MODULE_CLOCK_GATING_RA_EZ;
++
++	gpu_write(gpu, VIVS_PM_MODULE_CONTROLS, pmc);
++}
++
+ static void etnaviv_gpu_hw_init(struct etnaviv_gpu *gpu)
+ {
+ 	u16 prefetch;
+@@ -506,6 +547,9 @@ static void etnaviv_gpu_hw_init(struct etnaviv_gpu *gpu)
+ 		gpu_write(gpu, VIVS_MC_DEBUG_MEMORY, mc_memory_debug);
+ 	}
+ 
++	/* enable module-level clock gating */
++	etnaviv_gpu_enable_mlcg(gpu);
++
+ 	/*
+ 	 * Update GPU AXI cache atttribute to "cacheable, no allocate".
+ 	 * This is necessary to prevent the iMX6 SoC locking up.
+diff --git a/drivers/gpu/drm/etnaviv/state_hi.xml.h b/drivers/gpu/drm/etnaviv/state_hi.xml.h
+index 6a7de5f1454a..807a3d9e0dd5 100644
+--- a/drivers/gpu/drm/etnaviv/state_hi.xml.h
++++ b/drivers/gpu/drm/etnaviv/state_hi.xml.h
+@@ -218,6 +218,13 @@ Copyright (C) 2015
+ #define VIVS_PM_MODULE_CONTROLS_DISABLE_MODULE_CLOCK_GATING_FE	0x00000001
+ #define VIVS_PM_MODULE_CONTROLS_DISABLE_MODULE_CLOCK_GATING_DE	0x00000002
+ #define VIVS_PM_MODULE_CONTROLS_DISABLE_MODULE_CLOCK_GATING_PE	0x00000004
++#define VIVS_PM_MODULE_CONTROLS_DISABLE_MODULE_CLOCK_GATING_SH	0x00000008
++#define VIVS_PM_MODULE_CONTROLS_DISABLE_MODULE_CLOCK_GATING_PA	0x00000010
++#define VIVS_PM_MODULE_CONTROLS_DISABLE_MODULE_CLOCK_GATING_SE	0x00000020
++#define VIVS_PM_MODULE_CONTROLS_DISABLE_MODULE_CLOCK_GATING_RA	0x00000040
++#define VIVS_PM_MODULE_CONTROLS_DISABLE_MODULE_CLOCK_GATING_TX	0x00000080
++#define VIVS_PM_MODULE_CONTROLS_DISABLE_MODULE_CLOCK_GATING_RA_EZ	0x00010000
++#define VIVS_PM_MODULE_CONTROLS_DISABLE_MODULE_CLOCK_GATING_RA_HZ	0x00020000
+ 
+ #define VIVS_PM_MODULE_STATUS					0x00000108
+ #define VIVS_PM_MODULE_STATUS_MODULE_CLOCK_GATED_FE		0x00000001

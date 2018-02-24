@@ -1,0 +1,99 @@
+From: Andreas Pretzsch <apr@cn-eng.de>
+Date: Sun, 2 Nov 2014 23:57:13 +0100
+Subject: [PATCH] barebox metadata: add IMD tag SSS_VERSION=`cat
+ /SSS_VERSION_BAREBOX_BIN`
+
+Add an IMD parameter tag "SSS_VERSION" and set it to the content
+of the file "SSS_VERSION_BAREBOX_BIN" in the root dir of barebox.
+If there is no such file, the tag will have an empty value.
+
+So to achieve an IMD result of "SSS_VERSION=1.2.3", put "1.2.3" in
+the file <barebox_src>/SSS_VERSION_BAREBOX_BIN.
+
+To extract it, use the bareboximd tool.
+
+Signed-off-by: Andreas Pretzsch <apr@cn-eng.de>
+---
+ Makefile             | 15 +++++++++++++++
+ common/imd-barebox.c |  3 +++
+ 2 files changed, 18 insertions(+)
+
+diff --git a/Makefile b/Makefile
+index 73fb09bd314f..720f4dea335e 100644
+--- a/Makefile
++++ b/Makefile
+@@ -310,7 +310,11 @@ LDFLAGS_barebox	:= -Map barebox.map
+ KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
+ KERNELVERSION = $(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
+ 
++# Read SSS_VERSION from /SSS_VERSION_BAREBOX_BIN (if it exists)
++SSS_VERSION = $(shell cat SSS_VERSION_BAREBOX_BIN 2> /dev/null)
++
+ export VERSION PATCHLEVEL SUBLEVEL KERNELRELEASE KERNELVERSION
++export SSS_VERSION
+ export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
+ export CPP AR NM STRIP OBJCOPY OBJDUMP MAKE AWK GENKSYMS PERL UTS_MACHINE
+ export HOSTCXX HOSTCXXFLAGS LDFLAGS_MODULE CHECK CHECKFLAGS
+@@ -356,6 +360,7 @@ endif
+ no-dot-config-targets := clean mrproper distclean \
+ 			 cscope TAGS tags help %docs check% \
+ 			 include/generated/version.h headers_% \
++			 include/generated/sss_version.h \
+ 			 kernelrelease kernelversion
+ 
+ config-targets := 0
+@@ -809,6 +814,7 @@ endif
+ prepare2: prepare3 outputmakefile
+ 
+ prepare1: prepare2 include/generated/version.h include/generated/utsrelease.h \
++                   include/generated/sss_version.h \
+                    include/config.h include/config/auto.conf
+ 
+ ifneq ($(KBUILD_MODULES),)
+@@ -864,12 +870,20 @@ define filechk_version.h
+ 	echo '#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))';)
+ endef
+ 
++define filechk_sss_version.h
++	(echo \#define SSS_VERSION_TAG \"SSS_VERSION\"; \
++	 echo \#define SSS_VERSION \"$(SSS_VERSION)\";)
++endef
++
+ include/generated/version.h: $(srctree)/Makefile FORCE
+ 	$(call filechk,version.h)
+ 
+ include/generated/utsrelease.h: include/config/kernel.release FORCE
+ 	$(call filechk,utsrelease.h)
+ 
++include/generated/sss_version.h: $(srctree)/Makefile FORCE
++	$(call filechk,sss_version.h)
++
+ # ---------------------------------------------------------------------------
+ 
+ PHONY += depend dep
+@@ -967,6 +981,7 @@ CLEAN_FILES +=	barebox System.map include/generated/barebox_default_env.h \
+ # Directories & files removed with 'make mrproper'
+ MRPROPER_DIRS  += include/config usr/include include/generated
+ MRPROPER_FILES += .config .config.old .version .old_version \
++                  include/generated/sss_version.h \
+                   include/config.h           \
+ 		  Module.symvers tags TAGS cscope*
+ 
+diff --git a/common/imd-barebox.c b/common/imd-barebox.c
+index e9cd37d83ec8..cd0fab163ab0 100644
+--- a/common/imd-barebox.c
++++ b/common/imd-barebox.c
+@@ -2,6 +2,7 @@
+ #include <image-metadata.h>
+ #include <generated/compile.h>
+ #include <generated/utsrelease.h>
++#include <generated/sss_version.h>
+ 
+ /*
+  * Mark a imd entry as used so that the linker cannot
+@@ -23,3 +24,5 @@ __BAREBOX_IMD_SECTION(.barebox_imd_end) = {
+ 
+ BAREBOX_IMD_TAG_STRING(imd_build_tag, IMD_TYPE_BUILD, UTS_VERSION, 1);
+ BAREBOX_IMD_TAG_STRING(imd_release_tag, IMD_TYPE_RELEASE, UTS_RELEASE, 1);
++/* Siedle proprietary version tag */
++BAREBOX_IMD_TAG_STRING(sss_version_tag, IMD_TYPE_PARAMETER, SSS_VERSION_TAG "=" SSS_VERSION, 1);

@@ -1,0 +1,26 @@
+From: Philipp Zabel <philipp.zabel@gmail.com>
+Date: Thu, 2 Apr 2015 17:29:03 +0200
+Subject: [PATCH] devicetree: add vendor prefix for Vivante Corporation
+
+Trivial patch to add Vivante Corporation to the list of
+devicetree vendor prefixes.
+
+Signed-off-by: Philipp Zabel <philipp.zabel@gmail.com>
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+Acked-by: Rob Herring <robh@kernel.org>
+---
+ Documentation/devicetree/bindings/vendor-prefixes.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/vendor-prefixes.txt b/Documentation/devicetree/bindings/vendor-prefixes.txt
+index eacde76e8853..ff945986b0da 100644
+--- a/Documentation/devicetree/bindings/vendor-prefixes.txt
++++ b/Documentation/devicetree/bindings/vendor-prefixes.txt
+@@ -239,6 +239,7 @@ v3	V3 Semiconductor
+ variscite	Variscite Ltd.
+ via	VIA Technologies, Inc.
+ virtio	Virtual I/O Device Specification, developed by the OASIS consortium
++vivante	Vivante Corporation
+ voipac	Voipac Technologies s.r.o.
+ wexler	Wexler
+ winbond Winbond Electronics corp.

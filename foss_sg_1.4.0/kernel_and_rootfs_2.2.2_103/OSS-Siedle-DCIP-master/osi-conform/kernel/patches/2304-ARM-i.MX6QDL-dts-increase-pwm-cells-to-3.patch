@@ -1,0 +1,49 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 17 Sep 2013 12:21:26 +0200
+Subject: [PATCH] ARM i.MX6QDL: dts: increase #pwm-cells to 3
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ arch/arm/boot/dts/imx6qdl.dtsi | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm/boot/dts/imx6qdl.dtsi b/arch/arm/boot/dts/imx6qdl.dtsi
+index dedd4ce33f6e..2bc9afb0d7c8 100644
+--- a/arch/arm/boot/dts/imx6qdl.dtsi
++++ b/arch/arm/boot/dts/imx6qdl.dtsi
+@@ -414,7 +414,7 @@
+ 			};
+ 
+ 			pwm1: pwm@02080000 {
+-				#pwm-cells = <2>;
++				#pwm-cells = <3>;
+ 				compatible = "fsl,imx6q-pwm", "fsl,imx27-pwm";
+ 				reg = <0x02080000 0x4000>;
+ 				interrupts = <0 83 IRQ_TYPE_LEVEL_HIGH>;
+@@ -425,7 +425,7 @@
+ 			};
+ 
+ 			pwm2: pwm@02084000 {
+-				#pwm-cells = <2>;
++				#pwm-cells = <3>;
+ 				compatible = "fsl,imx6q-pwm", "fsl,imx27-pwm";
+ 				reg = <0x02084000 0x4000>;
+ 				interrupts = <0 84 IRQ_TYPE_LEVEL_HIGH>;
+@@ -436,7 +436,7 @@
+ 			};
+ 
+ 			pwm3: pwm@02088000 {
+-				#pwm-cells = <2>;
++				#pwm-cells = <3>;
+ 				compatible = "fsl,imx6q-pwm", "fsl,imx27-pwm";
+ 				reg = <0x02088000 0x4000>;
+ 				interrupts = <0 85 IRQ_TYPE_LEVEL_HIGH>;
+@@ -447,7 +447,7 @@
+ 			};
+ 
+ 			pwm4: pwm@0208c000 {
+-				#pwm-cells = <2>;
++				#pwm-cells = <3>;
+ 				compatible = "fsl,imx6q-pwm", "fsl,imx27-pwm";
+ 				reg = <0x0208c000 0x4000>;
+ 				interrupts = <0 86 IRQ_TYPE_LEVEL_HIGH>;

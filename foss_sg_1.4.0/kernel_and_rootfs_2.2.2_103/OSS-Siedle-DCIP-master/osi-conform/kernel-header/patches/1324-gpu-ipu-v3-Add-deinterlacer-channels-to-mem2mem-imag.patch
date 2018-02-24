@@ -1,0 +1,122 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 30 Jul 2014 14:41:28 +0200
+Subject: [PATCH] gpu: ipu-v3: Add deinterlacer channels to mem2mem image
+ conversion support in IC
+
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-ic.c | 47 +++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 45 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-ic.c b/drivers/gpu/ipu-v3/ipu-ic.c
+index 181d60d6a206..4d57b074f1f9 100644
+--- a/drivers/gpu/ipu-v3/ipu-ic.c
++++ b/drivers/gpu/ipu-v3/ipu-ic.c
+@@ -100,6 +100,8 @@ struct ic_task_bitfields {
+ struct ic_task_channels {
+ 	u8 in;
+ 	u8 out;
++	u8 in_prev;
++	u8 in_next;
+ };
+ 
+ static const struct ic_task_regoffs ic_task_reg[IC_NUM_TASKS] = {
+@@ -152,6 +154,8 @@ static const struct ic_task_channels ic_task_ch[IC_NUM_TASKS] = {
+ 	[IC_TASK_VIEWFINDER] = {
+ 		.in = IPUV3_CHANNEL_MEM_VDI_CUR,
+ 		.out = IPUV3_CHANNEL_IC_PRP_VF_MEM,
++		.in_prev = IPUV3_CHANNEL_MEM_VDI_PREV,
++		.in_next = IPUV3_CHANNEL_MEM_VDI_NEXT,
+ 	},
+ 	[IC_TASK_POST_PROCESSOR] = {
+ 		.in = IPUV3_CHANNEL_MEM_IC_PP,
+@@ -165,6 +169,8 @@ struct image_convert_ctx {
+ 
+ 	struct list_head list;
+ 	struct ipu_image in;
++	struct ipu_image in_n;
++	struct ipu_image in_p;
+ 	struct ipu_image out;
+ 
+ 	void *freep;
+@@ -188,7 +194,9 @@ struct ipu_ic {
+ 
+ 	struct ipu_ic_priv *priv;
+ 
++	struct ipuv3_channel *input_channel_p;
+ 	struct ipuv3_channel *input_channel;
++	struct ipuv3_channel *input_channel_n;
+ 	struct ipuv3_channel *output_channel;
+ 
+ 	struct list_head image_list;
+@@ -682,9 +690,11 @@ static struct image_convert_ctx *ipu_image_convert_next(struct ipu_ic *ic)
+ {
+ 	struct ipu_ic_priv *priv = ic->priv;
+ 	struct ipuv3_channel *ch_in = ic->input_channel;
++	struct ipuv3_channel *ch_in_p, *ch_in_n;
+ 	struct ipuv3_channel *ch_out = ic->output_channel;
+ 	struct image_convert_ctx *ctx;
+-	struct ipu_image *in, *out;
++	struct ipu_image *in_p, *in, *in_n;
++	struct ipu_image *out;
+ 	int ret;
+ 	unsigned long flags;
+ 	unsigned int inburst, outburst;
+@@ -703,7 +713,9 @@ static struct image_convert_ctx *ipu_image_convert_next(struct ipu_ic *ic)
+ 
+ 	spin_unlock_irqrestore(&priv->lock, flags);
+ 
++	in_p = &ctx->in_p;
+ 	in = &ctx->in;
++	in_n = &ctx->in_n;
+ 	out = &ctx->out;
+ 
+ 	ipu_cpmem_zero(ch_in);
+@@ -730,7 +742,32 @@ static struct image_convert_ctx *ipu_image_convert_next(struct ipu_ic *ic)
+ 	ipu_cpmem_set_burstsize(ch_in, inburst);
+ 	ipu_cpmem_set_burstsize(ch_out, outburst);
+ 
+-	in_height = in->rect.height;
++	if (ctx->deinterlace) {
++		ch_in_p = ic->input_channel_p;
++		ch_in_n = ic->input_channel_n;
++
++		ipu_cpmem_zero(ch_in_p);
++		ipu_cpmem_zero(ch_in_n);
++
++		ipu_ic_task_idma_init(ic, ic->input_channel_p,
++				      in_p->rect.width, in_p->rect.height,
++				      inburst, IPU_ROTATE_NONE);
++		ipu_ic_task_idma_init(ic, ic->input_channel_n,
++				      in_n->rect.width, in_n->rect.height,
++				      inburst, IPU_ROTATE_NONE);
++
++		ipu_cpmem_set_image(ch_in_p, &ctx->in_p);
++		ipu_cpmem_set_image(ch_in_n, &ctx->in_n);
++
++		ipu_cpmem_set_burstsize(ch_in_p, inburst);
++		ipu_cpmem_set_burstsize(ch_in_n, inburst);
++	}
++
++
++	if (ctx->deinterlace)
++		in_height = in->rect.height * 2;
++	else
++		in_height = in->rect.height;
+ 
+ 	dev_dbg(priv->ipu->dev, "%s: %dx%d(%dx%d@%d,%d) -> %dx%d(%dx%d@%d,%d)\n",
+ 		__func__, in->pix.width, in->pix.height,
+@@ -1479,6 +1516,12 @@ int ipu_ic_init(struct ipu_soc *ipu, struct device *dev,
+ 							ic_task_ch[i].in);
+ 		priv->task[i].output_channel = ipu_idmac_get(ipu,
+ 							ic_task_ch[i].out);
++		if (ic_task_ch[i].in_prev) {
++			priv->task[i].input_channel_p = ipu_idmac_get(ipu,
++							ic_task_ch[i].in_prev);
++			priv->task[i].input_channel_n = ipu_idmac_get(ipu,
++							ic_task_ch[i].in_next);
++		}
+ 	}
+ 
+ 	ipu_image_convert_init(dev, ipu, priv);

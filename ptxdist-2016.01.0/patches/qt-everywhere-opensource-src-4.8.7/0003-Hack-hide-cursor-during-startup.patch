@@ -1,0 +1,27 @@
+From: Michael Olbrich <m.olbrich@pengutronix.de>
+Date: Fri, 8 Oct 2010 20:13:40 +0200
+Subject: [PATCH] Hack: hide cursor during startup
+
+This will hide the cursor during application startup.
+To keep it hidden the application must call
+QApplication::setOverrideCursor(Qt::BlankCursor);
+Otherwise the cursor returns when the mouse is moved.
+
+Signed-off-by: Michael Olbrich <m.olbrich@pengutronix.de>
+---
+ src/gui/embedded/qwscursor_qws.cpp |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/gui/embedded/qwscursor_qws.cpp b/src/gui/embedded/qwscursor_qws.cpp
+index 52800c3..25f13f2 100644
+--- a/src/gui/embedded/qwscursor_qws.cpp
++++ b/src/gui/embedded/qwscursor_qws.cpp
+@@ -344,7 +344,7 @@ void QWSServerPrivate::initializeCursor()
+ 
+     // default cursor
+     cursor = 0;
+-    setCursor(QWSCursor::systemCursor(Qt::ArrowCursor));
++    setCursor(QWSCursor::systemCursor(Qt::BlankCursor));
+ #endif
+     q->sendMouseEvent(QPoint(swidth/2, sheight/2), 0);
+ }

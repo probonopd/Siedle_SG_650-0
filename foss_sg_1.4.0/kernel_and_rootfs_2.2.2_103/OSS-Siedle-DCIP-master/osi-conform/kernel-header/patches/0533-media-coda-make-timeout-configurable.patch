@@ -1,0 +1,36 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 27 Nov 2014 10:35:01 +0100
+Subject: [PATCH] [media] coda: make timeout configurable
+
+Keep the default at 1 second, but make it configurable via a module
+parameter.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-common.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index 4a44d5711d4d..a87003878e7b 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -63,6 +63,10 @@ int coda_debug;
+ module_param(coda_debug, int, 0644);
+ MODULE_PARM_DESC(coda_debug, "Debug level (0-2)");
+ 
++static int coda_timeout_msec = 1000;
++module_param(coda_timeout_msec, int, 0644);
++MODULE_PARM_DESC(coda_timeout_msec, "Timeout in milliseconds");
++
+ static int disable_tiling;
+ module_param(disable_tiling, int, 0644);
+ MODULE_PARM_DESC(disable_tiling, "Disable tiled frame buffers");
+@@ -1086,7 +1090,7 @@ static void coda_pic_run_work(struct work_struct *work)
+ 	}
+ 
+ 	if (!wait_for_completion_timeout(&ctx->completion,
+-					 msecs_to_jiffies(1000))) {
++					 msecs_to_jiffies(coda_timeout_msec))) {
+ 		dev_err(&dev->plat_dev->dev, "CODA PIC_RUN timeout\n");
+ 
+ 		ctx->hold = true;

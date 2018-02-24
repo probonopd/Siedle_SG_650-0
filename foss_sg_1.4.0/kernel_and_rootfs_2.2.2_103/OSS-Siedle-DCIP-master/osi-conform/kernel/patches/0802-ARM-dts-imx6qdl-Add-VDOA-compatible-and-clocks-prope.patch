@@ -1,0 +1,27 @@
+From: Philipp Zabel <philipp.zabel@gmail.com>
+Date: Fri, 21 Feb 2014 23:45:31 +0100
+Subject: [PATCH] ARM: dts: imx6qdl: Add VDOA compatible and clocks properties
+
+This adds a compatible property and the correct clock for the
+i.MX6Q Video Data Order Adapter.
+
+Signed-off-by: Philipp Zabel <philipp.zabel@gmail.com>
+---
+ arch/arm/boot/dts/imx6qdl.dtsi | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm/boot/dts/imx6qdl.dtsi b/arch/arm/boot/dts/imx6qdl.dtsi
+index 7419e783d14e..bb6e9559014b 100644
+--- a/arch/arm/boot/dts/imx6qdl.dtsi
++++ b/arch/arm/boot/dts/imx6qdl.dtsi
+@@ -1120,8 +1120,10 @@
+ 			};
+ 
+ 			vdoa@021e4000 {
++				compatible = "fsl,imx6q-vdoa";
+ 				reg = <0x021e4000 0x4000>;
+ 				interrupts = <0 18 IRQ_TYPE_LEVEL_HIGH>;
++				clocks = <&clks IMX6QDL_CLK_VDOA>;
+ 			};
+ 
+ 			uart2: serial@021e8000 {

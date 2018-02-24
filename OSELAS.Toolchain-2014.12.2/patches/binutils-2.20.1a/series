@@ -1,0 +1,13 @@
+# Atmel's patch set reviewed and pulled from:
+# http://distribute.atmel.no/tools/opensource/avr-gcc/binutils-2.20.1
+atmel/0001-Add-AVR-specific-output-format-to-size-utility.patch
+atmel/0002-Add-Atmels-AVR-COFF-output-to-objcopy-utility.patch
+atmel/0003-Add-new-memory-regions-to-the-AVR-linker-script-temp.patch
+atmel/0004-Fix-missing-symbol-for-dwarf2_emit_insn.patch
+atmel/0005-Force-DWARF2-debug-output-for-AVR.patch
+atmel/0006-Add-support-for-XMEGA-arch-and-devices.patch
+atmel/0007-Add-remove-support-for-devices.patch
+atmel/0008-Add-support-for-devices-with-16-gp-registers.patch
+atmel/0009-Add-support-for-more-XMEGA-devices.patch
+
+0001-HACK-disable-some-docs-to-avoid-using-makeinfo.patch

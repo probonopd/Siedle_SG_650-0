@@ -1,0 +1,20 @@
+## SECTION=shell_and_console
+config XMLSTARLET
+	tristate
+	select LIBC_PTHREAD
+	select LIBXML2
+	select LIBXML2_SAX1
+	select LIBXSLT
+	prompt "xmlstarlet"
+	help
+	  XMLStarlet is a set of command line utilities (tools) which
+	  can be used to transform, query, validate, and edit XML documents and
+	  files using simple set of shell commands in similar way it is done for
+	  plain text files using UNIX grep, sed, awk, diff, patch, join, etc
+	  commands.
+
+	  For more details see the project web page:
+
+		http://xmlstar.sourceforge.net/
+
+

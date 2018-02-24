@@ -1,0 +1,8 @@
+## SECTION=multimedia_xorg
+
+# xorg lib configuration
+
+menu "xorg libs                     "
+source "generated/multimedia_xorg_lib.in"
+endmenu
+

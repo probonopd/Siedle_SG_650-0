@@ -1,0 +1,21 @@
+Makefile optimization level (-O9 for armv7) leads to a lot of
+"dereferencing type-punned pointer will break strict-aliasing rules"
+warnings.
+Therefore, disable strict aliasing, to be on the safe side.
+
+---
+ Makefile.defs |    1 +
+ 1 file changed, 1 insertion(+)
+
+Index: b/Makefile.defs
+===================================================================
+--- a/Makefile.defs
++++ b/Makefile.defs
+@@ -1285,6 +1285,7 @@
+ 				# https://wiki.ubuntu.com/ARM/Thumb2)
+ 				CFLAGS=-march=armv7-a -O9 -funroll-loops -fsigned-char \
+ 						-Wa,-mimplicit-it=thumb \
++						-fno-strict-aliasing \
+ 						$(PROFILE)
+ 			#if gcc 4.5 or 4.2+
+ ifeq (,$(strip $(filter-out 4.2+ 4.5,$(CC_SHORTVER))))

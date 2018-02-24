@@ -1,0 +1,50 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 19 Mar 2015 11:47:36 +0100
+Subject: [PATCH] [media] coda: modify cache configuration to fix chroma while
+ decoding in tiled mode
+
+This might be a suboptimal cache setting, but unfortunately the original
+setting causes invalid data written to the chroma planes when decoding.
+
+The page merge setting has a significant influence on the burst length of
+read accesses. Until the effects of the page merge bitfield are better known,
+allow to configure it from userspace.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-bit.c | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index 35b9418afb49..b871187fd031 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -41,6 +41,10 @@
+ #define CODA_DEFAULT_GAMMA	4096
+ #define CODA9_DEFAULT_GAMMA	24576	/* 0.75 * 32768 */
+ 
++static int cache_pagemerge = 2;
++module_param(cache_pagemerge, int, 0644);
++MODULE_PARM_DESC(cache_pagemerge, "2D cache page merge setting");
++
+ static int disable_encoder_cache = 0;
+ module_param(disable_encoder_cache, int, 0644);
+ MODULE_PARM_DESC(disable_encoder_cache, "Disable 2D cache for encoder");
+@@ -804,9 +808,14 @@ static void coda9_set_frame_cache(struct coda_ctx *ctx, u32 fourcc)
+ 		cache_size = 0x20262024;
+ 		cache_config = 2 << CODA9_CACHE_PAGEMERGE_OFFSET;
+ 	} else {
+-		/* Luma 0x2 page, 4x4 cache, chroma 0x2 page, 4x3 cache size */
+-		cache_size = 0x02440243;
+-		cache_config = 1 << CODA9_CACHE_PAGEMERGE_OFFSET;
++		/* Luma 0x2 page, 4x4 cache, chroma 0x2 page, 4x3 cache size
++		 *
++		 * Freescale code sets this to 0x02440243, which causes
++		 * artifacts in the interleaved chroma plane when decoding.
++		 */
++		cache_size = 0x02440224;
++		cache_pagemerge &= 3;
++		cache_config = cache_pagemerge << CODA9_CACHE_PAGEMERGE_OFFSET;
+ 	}
+ 	coda_write(ctx->dev, cache_size, CODA9_CMD_SET_FRAME_CACHE_SIZE);
+ 	if (fourcc == V4L2_PIX_FMT_NV12) {

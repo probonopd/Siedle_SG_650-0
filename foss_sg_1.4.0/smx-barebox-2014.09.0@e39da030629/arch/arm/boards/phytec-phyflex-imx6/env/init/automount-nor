@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# nor rescue firmware (results into 'ubi0' if called first!)
+mkdir /mnt/nor
+automount -d /mnt/nor 'ubiattach /dev/m25p0.rescue-rootfs && mount /dev/ubi0.rescue-rootfs /mnt/nor'

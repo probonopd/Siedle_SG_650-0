@@ -1,0 +1,45 @@
+From: Anton Bondarenko <anton.bondarenko.sama@gmail.com>
+Date: Tue, 8 Dec 2015 07:43:44 +0100
+Subject: [PATCH] spi: imx: enable loopback only for ECSPI controller family
+
+Limit SPI_LOOP mode to ECSPI controller (iMX.51, iMX53 and i.MX6) only since
+there is no support in other families specific code for now.
+
+Signed-off-by: Anton Bondarenko <anton.bondarenko.sama@gmail.com>
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ drivers/spi/spi-imx.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/spi/spi-imx.c b/drivers/spi/spi-imx.c
+index 3aa33c8c819f..17a90dcab328 100644
+--- a/drivers/spi/spi-imx.c
++++ b/drivers/spi/spi-imx.c
+@@ -1140,6 +1140,9 @@ static int spi_imx_probe(struct platform_device *pdev)
+ 	spi_imx = spi_master_get_devdata(master);
+ 	spi_imx->bitbang.master = master;
+ 
++	spi_imx->devtype_data = of_id ? of_id->data :
++		(struct spi_imx_devtype_data *)pdev->id_entry->driver_data;
++
+ 	for (i = 0; i < master->num_chipselect; i++) {
+ 		int cs_gpio = of_get_named_gpio(np, "cs-gpios", i);
+ 		if (!gpio_is_valid(cs_gpio) && mxc_platform_info)
+@@ -1164,14 +1167,12 @@ static int spi_imx_probe(struct platform_device *pdev)
+ 	spi_imx->bitbang.master->cleanup = spi_imx_cleanup;
+ 	spi_imx->bitbang.master->prepare_message = spi_imx_prepare_message;
+ 	spi_imx->bitbang.master->unprepare_message = spi_imx_unprepare_message;
+-	spi_imx->bitbang.master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_CS_HIGH |
+-					     SPI_LOOP;
++	spi_imx->bitbang.master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_CS_HIGH;
++	if (is_imx51_ecspi(spi_imx))
++		spi_imx->bitbang.master->mode_bits |= SPI_LOOP;
+ 
+ 	init_completion(&spi_imx->xfer_done);
+ 
+-	spi_imx->devtype_data = of_id ? of_id->data :
+-		(struct spi_imx_devtype_data *) pdev->id_entry->driver_data;
+-
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	spi_imx->base = devm_ioremap_resource(&pdev->dev, res);
+ 	if (IS_ERR(spi_imx->base)) {

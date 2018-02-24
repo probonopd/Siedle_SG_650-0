@@ -1,0 +1,24 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 15 Jan 2015 12:53:55 +0100
+Subject: [PATCH] [media] imx-video-switch: no limitations on output link setup
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-video-switch.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/media/platform/imx/imx-video-switch.c b/drivers/media/platform/imx/imx-video-switch.c
+index 90283097af16..e406c31213a3 100644
+--- a/drivers/media/platform/imx/imx-video-switch.c
++++ b/drivers/media/platform/imx/imx-video-switch.c
+@@ -50,6 +50,10 @@ static int vidsw_link_setup(struct media_entity *entity,
+ 	struct v4l2_subdev *sd = media_entity_to_v4l2_subdev(entity);
+ 	struct vidsw *vidsw = to_vidsw(sd);
+ 
++	/* We have no limitations on enabling or disabling our output link */
++	if (local->index == vidsw->num_pads - 1)
++		return 0;
++
+ 	dev_dbg(vidsw->dev, "link setup %s -> %s", remote->entity->name,
+ 		local->entity->name);
+ 

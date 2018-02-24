@@ -1,0 +1,24 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 4 Mar 2016 10:36:16 +0100
+Subject: [PATCH] [media] v4l2-ioctl: fix YUV422P pixel format description
+
+The plane order is YUV, not YVU.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/v4l2-core/v4l2-ioctl.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/media/v4l2-core/v4l2-ioctl.c b/drivers/media/v4l2-core/v4l2-ioctl.c
+index 9e1362c9a2b4..6edc1826dcb7 100644
+--- a/drivers/media/v4l2-core/v4l2-ioctl.c
++++ b/drivers/media/v4l2-core/v4l2-ioctl.c
+@@ -1165,7 +1165,7 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
+ 	case V4L2_PIX_FMT_YVYU:		descr = "YVYU 4:2:2"; break;
+ 	case V4L2_PIX_FMT_UYVY:		descr = "UYVY 4:2:2"; break;
+ 	case V4L2_PIX_FMT_VYUY:		descr = "VYUY 4:2:2"; break;
+-	case V4L2_PIX_FMT_YUV422P:	descr = "Planar YVU 4:2:2"; break;
++	case V4L2_PIX_FMT_YUV422P:	descr = "Planar YUV 4:2:2"; break;
+ 	case V4L2_PIX_FMT_YUV411P:	descr = "Planar YUV 4:1:1"; break;
+ 	case V4L2_PIX_FMT_Y41P:		descr = "YUV 4:1:1 (Packed)"; break;
+ 	case V4L2_PIX_FMT_YUV444:	descr = "16-bit A/XYUV 4-4-4-4"; break;

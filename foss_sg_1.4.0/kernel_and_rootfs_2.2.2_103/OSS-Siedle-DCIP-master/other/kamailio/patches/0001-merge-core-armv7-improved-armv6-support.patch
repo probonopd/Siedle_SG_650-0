@@ -1,0 +1,313 @@
+From 9f78ae96b6d6755adfe71fad9ddc1d4cdb20d05b Mon Sep 17 00:00:00 2001
+From: Andrei Pelinescu-Onciul <andrei@iptel.org>
+Date: Mon, 19 Sep 2011 17:21:52 +0200
+Subject: [PATCH] merge "core: armv7 & improved armv6 support"
+
+Experimental armv7 support & armv6 smp.
+
+WARNING: merge of andrei/armv7 branch commit
+         "b092c2d core: armv7 & improved armv6 support"
+         is neither tested for correctness nor for completeness
+
+Signed-off-by: Andreas Pretzsch <apr@cn-eng.de>
+
+Conflicts:
+	fastlock.h : trivial (comment), update and clarify comment
+---
+ atomic/atomic_arm.h    | 67 +++++++++++++++++++++++++++++++++++++++-----------
+ atomic/atomic_native.h |  4 +--
+ fastlock.h             | 65 ++++++++++++++++++++++++++++++++++++------------
+ 3 files changed, 104 insertions(+), 32 deletions(-)
+
+diff --git a/atomic/atomic_arm.h b/atomic/atomic_arm.h
+index b5497a2..dc61111 100644
+--- a/atomic/atomic_arm.h
++++ b/atomic/atomic_arm.h
+@@ -25,6 +25,7 @@
+  * - NOSMP
+  * - __CPU_arm
+  * - __CPU_arm6    - armv6 support (supports atomic ops via ldrex/strex)
++ * - __CPU_arm7    - armv7 support
+  * @ingroup atomic
+  */
+ 
+@@ -47,13 +48,39 @@
+ #ifdef NOSMP
+ #define HAVE_ASM_INLINE_MEMBAR
+ #define membar() asm volatile ("" : : : "memory") /* gcc do not cache barrier*/
++
++#else /* SMP */
++
++#ifdef __CPU_arm7
++
++#define HAVE_ASM_INLINE_MEMBAR
++#define membar() asm volatile ("dmb" : : : "memory")
++
++#elif defined __CPU_arm6
++
++#define HAVE_ASM_INLINE_MEMBAR
++/* arm6 implements memory barriers using CP15 */
++#define membar() asm volatile ("mcr p15, 0, %0, c7, c10, 5" \
++								: : "r"(0) : "memory")
++
++#else
++#warning SMP not supported for arm atomic ops, try compiling with -DNOSMP
++/* fall back to default lock based barriers (don't define HAVE_ASM...) */
++#endif /* __CPU_arm7 / __CPU_arm6 */
++
++#endif /* NOSMP */
++
++
++/* all other membars are either empty or the same as membar(),
++   irrespective of the SMP or NOSMP mode */
++#ifdef HAVE_ASM_INLINE_MEMBAR
++
+ #define membar_read()  membar()
+ #define membar_write() membar()
+ #define membar_depends()   do {} while(0) /* really empty, not even a cc bar.*/
+-/* lock barriers: empty, not needed for NOSMP; the lock/unlock should already
+- * contain gcc barriers*/
+-#define membar_enter_lock() do {} while(0)
+-#define membar_leave_lock() do {} while(0)
++/* lock barriers */
++#define membar_enter_lock()  membar()
++#define membar_leave_lock()  membar()
+ /* membars after or before atomic_ops or atomic_setget -> use these or
+  *  mb_<atomic_op_name>() if you need a memory barrier in one of these
+  *  situations (on some archs where the atomic operations imply memory
+@@ -65,19 +92,18 @@
+ #define membar_write_atomic_setget()	membar_write()
+ #define membar_read_atomic_op()			membar_read()
+ #define membar_read_atomic_setget()		membar_read()
+-#else /* SMP */
+-#warning SMP not supported for arm atomic ops, try compiling with -DNOSMP
+-/* fall back to default lock based barriers (don't define HAVE_ASM...) */
+-#endif /* NOSMP */
+ 
++#endif /* HAVE_ASM_INLINE_MEMBAR */
+ 
+-#ifdef __CPU_arm6
++
++
++#if defined __CPU_arm6  || defined __CPU_arm7
+ 
+ 
+ #define HAVE_ASM_INLINE_ATOMIC_OPS
+ 
+ /* hack to get some membars */
+-#ifndef NOSMP
++#if !defined NOSMP && !defined HAVE_ASM_INLINE_MEMBAR
+ #include "atomic_unknown.h"
+ #endif
+ 
+@@ -138,7 +164,19 @@
+ 		return RET_EXPR; \
+ 	}
+ 
++#define ATOMIC_XCHG_DECL(NAME, P_TYPE) \
++	inline static P_TYPE atomic_##NAME##_##P_TYPE (volatile P_TYPE *var, \
++														P_TYPE v ) \
++	{ \
++		P_TYPE ret; \
++		asm volatile( \
++			ATOMIC_ASM_OP2() \
++			: "=&r"(ret), "=&r"(tmp), "=m"(*var) : "r"(var), "r"(v) : "cc" \
++			); \
++		return ret; \
++	}
+ 
++/* old swp based version (doesn't work on arm7)
+ #define ATOMIC_XCHG_DECL(NAME, P_TYPE) \
+ 	inline static P_TYPE atomic_##NAME##_##P_TYPE (volatile P_TYPE *var, \
+ 														P_TYPE v ) \
+@@ -151,6 +189,7 @@
+ 			); \
+ 		return ret; \
+ 	}
++*/
+ 
+ 
+ /* cmpxchg: %5=old, %4=new_v, %3=var
+@@ -186,8 +225,8 @@ ATOMIC_FUNC_DECL1(and,     "and  %1, %0, %4", int, void, /* no return */ )
+ ATOMIC_FUNC_DECL1(or,      "orr  %1, %0, %4", int, void, /* no return */ )
+ ATOMIC_FUNC_DECL(inc_and_test, "add  %1, %0, #1", int, int, ret==0 )
+ ATOMIC_FUNC_DECL(dec_and_test, "sub  %1, %0, #1", int, int, ret==0 )
+-//ATOMIC_FUNC_DECL2(get_and_set, /* no extra op needed */ , int, int,  ret)
+-ATOMIC_XCHG_DECL(get_and_set, int)
++ATOMIC_FUNC_DECL2(get_and_set, "" /* no extra op needed */ , int, int,  ret)
++//ATOMIC_XCHG_DECL(get_and_set, int)
+ ATOMIC_CMPXCHG_DECL(cmpxchg, int)
+ ATOMIC_FUNC_DECL1(add,     "add  %1, %0, %4", int, int, ret )
+ 
+@@ -197,8 +236,8 @@ ATOMIC_FUNC_DECL1(and,     "and  %1, %0, %4", long, void, /* no return */ )
+ ATOMIC_FUNC_DECL1(or,      "orr  %1, %0, %4", long, void, /* no return */ )
+ ATOMIC_FUNC_DECL(inc_and_test, "add  %1, %0, #1", long, long, ret==0 )
+ ATOMIC_FUNC_DECL(dec_and_test, "sub  %1, %0, #1", long, long, ret==0 )
+-//ATOMIC_FUNC_DECL2(get_and_set, /* no extra op needed */ , long, long,  ret)
+-ATOMIC_XCHG_DECL(get_and_set, long)
++ATOMIC_FUNC_DECL2(get_and_set, "" /* no extra op needed */ , long, long,  ret)
++//ATOMIC_XCHG_DECL(get_and_set, long)
+ ATOMIC_CMPXCHG_DECL(cmpxchg, long)
+ ATOMIC_FUNC_DECL1(add,     "add  %1, %0, %4", long, long, ret )
+ 
+diff --git a/atomic/atomic_native.h b/atomic/atomic_native.h
+index 499e846..3086269 100644
+--- a/atomic/atomic_native.h
++++ b/atomic/atomic_native.h
+@@ -30,7 +30,7 @@
+  * - __CPU_ppc, __CPU_ppc64 - see atomic_ppc.h
+  * - __CPU_sparc - see atomic_sparc.h
+  * - __CPU_sparc64, SPARC64_MODE - see atomic_sparc64.h
+- * - __CPU_arm, __CPU_arm6 - see atomic_arm.h
++ * - __CPU_arm, __CPU_arm6, __CPU_arm7 - see atomic_arm.h
+  * - __CPU_alpha - see atomic_alpha.h
+  * @ingroup atomic
+  */
+@@ -69,7 +69,7 @@
+ 
+ #include "atomic_sparc.h"
+ 
+-#elif defined __CPU_arm || defined __CPU_arm6
++#elif defined __CPU_arm || defined __CPU_arm6 || defined __CPU_arm7
+ 
+ #include "atomic_arm.h"
+ 
+diff --git a/fastlock.h b/fastlock.h
+index f2e9ced..5c82dff 100644
+--- a/fastlock.h
++++ b/fastlock.h
+@@ -27,6 +27,9 @@
+  *           - mips64 (cross-compiles ok)
+  *           - ppc64 (compiles ok)
+  *           - sparc32 (tested on a sparc64)
++ * WARNING: merge of andrei/armv7 branch commit
++ *          "b092c2d core: armv7 & improved armv6 support"
++ *          is neither tested for correctness nor for completeness
+  */
+ 
+ 
+@@ -61,7 +64,7 @@ typedef  volatile int fl_lock_t;
+ #elif defined(__CPU_sparc64)
+ #ifndef NOSMP
+ #define membar_getlock() \
+-	asm volatile ("membar #StoreStore | #StoreLoad \n\t" : : : "memory");
++	asm volatile ("membar #StoreStore | #StoreLoad \n\t" : : : "memory")
+ 	/* can be either StoreStore|StoreLoad or LoadStore|LoadLoad
+ 	 * since ldstub acts both as a store and as a load */
+ #else
+@@ -72,40 +75,55 @@ typedef  volatile int fl_lock_t;
+ #elif  defined(__CPU_sparc)
+ #define membar_getlock()/* no need for a compiler barrier, already included */
+ 
+-#elif defined __CPU_arm || defined __CPU_arm6
++#elif defined __CPU_arm
+ #ifndef NOSMP
+-#warning smp not supported on arm* (no membars), try compiling with -DNOSMP
++#warning smp not supported on arm < 6 (no membars), try compiling with -DNOSMP
++#endif /* NOSMP */
++#define membar_getlock()
++
++#elif defined __CPU_arm6
++#ifndef NOSMP
++#define membar_getlock() asm volatile ("mcr p15, 0, %0, c7, c10, 5" \
++										: : "r"(0) : "memory")
++#else /* NOSMP */
++#define membar_getlock()
++#endif /* NOSMP */
++
++#elif defined __CPU_arm7
++#ifndef NOSMP
++#define membar_getlock() asm volatile ("dmb" : : : "memory")
++#else /* NOSMP */
++#define membar_getlock()
+ #endif /* NOSMP */
+-#define membar_getlock() 
+ 
+ #elif defined(__CPU_ppc) || defined(__CPU_ppc64)
+ #ifndef NOSMP
+ #define membar_getlock() \
+-	asm volatile("lwsync \n\t" : : : "memory");
++	asm volatile("lwsync \n\t" : : : "memory")
+ #else
+-#define membar_getlock() 
++#define membar_getlock()
+ #endif /* NOSMP */
+ 
+ #elif defined __CPU_mips2 || defined __CPU_mips64
+ #ifndef NOSMP
+ #define membar_getlock() \
+-	asm volatile("sync \n\t" : : : "memory");
++	asm volatile("sync \n\t" : : : "memory")
+ #else
+-#define membar_getlock() 
++#define membar_getlock()
+ #endif /* NOSMP */
+ 
+ #elif defined __CPU_mips
+ #ifndef NOSMP
+ #warning smp not supported on mips1 (no membars), try compiling with -DNOSMP
+ #endif
+-#define membar_getlock() 
++#define membar_getlock()
+ 
+ #elif defined __CPU_alpha
+ #ifndef NOSMP
+ #define membar_getlock() \
+-	asm volatile("mb \n\t" : : : "memory");
++	asm volatile("mb \n\t" : : : "memory")
+ #else
+-#define membar_getlock() 
++#define membar_getlock()
+ #endif /* NOSMP */
+ 
+ #else /* __CPU_xxx */
+@@ -181,7 +199,7 @@ inline static int tsl(fl_lock_t* lock)
+ 			"swp %0, %2, [%3] \n\t"
+ 			: "=&r" (val), "=m"(*lock) : "r"(1), "r" (lock) : "memory"
+ 	);
+-#elif defined __CPU_arm6
++#elif defined __CPU_arm6 || defined __CPU_arm7
+ 	asm volatile(
+ 			"   ldrex %0, [%2] \n\t" 
+ 			"   cmp %0, #0 \n\t"
+@@ -189,6 +207,7 @@ inline static int tsl(fl_lock_t* lock)
+ 			/* if %0!=0 => either it was 1 initially or was 0
+ 			 * and somebody changed it just before the strexeq (so the 
+ 			 * lock is taken) => it's safe to return %0 */
++			/* membar_getlock must be  called outside this function */
+ 			: "=&r"(val), "=m"(*lock) : "r"(lock), "r"(1) : "cc"
+ 	);
+ #elif defined(__CPU_ppc) || defined(__CPU_ppc64)
+@@ -332,14 +351,28 @@ inline static void release_lock(fl_lock_t* lock)
+ 			"stb %%g0, [%1] \n\t"
+ 			: "=m"(*lock) : "r" (lock) : "memory"
+ 	);
+-#elif defined __CPU_arm || defined __CPU_arm6
+-#ifndef NOSMP
++#elif defined __CPU_arm || defined __CPU_arm6 || defined __CPU_arm7
++#if !defined NOSMP && defined __CPU_arm
+ #warning arm* smp mode not supported (no membars), try compiling with -DNOSMP
+ #endif
++	/* missuse membar_getlock */
++	membar_getlock();
+ 	asm volatile(
+-		" str %1, [%2] \n\r" 
+-		: "=m"(*lock) : "r"(0), "r"(lock) : "memory"
++		" str %1, [%2] \n\r"
++		: "=m"(*lock) : "r"(0), "r"(lock) : "cc", "memory"
+ 	);
++#ifdef __CPU_arm6
++	/* drain store buffer: drain the per processor buffer into the L1 cache
++	   making all the changes visible to other processors */
++	asm volatile(
++			"mcr p15, 0, %0, c7, c10, 4 \n\r"  /* DSB equiv. on arm6*/
++			: : "r" (0) : "memory"
++			);
++#elif defined __CPU_arm7
++	/* drain store buffer: drain the per processor buffer into the L1 cache
++	   making all the changes visible to other processors */
++	asm volatile( "dsb \n\r" : : : "memory");
++#endif /* __CPU_arm6 / __CPU_arm7 */
+ #elif defined(__CPU_ppc) || defined(__CPU_ppc64)
+ 	asm volatile(
+ 			/* "sync\n\t"  lwsync is faster and will work

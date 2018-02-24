@@ -1,0 +1,35 @@
+## SECTION=networking
+menuconfig URSHD
+	tristate
+	prompt "urshd                         "
+	depends on !INETUTILS_RSHD || ALLYES
+	help
+	  urshd (micro remote shell server) is a server for rsh program.
+	  It is (indirectly) derived from BSD rshd with all the security
+	  checks cut off.  Unlike other versions it is standalone server
+	  that does not depend on the inetd daemon.
+	  BIT FAT WARNING:
+	  URSH is a very huge security hole in your system as it grants
+	  permission to everyone.
+
+if URSHD
+
+config URSHD_STARSCRIPT
+	bool
+	prompt "install startscript"
+	select BUSYBOX_START_STOP_DAEMON if BUSYBOX
+	select BUSYBOX_FEATURE_START_STOP_DAEMON_LONG_OPTIONS if BUSYBOX_START_STOP_DAEMON
+	select BUSYBOX_FEATURE_START_STOP_DAEMON_FANCY if BUSYBOX_START_STOP_DAEMON
+	select ROOTFS_VAR_RUN
+	help
+	  Enable this entry to install a startup script into
+	  /etc/init.d. If no local 'projectroot/etc/init.d/urshd' exists, a
+	  generic start script will be used.
+
+config URSHD_SYSTEMD_UNIT
+	bool
+	default y
+	depends on SYSTEMD
+	prompt "install systemd service files"
+
+endif

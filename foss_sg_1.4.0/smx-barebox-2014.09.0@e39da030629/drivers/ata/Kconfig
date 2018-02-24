@@ -1,0 +1,62 @@
+menuconfig DISK
+	select BLOCK
+	select PARTITION
+	select PARTITION_DISK
+	bool "Disk support"
+	help
+	  Add support for disk like drives like harddisks, CDROMs, SD cards and
+	  CF cards.
+
+if DISK
+
+config DISK_IDE_SFF
+	bool
+
+config DISK_WRITE
+	select BLOCK_WRITE
+	bool "support writing to disk drives"
+
+comment "drive types"
+
+config DISK_BIOS
+	bool "BIOS based"
+	depends on X86_BIOS_BRINGUP
+	help
+	  Gain disk drive access via int13 calls to the standard PC-BIOS.
+	  The advantage of this driver is, it still uses user's defined boot
+	  media to work on. Disadvantage is: Due to its 16 bit nature it is
+	  slow.
+
+config DISK_ATA
+	bool "ATA type drives"
+	help
+	  Support for native ATA/IDE drives
+
+config DISK_AHCI
+	bool "AHCI support"
+	depends on HAS_DMA
+	select DISK_ATA
+
+config DISK_AHCI_IMX
+	depends on ARCH_IMX
+	depends on DISK_AHCI
+	bool "i.MX AHCI support"
+
+comment "interface types"
+
+config DISK_INTF_PLATFORM_IDE
+	bool "Platform IDE"
+	select DISK_ATA
+	select DISK_IDE_SFF
+	help
+	  Generic platform driver for simple IDE like interfaces to a connected
+	  ATA device.
+
+config DISK_PATA_IMX
+	bool "i.MX PATA driver"
+	depends on ARCH_IMX
+	depends on DISK_INTF_PLATFORM_IDE
+	help
+	  select this to enable support for the i.MX PATA driver
+
+endif

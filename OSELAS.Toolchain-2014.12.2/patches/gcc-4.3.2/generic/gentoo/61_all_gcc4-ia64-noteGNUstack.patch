@@ -1,0 +1,112 @@
+2004-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/ppc-asm.h: Add .note.GNU-stack section also
+	on ppc64-linux.
+
+	* config/ia64/lib1funcs.asm: Add .note.GNU-stack section on
+	ia64-linux.
+	* config/ia64/crtbegin.asm: Likewise.
+	* config/ia64/crtend.asm: Likewise.
+	* config/ia64/crti.asm: Likewise.
+	* config/ia64/crtn.asm: Likewise.
+
+2004-05-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/ia64/linux.h (TARGET_ASM_FILE_END): Define.
+
+---
+ gcc/config/ia64/crtbegin.asm  |    4 ++++
+ gcc/config/ia64/crtend.asm    |    4 ++++
+ gcc/config/ia64/crti.asm      |    4 ++++
+ gcc/config/ia64/crtn.asm      |    4 ++++
+ gcc/config/ia64/lib1funcs.asm |    4 ++++
+ gcc/config/ia64/linux.h       |    2 ++
+ gcc/config/rs6000/ppc-asm.h   |    2 +-
+ 7 files changed, 23 insertions(+), 1 deletion(-)
+
+Index: gcc-4.3.1/gcc/config/ia64/crtbegin.asm
+===================================================================
+--- gcc-4.3.1.orig/gcc/config/ia64/crtbegin.asm
++++ gcc-4.3.1/gcc/config/ia64/crtbegin.asm
+@@ -255,3 +255,7 @@ __do_jv_register_classes:
+ .weak __cxa_finalize
+ #endif
+ .weak _Jv_RegisterClasses
++
++#ifdef __linux__
++.section .note.GNU-stack; .previous
++#endif
+Index: gcc-4.3.1/gcc/config/ia64/crtend.asm
+===================================================================
+--- gcc-4.3.1.orig/gcc/config/ia64/crtend.asm
++++ gcc-4.3.1/gcc/config/ia64/crtend.asm
+@@ -122,3 +122,7 @@ __do_global_ctors_aux:
+ 
+ 	br.ret.sptk.many rp
+ 	.endp __do_global_ctors_aux
++
++#ifdef __linux__
++.section .note.GNU-stack; .previous
++#endif
+Index: gcc-4.3.1/gcc/config/ia64/crti.asm
+===================================================================
+--- gcc-4.3.1.orig/gcc/config/ia64/crti.asm
++++ gcc-4.3.1/gcc/config/ia64/crti.asm
+@@ -64,3 +64,7 @@ _fini:
+ 	.body
+ 
+ # end of crti.asm
++
++#ifdef __linux__
++.section .note.GNU-stack; .previous
++#endif
+Index: gcc-4.3.1/gcc/config/ia64/crtn.asm
+===================================================================
+--- gcc-4.3.1.orig/gcc/config/ia64/crtn.asm
++++ gcc-4.3.1/gcc/config/ia64/crtn.asm
+@@ -54,3 +54,7 @@
+ 	br.ret.sptk.many b0
+ 
+ # end of crtn.asm
++
++#ifdef __linux__
++.section .note.GNU-stack; .previous
++#endif
+Index: gcc-4.3.1/gcc/config/ia64/lib1funcs.asm
+===================================================================
+--- gcc-4.3.1.orig/gcc/config/ia64/lib1funcs.asm
++++ gcc-4.3.1/gcc/config/ia64/lib1funcs.asm
+@@ -792,3 +792,7 @@ __floattitf:
+ 	}
+ 	.endp __floattitf
+ #endif
++
++#ifdef __linux__
++.section .note.GNU-stack; .previous
++#endif
+Index: gcc-4.3.1/gcc/config/ia64/linux.h
+===================================================================
+--- gcc-4.3.1.orig/gcc/config/ia64/linux.h
++++ gcc-4.3.1/gcc/config/ia64/linux.h
+@@ -5,6 +5,8 @@
+ 
+ #define TARGET_VERSION fprintf (stderr, " (IA-64) Linux");
+ 
++#define TARGET_ASM_FILE_END file_end_indicate_exec_stack
++
+ /* This is for -profile to use -lc_p instead of -lc.  */
+ #undef CC1_SPEC
+ #define CC1_SPEC "%{profile:-p} %{G*}"
+Index: gcc-4.3.1/gcc/config/rs6000/ppc-asm.h
+===================================================================
+--- gcc-4.3.1.orig/gcc/config/rs6000/ppc-asm.h
++++ gcc-4.3.1/gcc/config/rs6000/ppc-asm.h
+@@ -158,7 +158,7 @@ GLUE(.L,name): \
+ 	.size FUNC_NAME(name),GLUE(.L,name)-FUNC_NAME(name)
+ #endif
+ 
+-#if defined __linux__ && !defined __powerpc64__
++#if defined __linux__
+ 	.section .note.GNU-stack
+ 	.previous
+ #endif

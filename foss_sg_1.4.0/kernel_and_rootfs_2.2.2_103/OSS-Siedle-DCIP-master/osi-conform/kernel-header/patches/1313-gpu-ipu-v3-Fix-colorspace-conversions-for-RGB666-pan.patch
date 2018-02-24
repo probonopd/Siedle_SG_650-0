@@ -1,0 +1,24 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 31 Jul 2014 12:39:38 +0200
+Subject: [PATCH] gpu: ipu-v3: Fix colorspace conversions for RGB666 panels
+
+Make RGB666 known as RGB colorspace, this fixes colorspace
+conversions for RGB666 panels.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-common.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-common.c b/drivers/gpu/ipu-v3/ipu-common.c
+index 2a4286874e71..03ea3e7a2967 100644
+--- a/drivers/gpu/ipu-v3/ipu-common.c
++++ b/drivers/gpu/ipu-v3/ipu-common.c
+@@ -117,6 +117,7 @@ enum ipu_color_space ipu_pixelformat_to_colorspace(u32 pixelformat)
+ 	case V4L2_PIX_FMT_RGB24:
+ 	case V4L2_PIX_FMT_BGR24:
+ 	case V4L2_PIX_FMT_RGB565:
++	case V4L2_PIX_FMT_BGR666:
+ 		return IPUV3_COLORSPACE_RGB;
+ 	default:
+ 		return IPUV3_COLORSPACE_UNKNOWN;

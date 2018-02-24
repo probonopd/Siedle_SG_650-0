@@ -1,0 +1,64 @@
+From 3d647f440c73873d6f025a13bbcee04a6d7af949 Mon Sep 17 00:00:00 2001
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 31 Aug 2016 18:20:26 +0200
+Subject: [PATCH] basetransform: Don't disable pool in set_allocation if it is
+ not replaced
+
+If the pool, allocator, and allocation params don't change, skip disabling
+the pool.
+
+If the "videotestsrc ! v4l2transform ! tee ! queue ! fakesink" pipeline
+is running and a new "queue ! fakesink" is added to the tee, caps
+negotiation in reconfigure results in the same caps, but setcaps still
+calls do_bufferpool, which calls set_allocation with the same pool
+and subsequently stops the v4l2 capture pool, issuing a VIDIOC_STREAMOFF
+to the kernel driver. This unnecessary stream stop can be avoided if
+disabling an unchanged pool is skipped in set_allocation.
+---
+ libs/gst/base/gstbasetransform.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/libs/gst/base/gstbasetransform.c b/libs/gst/base/gstbasetransform.c
+index de04a48..0c4bc8c 100644
+--- a/libs/gst/base/gstbasetransform.c
++++ b/libs/gst/base/gstbasetransform.c
+@@ -811,11 +811,11 @@ gst_base_transform_set_allocation (GstBaseTransform * trans,
+   GstBufferPool *oldpool;
+   GstQuery *oldquery;
+   GstBaseTransformPrivate *priv = trans->priv;
++  gboolean reuse_pool = TRUE;
+ 
+   GST_OBJECT_LOCK (trans);
+   oldpool = priv->pool;
+   priv->pool = pool;
+-  priv->pool_active = FALSE;
+ 
+   oldalloc = priv->allocator;
+   priv->allocator = allocator;
+@@ -823,6 +823,10 @@ gst_base_transform_set_allocation (GstBaseTransform * trans,
+   oldquery = priv->query;
+   priv->query = query;
+ 
++  if (pool != oldpool || allocator != oldalloc ||
++      (params && memcmp (&priv->params, params, sizeof (GstAllocationParams))))
++    priv->pool_active = reuse_pool = FALSE;
++
+   if (params)
+     priv->params = *params;
+   else
+@@ -830,8 +834,10 @@ gst_base_transform_set_allocation (GstBaseTransform * trans,
+   GST_OBJECT_UNLOCK (trans);
+ 
+   if (oldpool) {
+-    GST_DEBUG_OBJECT (trans, "deactivating old pool %p", oldpool);
+-    gst_buffer_pool_set_active (oldpool, FALSE);
++    if (!reuse_pool) {
++      GST_DEBUG_OBJECT (trans, "deactivating old pool %p", oldpool);
++      gst_buffer_pool_set_active (oldpool, FALSE);
++    }
+     gst_object_unref (oldpool);
+   }
+   if (oldalloc) {
+-- 
+2.8.1
+

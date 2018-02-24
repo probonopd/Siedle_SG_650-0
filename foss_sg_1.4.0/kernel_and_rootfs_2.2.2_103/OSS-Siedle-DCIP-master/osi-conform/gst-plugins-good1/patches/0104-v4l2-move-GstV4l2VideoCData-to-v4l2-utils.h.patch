@@ -1,0 +1,59 @@
+From: ayaka <ayaka@soulik.info>
+Date: Wed, 10 Sep 2014 05:20:25 +0800
+Subject: [PATCH] v4l2: move GstV4l2VideoCData to v4l2-utils.h
+
+---
+ sys/v4l2/gstv4l2videodec.c |  7 -------
+ sys/v4l2/v4l2-utils.h      | 10 ++++++++--
+ 2 files changed, 8 insertions(+), 9 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2videodec.c b/sys/v4l2/gstv4l2videodec.c
+index 7d79ba825575..d79f396d07f2 100644
+--- a/sys/v4l2/gstv4l2videodec.c
++++ b/sys/v4l2/gstv4l2videodec.c
+@@ -40,13 +40,6 @@ GST_DEBUG_CATEGORY_STATIC (gst_v4l2_video_dec_debug);
+ 
+ static gboolean gst_v4l2_video_dec_flush (GstVideoDecoder * decoder);
+ 
+-typedef struct
+-{
+-  gchar *device;
+-  GstCaps *sink_caps;
+-  GstCaps *src_caps;
+-} GstV4l2VideoCData;
+-
+ enum
+ {
+   PROP_0,
+diff --git a/sys/v4l2/v4l2-utils.h b/sys/v4l2/v4l2-utils.h
+index 20a8a8231424..4c9980ef8078 100644
+--- a/sys/v4l2/v4l2-utils.h
++++ b/sys/v4l2/v4l2-utils.h
+@@ -43,6 +43,7 @@ G_BEGIN_DECLS
+ 
+ typedef struct _GstV4l2Iterator GstV4l2Iterator;
+ typedef struct _GstV4l2Error GstV4l2Error;
++typedef struct _GstV4l2VideoCData GstV4l2VideoCData;
+ 
+ struct _GstV4l2Iterator
+ {
+@@ -60,6 +61,13 @@ struct _GstV4l2Error
+     gint line;
+ };
+ 
++struct _GstV4l2VideoCData
++{
++    gchar *device;
++    GstCaps *sink_caps;
++    GstCaps *src_caps;
++};
++
+ GstV4l2Iterator *  gst_v4l2_iterator_new (void);
+ gboolean           gst_v4l2_iterator_next (GstV4l2Iterator *it);
+ void               gst_v4l2_iterator_free (GstV4l2Iterator *it);
+@@ -78,5 +86,3 @@ gst_v4l2_element_register (GstPlugin * plugin, const gchar * basename,
+ G_END_DECLS
+ 
+ #endif /* __V4L2_UTILS_H__ */
+-
+-

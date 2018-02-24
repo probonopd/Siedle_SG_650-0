@@ -1,0 +1,171 @@
+#!/usr/bin/kermit
+
+# FIXME: Sync with libptxdisttest.sh
+.red := "\27[31m"
+.green := "\27[32m"
+.blue := "\27[34m"
+.nocolor := "\27[0m"
+
+define ptx_check_fail {
+	if failure {
+		writeln ERROR "\m(red)FAILED! (\%1)\m(nocolor)"
+		exit 1
+	}
+}
+
+define ptx_print {
+	writeln ERROR "\m(blue)\%1\m(nocolor)"
+}
+
+define ptx_init {
+	# get boardsetup variables
+	take \%1
+
+	ptx_print "Communicating via \m(PTXCONF_BOARDSETUP_SERIALPORT) at \m(PTXCONF_BOARDSETUP_SERIALBAUDRATE) bps."
+	ptx_print
+
+	# ':' distinguishes between serial line and telnet port
+	if not match \m(PTXCONF_BOARDSETUP_SERIALPORT) *:* {
+		set line \m(PTXCONF_BOARDSETUP_SERIALPORT)
+		ptx_check_fail "Could not get serial port \m(PTXCONF_BOARDSETUP_SERIALPORT). Is it already in use?"
+		set speed \m(PTXCONF_BOARDSETUP_SERIALBAUDRATE)
+		set parity none
+		set stop-bits 1
+	} else {
+		set host \m(PTXCONF_BOARDSETUP_SERIALPORT)
+		ptx_check_fail "Could not connect to port \m(PTXCONF_BOARDSETUP_SERIALPORT). Is it already in use?"
+		set speed \m(PTXCONF_BOARDSETUP_SERIALBAUDRATE)
+		set terminal echo remote
+	}
+	set carrier-watch off
+	set handshake none
+	set flow-control none
+	robust
+
+	set input cancellation off
+	set input case observe
+	set input buffer-length 16384
+
+	# Mark as unset
+	.uboot_version = 0
+	.root_prompt = "root@"
+
+	ptx_print "==============================="
+	ptx_print "Please power on your board now!"
+	ptx_print "==============================="
+	ptx_print
+}
+
+define ptx_exit {
+
+	# output dummy command, so u-boot v1's "repeat last command with enter" won't do harm
+	if = \m(uboot_version) 1 {
+		ptx_uboot_exec 5 " "
+	}
+	writeln ERROR "\m(green)Test finished successfully.\m(nocolor)"
+	exit 0
+}
+
+define ptx_test_start {
+
+	# do padding with '.'
+	write ERROR "\m(blue)\frpad(\%1,40,.)\m(nocolor)"
+}
+
+define ptx_test_end {
+
+	writeln ERROR "\m(green)OK\m(nocolor)"
+}
+
+define ptx_wait_string {
+
+	input \%1 \%2
+	ptx_check_fail "waiting for '\%2'"
+}
+
+# Output something and sync to itself being output
+define ptx_lineout {
+	lineout \%1
+	input 5 \%1
+}
+
+define ptx_uboot_enter_shell {
+
+	ptx_test_start "Logging into Bootloader"
+
+	# Determine U-Boot version; 20yy.m is treated as V1.
+	# tried to match all V1 signatures with \fpattern, failed badly :(
+	minput 120 "U-Boot 1." "U-Boot 20" "U-Boot 2." "barebox 2" 
+:eval_again
+	ptx_check_fail "waiting for bootloader signature"
+	lineout
+
+	switch \v(minput) {
+	:1
+	:2
+		.uboot_prompt = "uboot>"
+		.uboot_version = 1
+		break
+	:3
+		.uboot_prompt = "uboot:"
+		.uboot_version = 2
+		break
+	:4
+		.uboot_prompt = "barebox:"
+		.uboot_version = 2
+		# make sure we have the default barebox prompt
+		sleep 1
+		ptx_lineout "PS1='barebox: '"
+		break
+	}
+	# sometimes there are caches for serial inputs containing old data
+	# make sure we act on the newest one
+	minput 120 "U-Boot 1." "U-Boot 20" "U-Boot 2." "barebox 2" \m(uboot_prompt)
+	if not = \v(minput) 5 goto eval_again
+	ptx_test_end
+}
+
+define ptx_uboot_exec {
+	# %1 = timeout value, %2 = command, %3 = extra string to wait for (optional)
+
+	ptx_lineout "\%2"
+	if not equal "\%3" "" ptx_wait_string "\%1" "\%3"
+	input \%1 \m(uboot_prompt)
+	ptx_check_fail "timeout while waiting for bootloader prompt after '\%2'"
+
+	if = \m(uboot_version) 2 {
+		ptx_lineout "echo result: $?"
+		input 10 \fpattern(result: 0)
+		ptx_check_fail "returncode from '\%2' is not 0"
+		input 10 \m(uboot_prompt)
+	}
+}
+
+define ptx_root_exec {
+	# %1 = timeout value, %2 = command, %3 = extra string to wait for (optional)
+
+	ptx_lineout "\%2"
+	if not equal "\%3" "" ptx_wait_string "\%1" "\%3"
+	input \%1 \m(root_prompt)
+	ptx_check_fail "timeout while waiting for root prompt after '\%2'"
+
+	ptx_lineout "echo result: $?:"
+	input 10 "result: 0:"
+	ptx_check_fail "returncode from '\%2' is not 0"
+
+	input 10 \m(root_prompt)
+}
+
+define ptx_uboot_exec_single {
+
+	ptx_test_start "\%1"
+	ptx_uboot_exec "\%2" "\%3"
+	ptx_test_end
+}
+
+define ptx_wait_string_single {
+
+	ptx_test_start "\%1"
+	ptx_wait_string "\%2" "\%3"
+	ptx_test_end
+}

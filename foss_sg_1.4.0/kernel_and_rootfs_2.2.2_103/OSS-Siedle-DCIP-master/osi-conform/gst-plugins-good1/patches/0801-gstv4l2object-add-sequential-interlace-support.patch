@@ -1,0 +1,83 @@
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Date: Wed, 13 May 2015 13:11:08 +0200
+Subject: [PATCH] gstv4l2object: add sequential interlace support
+
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+---
+ sys/v4l2/gstv4l2bufferpool.c |  4 ++++
+ sys/v4l2/gstv4l2object.c     | 26 +++++++++++++++++++++++++-
+ 2 files changed, 29 insertions(+), 1 deletion(-)
+
+diff --git a/sys/v4l2/gstv4l2bufferpool.c b/sys/v4l2/gstv4l2bufferpool.c
+index dbb854c345e8..ea6619d87c11 100644
+--- a/sys/v4l2/gstv4l2bufferpool.c
++++ b/sys/v4l2/gstv4l2bufferpool.c
+@@ -1251,6 +1251,10 @@ gst_v4l2_buffer_pool_dqbuf (GstV4l2BufferPool * pool, GstBuffer ** buffer)
+       } else {
+         GST_BUFFER_FLAG_SET (outbuf, GST_VIDEO_BUFFER_FLAG_TFF);
+       }
++    case V4L2_FIELD_SEQ_TB:
++    case V4L2_FIELD_SEQ_BT:
++      GST_BUFFER_FLAG_SET (outbuf, GST_VIDEO_BUFFER_FLAG_INTERLACED);
++      GST_BUFFER_FLAG_UNSET (outbuf, GST_VIDEO_BUFFER_FLAG_TFF);
+       break;
+     default:
+       GST_BUFFER_FLAG_UNSET (outbuf, GST_VIDEO_BUFFER_FLAG_INTERLACED);
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index 10004474b498..1aaf92e6d25e 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -2198,6 +2198,10 @@ gst_v4l2_object_get_interlace_mode (enum v4l2_field field,
+     case V4L2_FIELD_INTERLACED_BT:
+       *interlace_mode = GST_VIDEO_INTERLACE_MODE_INTERLEAVED;
+       return TRUE;
++    case V4L2_FIELD_SEQ_TB:
++    case V4L2_FIELD_SEQ_BT:
++      *interlace_mode = GST_VIDEO_INTERLACE_MODE_FIELDS;
++      return TRUE;
+     default:
+       GST_ERROR ("Unknown enum v4l2_field %d", field);
+       return FALSE;
+@@ -2427,7 +2431,8 @@ gst_v4l2_object_add_interlace_mode (GstV4l2Object * v4l2object,
+ 
+   const gchar *mode_strings[] = { "progressive",
+     "interleaved",
+-    "mixed"
++    "mixed",
++    "fields",
+   };
+ 
+   if (!g_str_equal (gst_structure_get_name (s), "video/x-raw"))
+@@ -2473,6 +2478,21 @@ gst_v4l2_object_add_interlace_mode (GstV4l2Object * v4l2object,
+     gst_value_list_append_and_take_value (&interlace_formats, &interlace_enum);
+   }
+ 
++  memset (&fmt, 0, sizeof (fmt));
++  fmt.type = v4l2object->type;
++  fmt.fmt.pix.width = width;
++  fmt.fmt.pix.height = height;
++  fmt.fmt.pix.pixelformat = pixelformat;
++  fmt.fmt.pix.field = V4L2_FIELD_SEQ_TB;
++
++  if (gst_v4l2_object_try_fmt (v4l2object, &fmt) == 0 &&
++      gst_v4l2_object_get_interlace_mode (fmt.fmt.pix.field, &interlace_mode)) {
++    GValue interlace_enum = { 0, };
++    g_value_init (&interlace_enum, G_TYPE_STRING);
++    g_value_set_string (&interlace_enum, mode_strings[interlace_mode]);
++    gst_value_list_append_and_take_value (&interlace_formats, &interlace_enum);
++  }
++
+   gst_v4l2src_value_simplify (&interlace_formats);
+   gst_structure_take_value (s, "interlace-mode", &interlace_formats);
+   return;
+@@ -4077,6 +4097,10 @@ gst_v4l2_object_acquire_format (GstV4l2Object * v4l2object, GstVideoInfo * info)
+     case V4L2_FIELD_INTERLACED_BT:
+       info->interlace_mode = GST_VIDEO_INTERLACE_MODE_INTERLEAVED;
+       break;
++    case V4L2_FIELD_SEQ_TB:
++    case V4L2_FIELD_SEQ_BT:
++      info->interlace_mode = GST_VIDEO_INTERLACE_MODE_FIELDS;
++      break;
+     default:
+       goto unsupported_field;
+   }

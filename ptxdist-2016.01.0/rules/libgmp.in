@@ -1,0 +1,11 @@
+## SECTION=system_libraries
+#
+# rules/libgmp.in
+#
+config LIBGMP
+	tristate
+	prompt "libgmp"
+	help
+	  Compiles the GNU Multiprecision libraries for your target system.
+
+          See http://gmplib.org/ for info about it.

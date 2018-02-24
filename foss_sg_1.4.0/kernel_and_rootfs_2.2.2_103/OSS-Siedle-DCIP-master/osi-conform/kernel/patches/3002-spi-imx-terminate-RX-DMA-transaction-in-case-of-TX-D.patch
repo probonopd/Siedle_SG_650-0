@@ -1,0 +1,27 @@
+From: Anton Bondarenko <anton.bondarenko.sama@gmail.com>
+Date: Sat, 5 Dec 2015 17:56:59 +0100
+Subject: [PATCH] spi: imx: terminate RX DMA transaction in case of TX DMA
+ timeout
+
+Not only TX DMA should be terminated, but RX DMA also. It's required
+to avoid accidential DMA memory writes from RX DMA channel and properly
+terminate transaction.
+
+Signed-off-by: Anton Bondarenko <anton.bondarenko.sama@gmail.com>
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ drivers/spi/spi-imx.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/spi/spi-imx.c b/drivers/spi/spi-imx.c
+index e7e4f0c0f14d..d6dc66542811 100644
+--- a/drivers/spi/spi-imx.c
++++ b/drivers/spi/spi-imx.c
+@@ -968,6 +968,7 @@ static int spi_imx_dma_transfer(struct spi_imx_data *spi_imx,
+ 			dev_driver_string(&master->dev),
+ 			dev_name(&master->dev));
+ 		dmaengine_terminate_all(master->dma_tx);
++		dmaengine_terminate_all(master->dma_rx);
+ 	} else {
+ 		timeout = wait_for_completion_timeout(
+ 				&spi_imx->dma_rx_completion, IMX_DMA_TIMEOUT);

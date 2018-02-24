@@ -1,0 +1,79 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 12 Feb 2016 13:34:00 +0100
+Subject: [PATCH] drm/imx: ipuv3-plane: store u/v offsets and pitches
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/drm/imx/ipuv3-plane.c | 19 +++++++++++++++----
+ drivers/gpu/drm/imx/ipuv3-plane.h |  4 ++++
+ 2 files changed, 19 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/imx/ipuv3-plane.c b/drivers/gpu/drm/imx/ipuv3-plane.c
+index 2ac3cd9d1933..b03219c8038c 100644
+--- a/drivers/gpu/drm/imx/ipuv3-plane.c
++++ b/drivers/gpu/drm/imx/ipuv3-plane.c
+@@ -91,12 +91,11 @@ int ipu_plane_set_base(struct ipu_plane *ipu_plane, struct drm_framebuffer *fb,
+ 		}
+ 	}
+ 
+-	dev_dbg(ipu_plane->base.dev->dev, "phys = %pad, x = %d, y = %d",
+-		&cma_obj[0]->paddr, x, y);
+-
+ 	eba = cma_obj[0]->paddr + fb->offsets[0] +
+ 	      fb->pitches[0] * y + (fb->bits_per_pixel >> 3) * x;
+ 
++	ipu_plane->stride[0] = fb->pitches[0];
++
+ 	switch (fb->pixel_format) {
+ 	case DRM_FORMAT_RGB565_A8:
+ 	case DRM_FORMAT_BGR565_A8:
+@@ -106,6 +105,7 @@ int ipu_plane_set_base(struct ipu_plane *ipu_plane, struct drm_framebuffer *fb,
+ 	case DRM_FORMAT_BGRX8888_A8:
+ 		alpha_eba = cma_obj[1]->paddr + fb->offsets[1] +
+ 			    fb->pitches[1] * y + x;
++		ipu_plane->stride[1] = fb->pitches[1];
+ 		break;
+ 	case DRM_FORMAT_YUV420:
+ 	case DRM_FORMAT_YVU420:
+@@ -124,6 +124,16 @@ int ipu_plane_set_base(struct ipu_plane *ipu_plane, struct drm_framebuffer *fb,
+ 			DRM_DEBUG_KMS("plane base addresses differ.\n");
+ 			return -EINVAL;
+ 		}
++		if (fb->pitches[1] != fb->pitches[2]) {
++			DRM_DEBUG_KMS("U/V pitches differ.\n");
++			return -EINVAL;
++		}
++
++		ipu_plane->u_offset = cma_obj[1]->paddr + fb->offsets[1] +
++				      fb->pitches[1] * y / 2 + x / 2 - eba;
++		ipu_plane->v_offset = cma_obj[2]->paddr + fb->offsets[2] +
++				      fb->pitches[2] * y / 2 + x / 2 - eba;
++		ipu_plane->stride[1] = fb->pitches[1];
+ 		break;
+ 	}
+ 
+@@ -210,7 +220,8 @@ int ipu_plane_mode_set(struct ipu_plane *ipu_plane, struct drm_crtc *crtc,
+ 	 */
+ 	if (ipu_plane->enabled) {
+ 		if (src_w != ipu_plane->w || src_h != ipu_plane->h ||
+-		    fb->pixel_format != ipu_plane->base.fb->pixel_format)
++		    fb->pixel_format != ipu_plane->base.fb->pixel_format ||
++		    fb->pitches[0] != ipu_plane->stride[0])
+ 			return -EINVAL;
+ 
+ 		return ipu_plane_set_base(ipu_plane, fb, src_x, src_y);
+diff --git a/drivers/gpu/drm/imx/ipuv3-plane.h b/drivers/gpu/drm/imx/ipuv3-plane.h
+index bade1ca8d8b6..fb153dd6bb89 100644
+--- a/drivers/gpu/drm/imx/ipuv3-plane.h
++++ b/drivers/gpu/drm/imx/ipuv3-plane.h
+@@ -30,6 +30,10 @@ struct ipu_plane {
+ 	int			w;
+ 	int			h;
+ 
++	unsigned int		u_offset;
++	unsigned int		v_offset;
++	unsigned int		stride[2];
++
+ 	bool			enabled;
+ 	bool			separate_alpha;
+ };

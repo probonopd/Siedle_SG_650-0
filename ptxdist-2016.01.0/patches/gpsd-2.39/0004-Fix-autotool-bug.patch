@@ -1,0 +1,53 @@
+From: Luotao Fu <l.fu@pengutronix.de>
+Date: Thu, 23 Apr 2009 15:15:21 +0200
+Subject: [PATCH] Fix autotool bug
+
+Original by Richard Hansen:
+Autoconf has a longstanding bug in AC_REQUIRE that causes out-of-order
+macro expansion problems.  This patch works around the Autoconf bug.
+
+lfu:
+This one fixes the configure script fails if run with --disable-python.
+Some macro needed by dependency tracker is errorneously expanded inside the
+python check condition, which cause that these will be failed to be set if
+python is not enabled.
+
+Signed-off-by: FIXME
+---
+# 20110222 wsa: fixed in master meanwhile
+
+ configure.ac |   21 +++++++++++++++++++++
+ 1 files changed, 21 insertions(+), 0 deletions(-)
+
+diff --git a/configure.ac b/configure.ac
+index 7db2a6c..67e9253 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -5,6 +5,27 @@ dnl AC_PREFIX_PROGRAM(gcc)
+ AM_CONFIG_HEADER(gpsd_config.h)
+ AC_LANG([C])
+ 
++# ACREQUIRE_BUGFIX
++# ----------------
++# Due to a longstanding Autoconf bug (Autoconf 2.50 to at least 2.63),
++# any macro that is AC_REQUIREd at any point must be AC_REQUIREd
++# *before* it is directly expanded.  The macros below were being
++# directly expanded before being AC_REQUIREd, so we AC_REQUIRE them
++# early to prevent out-of-order expansion problems.  See the threads
++# at:
++# http://lists.gnu.org/archive/html/bug-autoconf/2008-12/msg00039.html
++# http://lists.gnu.org/archive/html/autoconf-patches/2008-12/msg00058.html
++# http://lists.gnu.org/archive/html/bug-autoconf/2009-01/msg00019.html
++# http://lists.gnu.org/archive/html/bug-gnulib/2009-01/msg00247.html
++AC_DEFUN_ONCE([ACREQUIRE_BUGFIX],
++[
++  AC_REQUIRE([AC_PROG_CPP])
++  AC_REQUIRE([AC_PROG_EGREP])
++  AC_REQUIRE([AC_PROG_CC])
++])
++ACREQUIRE_BUGFIX
++# ACREQUIRE_BUGFIX done
++
+ AC_ARG_ENABLE(python,
+   AC_HELP_STRING([--disable-python],
+ 		 [disable python scripts and library bindings]),

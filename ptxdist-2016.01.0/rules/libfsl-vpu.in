@@ -1,0 +1,7 @@
+## SECTION=multimedia_gstreamer
+
+config LIBFSL_VPU
+	tristate
+	prompt "libfsl-vpu"
+	help
+	  FIXME

@@ -1,0 +1,64 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 4 Aug 2014 17:23:09 +0200
+Subject: [PATCH] gpu: ipu-v3: Add IC channel comments
+
+Add comments to map the IDMAC channels to IC channels.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ include/video/imx-ipu-v3.h | 28 ++++++++++++++--------------
+ 1 file changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/include/video/imx-ipu-v3.h b/include/video/imx-ipu-v3.h
+index 5e8fc8bb7c49..f044af787bdd 100644
+--- a/include/video/imx-ipu-v3.h
++++ b/include/video/imx-ipu-v3.h
+@@ -96,21 +96,21 @@ enum ipu_channel_irq {
+ #define IPUV3_CHANNEL_CSI1			 1
+ #define IPUV3_CHANNEL_CSI2			 2
+ #define IPUV3_CHANNEL_CSI3			 3
+-#define IPUV3_CHANNEL_VDI_MEM_IC_VF		 5
++#define IPUV3_CHANNEL_VDI_MEM_IC_VF		 5	/* CB7 */
+ #define IPUV3_CHANNEL_MEM_VDI_PREV		 8
+ #define IPUV3_CHANNEL_MEM_VDI_CUR		 9
+ #define IPUV3_CHANNEL_MEM_VDI_NEXT		10
+-#define IPUV3_CHANNEL_MEM_IC_PP			11
+-#define IPUV3_CHANNEL_MEM_IC_PRP_VF		12
++#define IPUV3_CHANNEL_MEM_IC_PP			11	/* CB5 */
++#define IPUV3_CHANNEL_MEM_IC_PRP_VF		12	/* CB6 */
+ #define IPUV3_CHANNEL_VDI_MEM_RECENT		13
+-#define IPUV3_CHANNEL_G_MEM_IC_PRP_VF		14
+-#define IPUV3_CHANNEL_G_MEM_IC_PP		15
++#define IPUV3_CHANNEL_G_MEM_IC_PRP_VF		14	/* CB3 */
++#define IPUV3_CHANNEL_G_MEM_IC_PP		15	/* CB4 */
+ #define IPUV3_CHANNEL_G_MEM_IC_PRP_VF_ALPHA	17
+ #define IPUV3_CHANNEL_G_MEM_IC_PP_ALPHA		18
+ #define IPUV3_CHANNEL_MEM_VDI_PLANE1_COMB_ALPHA	19
+-#define IPUV3_CHANNEL_IC_PRP_ENC_MEM		20
+-#define IPUV3_CHANNEL_IC_PRP_VF_MEM		21
+-#define IPUV3_CHANNEL_IC_PP_MEM			22
++#define IPUV3_CHANNEL_IC_PRP_ENC_MEM		20	/* CB0 */
++#define IPUV3_CHANNEL_IC_PRP_VF_MEM		21	/* CB1 */
++#define IPUV3_CHANNEL_IC_PP_MEM			22	/* CB2 */
+ #define IPUV3_CHANNEL_MEM_BG_SYNC		23
+ #define IPUV3_CHANNEL_MEM_BG_ASYNC		24
+ #define IPUV3_CHANNEL_MEM_VDI_PLANE1_COMB	25
+@@ -125,12 +125,12 @@ enum ipu_channel_irq {
+ #define IPUV3_CHANNEL_MEM_DC_COMMAND		42
+ #define IPUV3_CHANNEL_MEM_DC_COMMAND2		43
+ #define IPUV3_CHANNEL_MEM_DC_OUTPUT_MASK	44
+-#define IPUV3_CHANNEL_MEM_ROT_ENC		45
+-#define IPUV3_CHANNEL_MEM_ROT_VF		46
+-#define IPUV3_CHANNEL_MEM_ROT_PP		47
+-#define IPUV3_CHANNEL_ROT_ENC_MEM		48
+-#define IPUV3_CHANNEL_ROT_VF_MEM		49
+-#define IPUV3_CHANNEL_ROT_PP_MEM		50
++#define IPUV3_CHANNEL_MEM_ROT_ENC		45	/* CB10 */
++#define IPUV3_CHANNEL_MEM_ROT_VF		46	/* CB11 */
++#define IPUV3_CHANNEL_MEM_ROT_PP		47	/* CB13 */
++#define IPUV3_CHANNEL_ROT_ENC_MEM		48	/* CB8 */
++#define IPUV3_CHANNEL_ROT_VF_MEM		49	/* CB9 */
++#define IPUV3_CHANNEL_ROT_PP_MEM		50	/* CB12 */
+ #define IPUV3_CHANNEL_MEM_BG_SYNC_ALPHA		51
+ #define IPUV3_CHANNEL_MEM_BG_ASYNC_ALPHA	52
+ 

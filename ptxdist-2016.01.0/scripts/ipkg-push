@@ -1,0 +1,199 @@
+#!/bin/bash
+#
+# ipkg-push: push .ipk files to a package repository site
+#
+# We assume that all packages follow this naming scheme: 
+#
+# packagename_1.2.3-2_arch.ipk
+# ^^^^^^^^^^^ ^^^^^ ^ ^^^^----- architecture
+#     \         \   `---------- ipkg package revision
+#      \         `------------- upstream package revision
+#       `---------------------- package name
+#
+# And we assume that, if a package is named after this scheme it is
+# versioned internally using the same one :-)
+# 
+
+
+. `dirname $0`/libptxdist.sh
+
+PREFIX=`basename $0`
+
+usage() {
+	echo 
+	[ -n "$1" ] && echo -e "${PREFIX} error: $1\n"
+	echo "usage: $0 <args>"
+	echo
+	echo " Arguments:"
+	echo
+	echo "  --ipkgdir  <ipkgdir>       use this directory as an ipkg package source"
+	echo "  --repodir  <repositorydir> path to ipkg package repository to be updated"
+	echo "  --revision <revision>      dist revision name to be updated"
+	echo "  --project  <projectname>   project name"
+	echo "  --dist     <distname>      use this to make a dist release (optional)"
+	echo "  --type     <package type>  specify package type (default: ipkg)"
+	echo
+	exit 1
+}
+
+IPKGDIR=
+REPODIR=
+DISTREVISION=
+PROJECT=
+DIST=
+TYPE=ipkg
+
+
+#
+# Option parser
+#
+while [ $# -gt 0 ]; do
+	case "$1" in 
+		--help) usage ;;
+		--ipkgdir)  IPKGDIR=`ptxd_abspath $2`;      shift 2 ;;
+		--repodir)  REPODIR=`ptxd_abspath $2`;      shift 2 ;;
+		--revision) DISTREVISION=`ptxd_abspath $2`; shift 2 ;;
+		--project)  PROJECT=$2;	                    shift 2 ;;
+		--dist)     DIST=$2;                        shift 2 ;;
+		--type)     TYPE=$2;                        shift 2 ;;
+		*)  usage "unknown option $1" ;;
+  	esac
+done
+
+#
+# Sanity checks
+#
+[ -z "$IPKGDIR" ] 	&& usage "${PREFIX} error: specify ipkg package dir with --ipkgdir"
+[ -z "$REPODIR" ] 	&& usage "${PREFIX} error: specify repository dir with --repodir"
+[ -z "$DISTREVISION" ]	&& usage "${PREFIX} error: specify dist revision with --revision"
+[ -d "$IPKGDIR" ]	|| usage "${PREFIX} error: ipkg directory does not exist"
+[ -d "$REPODIR" ]	|| usage "${PREFIX} error: repository dir does not exist"
+[ -z "$PROJECT" ]       && usage "${PREFIX} error: specify a project name with --project"
+
+if [ "`find $IPKGDIR -name "*.ipk"`" = "" ]; then
+	echo "no ipkg packages found in --ipkgdir $IPKGDIR"
+	exit 0
+fi
+
+IPKG_PACKAGES=`find $IPKGDIR -maxdepth 1 -name "*.ipk" -exec basename \{} \;`
+SCRIPTDIR=`dirname $0`
+POOL=$REPODIR/$PROJECT/pool
+
+if [ ! -d "$POOL" ]; then
+	echo "IPKG pool directory ($POOL) does not exist, creating"
+	mkdir -p $POOL
+	[ "$?" = "0" ] || bailout "couldn't create pool directory $POOL" 
+fi
+
+if [ -n "$DIST" ]; then
+
+	if [ -d "$REPODIR/$PROJECT/dists/$DIST" ]; then
+		echo "${PREFIX} error: $REPODIR/$PROJECT/dists/$DIST already exists!"
+		echo "${PREFIX} error: please remove this directory first if this is intended"
+		exit 1
+	fi
+
+	echo "checking dist dir..: $REPODIR/$PROJECT/dists/$DIST"
+	mkdir -p $REPODIR/$PROJECT/dists/$DIST
+fi
+	
+echo "dist directory.....: $DIST"
+
+#
+# For all ipkg packages we have built: check if already in pool
+#
+
+for package in $IPKG_PACKAGES; do
+
+	echo "checking pool for..: $package"
+
+	package_split=`ptxd_ipkg_split $package`
+	IPKG_NAME=`ptxd_ipkg_name $package_split`
+	IPKG_REV_UPSTREAM=`ptxd_ipkg_rev_upstream $package_split`
+	IPKG_REV_PACKAGE=`ptxd_ipkg_rev_package $package_split`
+	IPKG_REV="${IPKG_REV_UPSTREAM}${IPKG_REV_PACKAGE}"
+	IPKG_ARCH=`ptxd_ipkg_arch $package_split`
+	PACKAGES_IN_POOL=`find $POOL -name ${IPKG_NAME}_${IPKG_REV}-*_${IPKG_ARCH}.ipk -exec basename \{} \;`
+
+	cp -f $IPKGDIR/$package $POOL/$package
+
+	if [ "$PACKAGES_IN_POOL" = "" ]; then 
+
+		# this package wasn't there before, re-revision to -1
+		newpackage=`$SCRIPTDIR/ipkg-revision $POOL/$package - 1`
+		if [ -n "$DIST" ]; then 
+			cp -f "$IPKGDIR/../state/${IPKG_NAME}.perms" "$POOL/${newpackage%.ipk}.perms"
+
+			echo "  linking.source...: ../../pool/$newpackage"
+			echo "  linking.to.......: $REPODIR/$PROJECT/dists/$DIST/$newpackage"
+			ln -sf ../../pool/${newpackage} $REPODIR/$PROJECT/dists/$DIST/$newpackage
+
+			echo "  perms linking.source...: ../../pool/${newpackage%.ipk}.perms"
+			echo "  perms linking.to.......: $REPODIR/$PROJECT/dists/$DIST/${newpackage%.ipk}.perms"
+			ln -sf ../../pool/${newpackage%.ipk}.perms $REPODIR/$PROJECT/dists/$DIST/${newpackage%.ipk}.perms
+		fi
+
+	else
+
+		# find out latest revision
+		latest_pkg=""
+		for pkg in $PACKAGES_IN_POOL; do 
+			echo "  candidate........: $pkg"
+			if [ "$latest_pkg" = "" ]; then
+				latest_pkg=$pkg
+				continue
+			fi
+			ptxd_ipkg_rev_smaller $pkg $latest_pkg && continue
+			latest_pkg=$pkg
+		done
+
+		echo "  latest version...: $latest_pkg"
+
+		echo "  comparing........: $package with $latest_pkg"
+
+		$SCRIPTDIR/ipkg-check-equal $POOL/$package $POOL/$latest_pkg
+		if [ "$?" = "0" ]; then 
+			echo "                     equal, new package droped"
+			rm -f $POOL/$package
+			if [ -n "$DIST" ]; then 
+				echo "  linking.source...: ../../pool/$latest_pkg"
+				echo "  linking.to.......: $REPODIR/$PROJECT/dists/$DIST/$latest_pkg"
+				ln -sf ../../pool/${latest_pkg} $REPODIR/$PROJECT/dists/$DIST/$latest_pkg
+
+				echo "  perms linking.source...: ../../pool/${latest_pkg%.ipk}.perms"
+				echo "  perms linking.to.......: $REPODIR/$PROJECT/dists/$DIST/${latest_pkg%.ipk}.perms"
+				ln -sf ../../pool/${latest_pkg%.ipk}.perms $REPODIR/$PROJECT/dists/$DIST/${latest_pkg%.ipk}.perms
+			fi
+			continue
+		fi
+
+		package_split=`ptxd_ipkg_split $latest_pkg`
+		IPKG_REV_PACKAGE=`ptxd_ipkg_rev_package $package_split`
+
+		newpackage=`$SCRIPTDIR/ipkg-revision $POOL/$package - $(($IPKG_REV_PACKAGE+1))`
+		echo "RSC2: newpackage=$newpackage"
+		if [ -n "$DIST" ]; then
+			cp -f "$IPKGDIR/../state/${IPKG_NAME}.perms" "$POOL/${newpackage%.ipk}.perms"
+
+			echo "  linking.source...: ../../pool/$newpackage"
+			echo "  linking.to.......: $REPODIR/$PROJECT/dists/$DIST/$newpackage"
+			ln -sf ../../pool/${newpackage} $REPODIR/$PROJECT/dists/$DIST/$newpackage
+	
+			echo "  perms linking.source...: ../../pool/${newpackage%.ipk}.perms"
+			echo "  perms linking.to.......: $REPODIR/$PROJECT/dists/$DIST/${newpackage%.ipk}.perms"
+			ln -sf ../../pool/${newpackage%.ipk}.perms $REPODIR/$PROJECT/dists/$DIST/${newpackage%.ipk}.perms
+		fi
+
+	fi
+
+	rm -f $POOL/$package
+done
+
+# Everything finished, create the package index
+
+echo "creating index.....: "
+
+(cd $REPODIR/$PROJECT/dists/$DIST && ${TYPE}-make-index . > Packages && gzip -c Packages > Packages.gz)
+
+exit
+

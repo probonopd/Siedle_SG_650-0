@@ -1,0 +1,31 @@
+## SECTION=multimedia_xorg_driver_video
+
+# configuration for xorg-driver-video-ati
+
+config XORG_DRIVER_VIDEO_ATI
+	tristate
+	depends on XORG_DRIVER_VIDEO
+
+	select XORG_SERVER
+	select XORG_SERVER_XORG
+	select XORG_PROTO_X
+	select XORG_PROTO_FONTS
+	select XORG_PROTO_XF86DRI
+	select XORG_SERVER_EXT_XV
+
+	select XORG_PROTO_RANDR
+	select XORG_PROTO_RENDER
+	select XORG_PROTO_VIDEO
+	select XORG_PROTO_XEXT
+
+	select LIBDRM
+	select LIBDRM_RADEON
+
+	select UDEV
+	select UDEV_LIBUDEV
+	select LIBPCIACCESS
+
+	prompt "Ati"
+	help
+	  This is the video driver for ATI cards for the modular Xorg server.
+

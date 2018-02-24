@@ -1,0 +1,151 @@
+#
+# Kconfig: Main menu structure definition
+# Copyright (C) 2005-2008 by Robert Schwebel <r.schwebel@pengutronix.de>
+#               2009 by Marc Kleine-Budde <mkl@pengutronix.de>
+#
+
+mainmenu "PTXdist $CONFIGFILE_VERSION"
+
+config _ptxconfig_MAGIC__
+	bool
+	default y
+
+config BUILD_TOOLCHAIN
+	bool
+	select HOST_CHRPATH
+	default y
+
+config NO_PLATFORM
+	bool
+	default y
+
+
+config PROJECT
+	string
+	prompt "Project Name        "
+	help
+	  Name of this project; each PTXdist "Project" specifies a unique
+	  configuration for an embedded Linux project.
+
+	  Usually you don't have to set this config option; change it
+	  only if you want to have some non-default name.
+
+comment "----------------------------------"
+
+source "workspace/rules/architecture.in"
+
+comment "----------------------------------"
+
+source "workspace/rules/libc.in"
+
+if LIBC_GLIBC
+source "workspace/rules/glibc.in"
+source "workspace/rules/glibc-ports.in"
+endif
+
+if LIBC_UCLIBC
+source "workspace/rules/uclibc.in"
+source "workspace/rules/uclibc-headers.in"
+endif
+
+if LIBC_NEWLIB
+source "workspace/rules/newlib.in"
+endif
+
+if LIBC_AVR
+source "workspace/rules/avrlib.in"
+endif
+
+if LIBC_MINGW
+source "workspace/rules/mingw-runtime.in"
+source "workspace/rules/mingw-runtime-headers.in"
+source "workspace/rules/w32api.in"
+source "workspace/rules/w32api-headers.in"
+endif
+
+source "workspace/rules/cross-binutils.in"
+source "workspace/rules/cross-elf2flt.in"
+source "workspace/rules/kernel-headers.in"
+source "workspace/rules/cross-gcc.in"
+source "workspace/rules/cross-gdb.in"
+source "workspace/rules/cross-toolchain.in"
+source "workspace/rules/host-fake-makeinfo.in"
+source "workspace/rules/host-cloog.in"
+source "workspace/rules/host-expat.in"
+source "workspace/rules/host-gmp.in"
+source "workspace/rules/host-isl.in"
+source "workspace/rules/host-mpc.in"
+source "workspace/rules/host-mpfr.in"
+source "workspace/rules/host-xz.in"
+source "workspace/rules/host-zlib.in"
+source "workspace/rules/host-libelf.in"
+source "rules/host-autotools-autoconf.in"
+source "rules/host-chrpath.in"
+source "rules/host-m4.in"
+source "rules/host-system-perl.in"
+
+comment "----------------------------------"
+
+source "workspace/rules/toolchain.in"
+
+menu "misc                        "
+
+config PREFIX
+	string
+	prompt "prefix for installation"
+	default "/opt"
+	help
+	  Your toolchain will be installed under $PREFIX
+
+config PREFIX_KERNEL
+	string
+	depends on KERNEL_HEADERS_SANITIZED
+	default "-sanitized"
+
+config PREFIX_JAVA
+	string
+	depends on CROSS_GCC_LANG_JAVA
+	default "-java"
+
+config PREFIX_TCID
+	string	
+	default "gcc-${PTXCONF_CROSS_GCC_VERSION}${PTXCONF_PREFIX_JAVA}-glibc-${PTXCONF_GLIBC_VERSION}-binutils-${PTXCONF_CROSS_BINUTILS_VERSION}-kernel-${PTXCONF_KERNEL_HEADERS_VERSION}${PTXCONF_PREFIX_KERNEL}"	if LIBC_GLIBC
+	default "gcc-${PTXCONF_CROSS_GCC_VERSION}${PTXCONF_PREFIX_JAVA}-uclibc-${PTXCONF_UCLIBC_VERSION}-binutils-${PTXCONF_CROSS_BINUTILS_VERSION}-kernel-${PTXCONF_KERNEL_HEADERS_VERSION}${PTXCONF_PREFIX_KERNEL}"	if LIBC_UCLIBC
+	default "gcc-${PTXCONF_CROSS_GCC_VERSION}-newlib-${PTXCONF_NEWLIB_VERSION}-binutils-${PTXCONF_CROSS_BINUTILS_VERSION}"	if LIBC_NEWLIB
+	default "gcc-${PTXCONF_CROSS_GCC_VERSION}-libc-${PTXCONF_AVRLIB_VERSION}-binutils-${PTXCONF_CROSS_BINUTILS_VERSION}"	if LIBC_AVR
+	default "gcc-${PTXCONF_CROSS_GCC_VERSION}-mingw-${PTXCONF_MINGW_RUNTIME_VERSION}-w32api-${PTXCONF_W32API_VERSION}-binutils-${PTXCONF_CROSS_BINUTILS_VERSION}"	if LIBC_MINGW
+
+config SYSROOT_HOST
+	string
+	default "${PTXDIST_PLATFORMDIR}/sysroot-host"
+
+config SYSROOT_CROSS
+	string
+	default "${PTX_AUTOBUILD_DESTDIR}${PTXCONF_PREFIX}/${PTXCONF_PROJECT}/${PTXCONF_GNU_TARGET}/${PTXCONF_PREFIX_TCID}"
+
+config SYSROOT_TARGET
+	string
+	default "${PTXCONF_SYSROOT_CROSS}/sysroot-${PTXCONF_GNU_TARGET}"	if TOOLCHAIN_ENABLE_SYSROOT
+	default "${PTXCONF_SYSROOT_CROSS}"					if TOOLCHAIN_DISABLE_SYSROOT
+
+config PLATFORM
+	string
+	default "${PTXCONF_GNU_TARGET}-${PTXCONF_PREFIX_TCID}"
+
+config COMPILER_PREFIX
+	string
+	default "${PTXCONF_GNU_TARGET}-"
+
+config TOOLCHAIN_DEBUG
+	bool
+	prompt "debuggable toolchain internals"
+	help
+	  Select this if you want to debug the glibc/libstdc++ internals.
+	  Note: this enlarges your toolchain at about 500 MB.
+
+endmenu
+
+source "workspace/rules/image-toolchain-tgz.in"
+source "workspace/rules/image-toolchain-deb.in"
+
+source "rules/ptxdist-version.in"

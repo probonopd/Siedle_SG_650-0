@@ -1,0 +1,30 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 2 Feb 2016 11:26:04 +0100
+Subject: [PATCH] net: phy: micrel: Staticise ksz8873mll_read_status()
+
+Based on kernel commit 32d73b144eac ("net: phy: micrel: Staticise
+ksz8873mll_read_status()") by Jingoo Han <jg1.han@samsung.com>:
+
+    ksz8873mll_read_status() is used only in this file.
+    Fix the following sparse warning:
+
+    drivers/net/phy/micrel.c:147:5: warning: symbol 'ksz8873mll_read_status' was not declared. Should it be static?
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/net/phy/micrel.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 095563ad3b93..2f319068eb6a 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -233,7 +233,7 @@ static int ksz9031_config_init(struct phy_device *phydev)
+ #define KSZ8873MLL_GLOBAL_CONTROL_4	0x06
+ #define KSZ8873MLL_GLOBAL_CONTROL_4_DUPLEX	(1 << 6)
+ #define KSZ8873MLL_GLOBAL_CONTROL_4_SPEED	(1 << 4)
+-int ksz8873mll_read_status(struct phy_device *phydev)
++static int ksz8873mll_read_status(struct phy_device *phydev)
+ {
+ 	int regval;
+ 

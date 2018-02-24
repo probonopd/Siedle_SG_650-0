@@ -1,0 +1,40 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 7 Jan 2013 11:02:56 +0100
+Subject: [PATCH] HACK: Let DRM_IOCTL_MODE_MAP_DUMB also return the physical
+ address
+
+This dirty hack allows to get the physical address of a dumb framebuffer
+into the proprietary binary amd-gpu drivers for the AMD Z430 GPU on
+i.MX53. The mechanism was chosen intentionally to avoid any semblance
+of legitimacy.
+The correct way would be to export a dmabuf handle via drm-prime and
+change the amd-gpu kernel driver and low level library to support
+dmabuf importing.
+
+Reluctantly-signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/drm/drm_gem_cma_helper.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/drm_gem_cma_helper.c b/drivers/gpu/drm/drm_gem_cma_helper.c
+index e109b49cd25d..3bb7c4e32f28 100644
+--- a/drivers/gpu/drm/drm_gem_cma_helper.c
++++ b/drivers/gpu/drm/drm_gem_cma_helper.c
+@@ -295,7 +295,16 @@ int drm_gem_cma_dumb_map_offset(struct drm_file *file_priv,
+ 		return -EINVAL;
+ 	}
+ 
+-	*offset = drm_vma_node_offset_addr(&gem_obj->vma_node);
++	if (*offset == 0x5359485000000000) {
++		/*
++		 * DIRTY HACK: if offset contains 'PHYS' in the upper
++		 * 32 bits, return the physical address in there.
++		 */
++		*offset = drm_vma_node_offset_addr(&gem_obj->vma_node) |
++			(uint64_t)container_of(gem_obj, struct drm_gem_cma_object, base)->paddr << 32;
++	} else {
++		*offset = drm_vma_node_offset_addr(&gem_obj->vma_node);
++	}
+ 
+ 	drm_gem_object_unreference_unlocked(gem_obj);
+ 

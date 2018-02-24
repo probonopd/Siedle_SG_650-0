@@ -1,0 +1,6 @@
+## SECTION=shell_and_console
+config NANOCOM
+	tristate
+	prompt "nanocom"
+	help
+	  This is a lightweight terminal emulator.

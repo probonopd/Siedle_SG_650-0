@@ -1,0 +1,23 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 1 Feb 2016 21:28:43 +0100
+Subject: [PATCH] [media] coda: fix jpeg decoder output payload for YUV 4:2:2
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-jpeg.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-jpeg.c b/drivers/media/platform/coda/coda-jpeg.c
+index a69a5350f753..3233088e3c97 100644
+--- a/drivers/media/platform/coda/coda-jpeg.c
++++ b/drivers/media/platform/coda/coda-jpeg.c
+@@ -1540,8 +1540,7 @@ static void coda9_jpeg_finish_decode(struct coda_ctx *ctx)
+ 	dst_buf->timecode = src_buf->timecode;
+ 
+ 	q_data_dst = get_q_data(ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE);
+-	vb2_set_plane_payload(&dst_buf->vb2_buf, 0, q_data_dst->bytesperline *
+-			      q_data_dst->height * 3 / 2);
++	vb2_set_plane_payload(&dst_buf->vb2_buf, 0, q_data_dst->sizeimage);
+ 
+ 	v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
+ 	coda_m2m_buf_done(ctx, dst_buf, err_mb ? VB2_BUF_STATE_ERROR :

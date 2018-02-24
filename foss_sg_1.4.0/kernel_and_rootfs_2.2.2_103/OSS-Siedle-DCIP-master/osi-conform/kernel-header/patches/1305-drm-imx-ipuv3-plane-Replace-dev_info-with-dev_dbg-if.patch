@@ -1,0 +1,28 @@
+From: Liu Ying <Ying.Liu@freescale.com>
+Date: Fri, 20 Nov 2015 16:14:11 +0800
+Subject: [PATCH] drm/imx: ipuv3 plane: Replace dev_info with dev_dbg if a
+ plane's CRTC changes
+
+This patch changes the dev_info() call to dev_dbg() in ipu_plane_update()
+to print out the information that a plane's CRTC is changed, because this
+kind of information is only useful for debugging.
+
+Signed-off-by: Liu Ying <Ying.Liu@freescale.com>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/drm/imx/ipuv3-plane.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/imx/ipuv3-plane.c b/drivers/gpu/drm/imx/ipuv3-plane.c
+index e2ff410bab74..beb741007a44 100644
+--- a/drivers/gpu/drm/imx/ipuv3-plane.c
++++ b/drivers/gpu/drm/imx/ipuv3-plane.c
+@@ -338,7 +338,7 @@ static int ipu_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
+ 	}
+ 
+ 	if (crtc != plane->crtc)
+-		dev_info(plane->dev->dev, "crtc change: %p -> %p\n",
++		dev_dbg(plane->dev->dev, "crtc change: %p -> %p\n",
+ 				plane->crtc, crtc);
+ 	plane->crtc = crtc;
+ 

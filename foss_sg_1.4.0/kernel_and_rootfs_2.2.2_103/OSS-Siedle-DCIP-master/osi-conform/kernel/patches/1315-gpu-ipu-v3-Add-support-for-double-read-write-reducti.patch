@@ -1,0 +1,43 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 17 Sep 2014 15:44:54 +0200
+Subject: [PATCH] gpu: ipu-v3: Add support for double read/write reduction
+
+Allow to skip writing odd chroma rows by setting the RDRW bit for
+4:2:0 chroma subsampled formats for any IDMAC write channel. This
+also allows to skip reading odd rows for the VDIC read channel.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-cpmem.c | 6 ++++++
+ include/video/imx-ipu-v3.h     | 1 +
+ 2 files changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-cpmem.c b/drivers/gpu/ipu-v3/ipu-cpmem.c
+index 5e04275ceded..694f7208ad03 100644
+--- a/drivers/gpu/ipu-v3/ipu-cpmem.c
++++ b/drivers/gpu/ipu-v3/ipu-cpmem.c
+@@ -224,6 +224,12 @@ void ipu_cpmem_set_resolution(struct ipuv3_channel *ch, int xres, int yres)
+ }
+ EXPORT_SYMBOL_GPL(ipu_cpmem_set_resolution);
+ 
++void ipu_cpmem_skip_odd_chroma_rows(struct ipuv3_channel *ch)
++{
++	ipu_ch_param_write_field(ch, IPU_FIELD_RDRW, 1);
++}
++EXPORT_SYMBOL_GPL(ipu_cpmem_skip_odd_chroma_rows);
++
+ void ipu_cpmem_set_stride(struct ipuv3_channel *ch, int stride)
+ {
+ 	ipu_ch_param_write_field(ch, IPU_FIELD_SLY, stride - 1);
+diff --git a/include/video/imx-ipu-v3.h b/include/video/imx-ipu-v3.h
+index df81ed13bcbd..c8adba13282e 100644
+--- a/include/video/imx-ipu-v3.h
++++ b/include/video/imx-ipu-v3.h
+@@ -203,6 +203,7 @@ struct ipu_image {
+ 
+ void ipu_cpmem_zero(struct ipuv3_channel *ch);
+ void ipu_cpmem_set_resolution(struct ipuv3_channel *ch, int xres, int yres);
++void ipu_cpmem_skip_odd_chroma_rows(struct ipuv3_channel *ch);
+ void ipu_cpmem_set_stride(struct ipuv3_channel *ch, int stride);
+ void ipu_cpmem_set_high_priority(struct ipuv3_channel *ch);
+ void ipu_cpmem_set_buffer(struct ipuv3_channel *ch, int bufnum, dma_addr_t buf);

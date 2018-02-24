@@ -1,0 +1,8 @@
+## SECTION=shell_and_console
+
+config MEMSTAT
+	tristate
+	prompt "memstat"
+	help
+	  memstat is a memory diagnosis tool which lets you find
+ 	  out which process uses how much virtual memory.

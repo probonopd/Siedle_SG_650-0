@@ -1,0 +1,70 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 22 Jul 2014 14:25:22 +0200
+Subject: [PATCH] [media] coda: let userspace force IDR frames by enabling the
+ keyframe flag in the source buffer
+
+This disables forcing IDR frames at GOP size intervals on CODA7541 and CODA960,
+which is only needed to work around a firmware bug on CodaDx6.
+Instead, the V4L2_BUF_FLAG_KEYFRAME v4l2 buffer flag is cleared before marking
+the source buffer done for dequeueing. Userspace can set it before queueing a
+frame to force an IDR frame, to implement VFU (Video Fast Update).
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-bit.c | 21 ++++++++++++---------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index 1d92280ae491..011581b93b5f 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -1211,22 +1211,22 @@ static int coda_prepare_encode(struct coda_ctx *ctx)
+ 	 * frame as IDR. This is a problem for some decoders that can't
+ 	 * recover when a frame is lost.
+ 	 */
+-	if (src_buf->sequence % ctx->params.gop_size) {
+-		src_buf->flags |= V4L2_BUF_FLAG_PFRAME;
+-		src_buf->flags &= ~V4L2_BUF_FLAG_KEYFRAME;
+-	} else {
++	if ((src_buf->sequence % ctx->params.gop_size) == 0)
+ 		src_buf->flags |= V4L2_BUF_FLAG_KEYFRAME;
++	if (src_buf->flags & V4L2_BUF_FLAG_KEYFRAME)
+ 		src_buf->flags &= ~V4L2_BUF_FLAG_PFRAME;
+-	}
++	else
++		src_buf->flags |= V4L2_BUF_FLAG_PFRAME;
+ 
+ 	if (dev->devtype->product == CODA_960)
+ 		coda_set_gdi_regs(ctx);
+ 
+ 	/*
+-	 * Copy headers at the beginning of the first frame for H.264 only.
+-	 * In MPEG4 they are already copied by the coda.
++	 * Copy headers in front of the first frame and forced I frames for
++	 * H.264 only. In MPEG4 they are already copied by the CODA.
+ 	 */
+-	if (src_buf->sequence == 0) {
++	if (src_buf->sequence == 0 ||
++	    src_buf->flags & V4L2_BUF_FLAG_KEYFRAME) {
+ 		pic_stream_buffer_addr =
+ 			vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 0) +
+ 			ctx->vpu_header_size[0] +
+@@ -1341,7 +1341,8 @@ static void coda_finish_encode(struct coda_ctx *ctx)
+ 	wr_ptr = coda_read(dev, CODA_REG_BIT_WR_PTR(ctx->reg_idx));
+ 
+ 	/* Calculate bytesused field */
+-	if (dst_buf->sequence == 0) {
++	if (dst_buf->sequence == 0 ||
++	    src_buf->flags & V4L2_BUF_FLAG_KEYFRAME) {
+ 		vb2_set_plane_payload(&dst_buf->vb2_buf, 0, wr_ptr - start_ptr +
+ 					ctx->vpu_header_size[0] +
+ 					ctx->vpu_header_size[1] +
+@@ -1370,6 +1371,8 @@ static void coda_finish_encode(struct coda_ctx *ctx)
+ 		src_buf->flags & V4L2_BUF_FLAG_TSTAMP_SRC_MASK;
+ 	dst_buf->timecode = src_buf->timecode;
+ 
++	/* Clear keyframe flag so userspace can misuse it to force an IDR frame */
++	src_buf->flags &= ~V4L2_BUF_FLAG_KEYFRAME;
+ 	v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
+ 
+ 	dst_buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);

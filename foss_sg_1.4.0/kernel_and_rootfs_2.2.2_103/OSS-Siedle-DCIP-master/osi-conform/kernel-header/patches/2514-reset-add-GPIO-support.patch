@@ -1,0 +1,182 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 5 Feb 2016 13:41:07 +0100
+Subject: [PATCH] reset: add GPIO support
+
+Add support for non-shared GPIO resets.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/reset/core.c | 84 +++++++++++++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 74 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/reset/core.c b/drivers/reset/core.c
+index c500d760288a..3262115a1c6a 100644
+--- a/drivers/reset/core.c
++++ b/drivers/reset/core.c
+@@ -11,6 +11,7 @@
+ #include <linux/atomic.h>
+ #include <linux/device.h>
+ #include <linux/err.h>
++#include <linux/gpio/consumer.h>
+ #include <linux/export.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+@@ -26,6 +27,8 @@ static LIST_HEAD(reset_controller_list);
+  * struct reset_control - a reset control
+  * @rcdev: a pointer to the reset controller device
+  *         this reset control belongs to
++ * @gpio: a pointer to the gpio_desc controlling the
++ *        reset line, alternative to rcdev and id.
+  * @list: list entry for the rcdev's reset controller list
+  * @id: ID of the reset controller in the reset
+  *      controller device
+@@ -36,6 +39,7 @@ static LIST_HEAD(reset_controller_list);
+ struct reset_control {
+ 	struct reset_controller_dev *rcdev;
+ 	struct list_head list;
++	struct gpio_desc *gpio;
+ 	unsigned int id;
+ 	unsigned int refcnt;
+ 	int shared;
+@@ -101,8 +105,8 @@ EXPORT_SYMBOL_GPL(reset_controller_unregister);
+  */
+ int reset_control_reset(struct reset_control *rstc)
+ {
+-	if (rstc->shared) {
+-		WARN_ON(1);
++	if (WARN_ON(rstc->shared) ||
++	    WARN_ON(rstc->gpio)) {
+ 		return -EINVAL;
+ 	}
+ 
+@@ -123,7 +127,7 @@ EXPORT_SYMBOL_GPL(reset_control_reset);
+  */
+ int reset_control_assert(struct reset_control *rstc)
+ {
+-	if (!rstc->rcdev->ops->assert)
++	if (!((rstc->rcdev && rstc->rcdev->ops->assert) || rstc->gpio))
+ 		return -ENOTSUPP;
+ 
+ 	if (rstc->shared) {
+@@ -136,6 +140,11 @@ int reset_control_assert(struct reset_control *rstc)
+ 			return 0;
+ 	}
+ 
++	if (rstc->gpio) {
++		gpiod_set_value(rstc->gpio, 1);
++		return 0;
++	}
++
+ 	return rstc->rcdev->ops->assert(rstc->rcdev, rstc->id);
+ }
+ EXPORT_SYMBOL_GPL(reset_control_assert);
+@@ -148,7 +157,7 @@ EXPORT_SYMBOL_GPL(reset_control_assert);
+  */
+ int reset_control_deassert(struct reset_control *rstc)
+ {
+-	if (!rstc->rcdev->ops->deassert)
++	if (!((rstc->rcdev && rstc->rcdev->ops->deassert) || rstc->gpio))
+ 		return -ENOTSUPP;
+ 
+ 	if (rstc->shared) {
+@@ -156,6 +165,11 @@ int reset_control_deassert(struct reset_control *rstc)
+ 			return 0;
+ 	}
+ 
++	if (rstc->gpio) {
++		gpiod_set_value(rstc->gpio, 0);
++		return 0;
++	}
++
+ 	return rstc->rcdev->ops->deassert(rstc->rcdev, rstc->id);
+ }
+ EXPORT_SYMBOL_GPL(reset_control_deassert);
+@@ -168,8 +182,10 @@ EXPORT_SYMBOL_GPL(reset_control_deassert);
+  */
+ int reset_control_status(struct reset_control *rstc)
+ {
+-	if (rstc->rcdev->ops->status)
++	if (rstc->rcdev && rstc->rcdev->ops->status)
+ 		return rstc->rcdev->ops->status(rstc->rcdev, rstc->id);
++	if (rstc->gpio)
++		return gpiod_get_value(rstc->gpio);
+ 
+ 	return -ENOTSUPP;
+ }
+@@ -216,9 +232,11 @@ static void __reset_control_put(struct reset_control *rstc)
+ 	if (--rstc->refcnt)
+ 		return;
+ 
+-	module_put(rstc->rcdev->owner);
++	if (rstc->rcdev) {
++		module_put(rstc->rcdev->owner);
+ 
+-	list_del(&rstc->list);
++		list_del(&rstc->list);
++	}
+ 	kfree(rstc);
+ }
+ 
+@@ -281,13 +299,59 @@ struct reset_control *__of_reset_control_get(struct device_node *node,
+ }
+ EXPORT_SYMBOL_GPL(__of_reset_control_get);
+ 
++static struct reset_control *__reset_control_get_gpio(struct device *dev,
++						      const char *id)
++{
++	struct reset_control *rstc;
++	struct gpio_desc *gpio;
++	char prop_name[32];
++	bool assert;
++	int ret;
++
++	rstc = kzalloc(sizeof(*rstc), GFP_KERNEL);
++	if (!rstc)
++		return ERR_PTR(-ENOMEM);
++
++	if (id)
++		snprintf(prop_name, sizeof(prop_name),
++				"%s-reset-boot-asserted", id);
++
++	assert = of_property_read_bool(dev->of_node, id ? prop_name :
++			"reset-boot-asserted");
++
++	if (id)
++		snprintf(prop_name, sizeof(prop_name), "%s-reset", id);
++
++	gpio = gpiod_get(dev, id ? prop_name : "reset",
++			 assert ? GPIOD_OUT_HIGH : GPIOD_OUT_LOW);
++	if (IS_ERR(gpio)) {
++		ret = PTR_ERR(gpio);
++		goto err_free;
++	}
++
++	rstc->gpio = gpio;
++	rstc->refcnt = 1;
++	rstc->shared = 0;
++
++	return rstc;
++
++err_free:
++	kfree(rstc);
++	return ERR_PTR(ret);
++}
++
+ struct reset_control *__dev_reset_control_get(struct device *dev,
+-				     const char *id, int index, int shared)
++				const char *id, int index, int shared)
+ {
+-	return __of_reset_control_get(dev ? dev->of_node : NULL,
++	struct reset_control *rstc;
++
++	rstc = __of_reset_control_get(dev ? dev->of_node : NULL,
+ 				      id, index, shared);
++	if (PTR_ERR(rstc) == -ENOENT && index == 0 && shared == 0)
++		rstc = __reset_control_get_gpio(dev, id);
++
++	return rstc;
+ }
+-EXPORT_SYMBOL_GPL(__dev_reset_control_get);
+ 
+ /**
+  * reset_control_put - free the reset controller

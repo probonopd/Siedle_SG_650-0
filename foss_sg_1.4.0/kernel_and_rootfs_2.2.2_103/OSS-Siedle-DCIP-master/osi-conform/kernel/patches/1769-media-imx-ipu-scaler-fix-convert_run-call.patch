@@ -1,0 +1,21 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 7 Mar 2016 17:32:55 +0100
+Subject: [PATCH] [media] imx-ipu-scaler: fix convert_run call
+
+---
+ drivers/media/platform/imx/imx-ipu-scaler.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipu-scaler.c b/drivers/media/platform/imx/imx-ipu-scaler.c
+index f21ada990c53..a6b0b7d4c3c6 100644
+--- a/drivers/media/platform/imx/imx-ipu-scaler.c
++++ b/drivers/media/platform/imx/imx-ipu-scaler.c
+@@ -175,7 +175,7 @@ static void device_run(void *priv)
+ 	}
+ 
+ 	ipu_image_convert_run(ipu_scaler->ipu, &in, &out, ctx->icc,
+-			      ctx->num_tiles, ipu_complete, ctx, false);
++			      ctx->num_tiles, ipu_complete, ctx);
+ }
+ 
+ /*

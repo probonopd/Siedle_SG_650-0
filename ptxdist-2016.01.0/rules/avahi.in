@@ -1,0 +1,150 @@
+## SECTION=networking
+
+menuconfig AVAHI
+	tristate
+	select HOST_INTLTOOL
+	select LIBDAEMON
+	select EXPAT
+	select LIBCAP
+	select QT4	if AVAHI_QT4
+	select DBUS	if AVAHI_DBUS
+	select GTK	if AVAHI_GTK
+	prompt "avahi                         "
+	help
+	  Avahi is a system which facilitates service discovery on a local network.
+
+if AVAHI
+
+config AVAHI_SYSTEMD_UNIT
+	bool
+	default y
+	depends on AVAHI_DAEMON && SYSTEMD
+	prompt "install systemd unit files for avahi-daemon"
+
+config AVAHI_GLIB
+	bool
+	prompt "enable glib support"
+	help
+	  --enable-glib
+
+config AVAHI_GOBJECT
+	bool
+	select AVAHI_GLIB
+	prompt "enable gobject support"
+	help
+	  --enable-gobject
+
+config AVAHI_QT4
+	bool
+	prompt "enable qt4 support"
+	help
+	  --enable-qt4
+
+config AVAHI_GTK
+	bool
+	prompt "enable gtk support"
+	help
+	  --enable-gtk
+
+config AVAHI_LIBAVAHI_CLIENT
+	bool
+	prompt "enable avahi-client support"
+	select AVAHI_DBUS
+	select AVAHI_DAEMON
+	help
+	  A simplifying C wrapper around the D-Bus API.
+	  It is recommend using this API in C or C++ progams.
+	  The D-Bus internals are hidden completely.
+
+config AVAHI_DBUS
+	bool
+	prompt "enable dbus support"
+	help
+	  --enable-dbus
+
+menuconfig AVAHI_DAEMON
+	bool
+	prompt "avahi-daemon                "
+	help
+	  Install the avahi-daemon program
+
+if AVAHI_DAEMON
+
+config AVAHI_USER
+	string
+	prompt "user for running the avahi (mDNS/DNS-SD) daemon"
+	default "avahi"
+	help
+	  Enter the user name to run the avahi (mDNS/DNS-SD) daemon with.
+	  The PTXdist standard configuration has only root, so if you want
+	  to use the avahi default user "avahi" you have to create
+	  a related user yourself.
+
+config AVAHI_GROUP
+	string
+	prompt "group for running the avahi (mDNS/DNS-SD) daemon"
+	default "avahi"
+	help
+	  Enter the group name to run the avahi (mDNS/DNS-SD) daemon with.
+	  The PTXdist standard configuration has only root, so if you want
+	  to use the avahi default group "avahi" you have to create
+	  a related group yourself.
+
+config AVAHI_SERVICES
+	bool
+	depends on AVAHI_DAEMON
+	prompt "avahi services"
+	help
+	  install avahi service descriptions
+
+endif
+
+config AVAHI_DNSCONFD
+	bool
+	select AVAHI_DAEMON
+	prompt "avahi-dnsconfd"
+	help
+	  avahi-dnsconfd connects to a running avahi-daemon and runs the
+	  script /etc/avahi/dnsconfd.action for each unicast DNS server
+	  that is announced on the local LAN. This is useful for
+	  configuring unicast DNS servers in a DHCP-like fashion
+	  with mDNS.
+
+menuconfig AVAHI_AUTOIP
+	bool
+	prompt "avahi-autoipd               "
+	help
+	  Install the avahi-autoipd daemon (IPv4 link-local address autoconfiguration)
+	  Please check: You need CONFIG_FILE_LOCKING=y in your Kernel Config.
+
+if AVAHI_AUTOIP
+
+config AVAHI_AUTOIP_USER
+	string
+	prompt "user for running the avahi autoip (IPv4LL) daemon"
+	default "avahi-autoipd"
+	help
+	  Enter the user name to run the avahi autoip (IPv4LL) daemon with.
+	  The PTXdist standard configuration has only root, so if you want
+	  to use the avahi default user "avahi-autoipd" you have to create
+	  a related user yourself.
+
+config AVAHI_AUTOIP_GROUP
+	string
+	prompt "group for running the avahi autoip (IPv4LL) daemon"
+	default "avahi-autoipd"
+	help
+	  Enter the group name to run the avahi autoip (IPv4LL) daemon with.
+	  The PTXdist standard configuration has only root, so if you want
+	  to use the avahi default group "avahi-autoipd" you have to create
+	  a related group yourself.
+endif
+
+config AVAHI_COMPAT
+	bool
+	select AVAHI_LIBAVAHI_CLIENT
+	prompt "compat libdns_sd"
+	help
+	  compatibility layer for libdns_sd
+
+endif

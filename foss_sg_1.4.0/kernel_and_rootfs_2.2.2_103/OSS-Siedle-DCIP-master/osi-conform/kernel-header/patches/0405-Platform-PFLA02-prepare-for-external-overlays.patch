@@ -1,0 +1,49 @@
+From: Juergen Beisert <jbe@pengutronix.de>
+Date: Mon, 24 Mar 2014 16:11:42 +0100
+Subject: [PATCH] Platform PFLA02: prepare for external overlays.
+
+Partitions in the NAND, NOR and EEPROM are application specific. Prepare
+the CPU card's device tree include to be able to overwrite the partitions
+by application specific device trees.
+
+Signed-off-by: Juergen Beisert <jbe@pengutronix.de>
+---
+ arch/arm/boot/dts/imx6qdl-phytec-pbab01.dtsi | 2 +-
+ arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm/boot/dts/imx6qdl-phytec-pbab01.dtsi b/arch/arm/boot/dts/imx6qdl-phytec-pbab01.dtsi
+index ef4910bd8140..ac7b19f6ebf8 100644
+--- a/arch/arm/boot/dts/imx6qdl-phytec-pbab01.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-phytec-pbab01.dtsi
+@@ -18,7 +18,7 @@
+ 
+ 		environment-spi {
+ 			compatible = "barebox,environment";
+-			device-path = &flash, "partname:barebox-environment";
++			device-path = &norflash, "partname:barebox-environment";
+ 			status = "disabled";
+ 		};
+ 
+diff --git a/arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi b/arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi
+index 79436065171a..586ee6e39e98 100644
+--- a/arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-phytec-pfla02.dtsi
+@@ -79,7 +79,7 @@
+ 	fsl,spi-num-chipselects = <1>;
+ 	cs-gpios = <&gpio4 24 0>;
+ 
+-	flash: flash@0 {
++	norflash: flash@0 {
+ 		compatible = "m25p80", "jedec,spi-nor";
+ 		spi-max-frequency = <20000000>;
+ 		reg = <0>;
+@@ -119,7 +119,7 @@
+ 	pinctrl-0 = <&pinctrl_i2c1>;
+ 	status = "okay";
+ 
+-	eeprom@50 {
++	eeprom: eeprom@50 {
+ 		compatible = "atmel,24c32";
+ 		reg = <0x50>;
+ 	};

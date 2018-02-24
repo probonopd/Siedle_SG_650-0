@@ -1,0 +1,52 @@
+From: Enrico Jorns <ejo@pengutronix.de>
+Date: Tue, 20 Jan 2015 16:53:28 +0100
+Subject: [PATCH] gstv4l2videoenc: provide valid width and height in
+ gst_v4l2_object_set_format()
+
+An incomplete solution that first stets output state to receive valid
+width and height informationg that are passed to gst_v4l2_object_set_format()
+instead of 0 sizes as before.
+---
+ sys/v4l2/gstv4l2videoenc.c | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/sys/v4l2/gstv4l2videoenc.c b/sys/v4l2/gstv4l2videoenc.c
+index a0608a23a880..cabd4d80ec3a 100644
+--- a/sys/v4l2/gstv4l2videoenc.c
++++ b/sys/v4l2/gstv4l2videoenc.c
+@@ -439,6 +439,7 @@ gst_v4l2_video_enc_handle_frame (GstVideoEncoder * encoder,
+   GstV4l2VideoEnc *self = GST_V4L2_VIDEO_ENC (encoder);
+   GstFlowReturn ret = GST_FLOW_OK;
+   GstStructure *structure;
++  GstVideoCodecState *output_state;
+ 
+   GST_DEBUG_OBJECT (self, "Handling frame %d", frame->system_frame_number);
+ 
+@@ -454,6 +455,19 @@ gst_v4l2_video_enc_handle_frame (GstVideoEncoder * encoder,
+ 
+   if (NULL != outcaps) {
+     GstBufferPool *pool = GST_BUFFER_POOL (self->v4l2output->pool);
++    GstStructure *structure;
++
++    output_state =
++        gst_video_encoder_set_output_state (encoder, outcaps,
++        self->input_state);
++
++    /* Get output width and height information from input state */
++    structure = gst_caps_get_structure (outcaps, 0);
++    gst_structure_set (structure, "width", G_TYPE_INT, output_state->info.width,
++        NULL);
++    gst_structure_set (structure, "height", G_TYPE_INT,
++        output_state->info.height, NULL);
++
+     gst_v4l2_object_set_format (self->v4l2capture, outcaps);
+ 
+     if (!gst_buffer_pool_is_active (pool)) {
+@@ -470,7 +484,6 @@ gst_v4l2_video_enc_handle_frame (GstVideoEncoder * encoder,
+         goto activate_failed;
+     }
+ 
+-    gst_video_encoder_set_output_state (encoder, outcaps, self->input_state);
+ 
+     if (!gst_video_encoder_negotiate (encoder)) {
+       if (GST_PAD_IS_FLUSHING (encoder->srcpad))

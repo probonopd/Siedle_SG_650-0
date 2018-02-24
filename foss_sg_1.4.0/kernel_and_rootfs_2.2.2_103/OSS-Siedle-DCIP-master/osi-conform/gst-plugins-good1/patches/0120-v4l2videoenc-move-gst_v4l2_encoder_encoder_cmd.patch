@@ -1,0 +1,88 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 23 Jun 2016 15:14:34 +0200
+Subject: [PATCH] v4l2videoenc: move gst_v4l2_encoder_encoder_cmd
+
+---
+ sys/v4l2/gstv4l2videoenc.c | 62 +++++++++++++++++++++++-----------------------
+ 1 file changed, 31 insertions(+), 31 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2videoenc.c b/sys/v4l2/gstv4l2videoenc.c
+index 993720c61b6d..a60c385c8763 100644
+--- a/sys/v4l2/gstv4l2videoenc.c
++++ b/sys/v4l2/gstv4l2videoenc.c
+@@ -298,6 +298,37 @@ gst_v4l2_video_enc_negotiate (GstVideoEncoder * encoder)
+   return GST_VIDEO_ENCODER_CLASS (parent_class)->negotiate (encoder);
+ }
+ 
++static gboolean
++gst_v4l2_encoder_cmd (GstV4l2Object * v4l2object, guint cmd, guint flags)
++{
++  struct v4l2_encoder_cmd ecmd = { 0, };
++
++  GST_DEBUG_OBJECT (v4l2object->element,
++      "sending v4l2 encoder command %u with flags %u", cmd, flags);
++
++  if (!GST_V4L2_IS_OPEN (v4l2object))
++    return FALSE;
++
++  ecmd.cmd = cmd;
++  ecmd.flags = flags;
++  if (v4l2_ioctl (v4l2object->video_fd, VIDIOC_ENCODER_CMD, &ecmd) < 0)
++    goto ecmd_failed;
++
++  return TRUE;
++
++ecmd_failed:
++  if (errno == ENOTTY) {
++    GST_INFO_OBJECT (v4l2object->element,
++        "Failed to send encoder command %u with flags %u for '%s'. (%s)",
++        cmd, flags, v4l2object->videodev, g_strerror (errno));
++  } else {
++    GST_ERROR_OBJECT (v4l2object->element,
++        "Failed to send encoder command %u with flags %u for '%s'. (%s)",
++        cmd, flags, v4l2object->videodev, g_strerror (errno));
++  }
++  return FALSE;
++}
++
+ static GstFlowReturn
+ gst_v4l2_video_enc_finish (GstVideoEncoder * encoder)
+ {
+@@ -702,37 +733,6 @@ gst_v4l2_video_enc_sink_query (GstVideoEncoder * encoder, GstQuery * query)
+ }
+ 
+ static gboolean
+-gst_v4l2_encoder_cmd (GstV4l2Object * v4l2object, guint cmd, guint flags)
+-{
+-  struct v4l2_encoder_cmd ecmd = { 0, };
+-
+-  GST_DEBUG_OBJECT (v4l2object->element,
+-      "sending v4l2 encoder command %u with flags %u", cmd, flags);
+-
+-  if (!GST_V4L2_IS_OPEN (v4l2object))
+-    return FALSE;
+-
+-  ecmd.cmd = cmd;
+-  ecmd.flags = flags;
+-  if (v4l2_ioctl (v4l2object->video_fd, VIDIOC_ENCODER_CMD, &ecmd) < 0)
+-    goto ecmd_failed;
+-
+-  return TRUE;
+-
+-ecmd_failed:
+-  if (errno == ENOTTY) {
+-    GST_INFO_OBJECT (v4l2object->element,
+-        "Failed to send encoder command %u with flags %u for '%s'. (%s)",
+-        cmd, flags, v4l2object->videodev, g_strerror (errno));
+-  } else {
+-    GST_ERROR_OBJECT (v4l2object->element,
+-        "Failed to send encoder command %u with flags %u for '%s'. (%s)",
+-        cmd, flags, v4l2object->videodev, g_strerror (errno));
+-  }
+-  return FALSE;
+-}
+-
+-static gboolean
+ gst_v4l2_video_enc_sink_event (GstVideoEncoder * encoder, GstEvent * event)
+ {
+   GstV4l2VideoEnc *self = GST_V4L2_VIDEO_ENC (encoder);

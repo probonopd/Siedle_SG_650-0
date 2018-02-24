@@ -1,0 +1,5 @@
+97962987997b17602b05e45d950e0c89  0001-builddefs-save-C-and-CPPFLAGS-from-configure-and-use.patch
+2329653520b250a89fa775bae62032f8  0002-buildmacros-add-tag-CC-to-libtool-invocation.patch
+27e04d83e4b2fa0451a276e4aac33c63  0003-buildmacros-fix-installation-of-static-libs.patch
+fa2fe3052ba6cf513c2fa5e51fc0b058  0004-buildmacros-fix-install-with-user-domain.patch
+f34853cd7c942afb5c7bbfff4ebf1264  series

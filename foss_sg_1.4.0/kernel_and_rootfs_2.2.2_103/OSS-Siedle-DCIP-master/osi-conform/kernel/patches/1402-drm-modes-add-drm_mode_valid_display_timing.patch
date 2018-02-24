@@ -1,0 +1,125 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 19 Dec 2014 17:31:09 +0100
+Subject: [PATCH] drm/modes: add drm_mode_valid_display_timing
+
+Add a helper function that whether a given drm_display_mode structure meets
+the timing constraints described by a display_timings structure. If the mode
+is invalid, the drm_mode_status enum return value details the reason.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/drm/drm_modes.c | 77 +++++++++++++++++++++++++++++++++++++++++++++
+ include/drm/drm_modes.h     |  5 +++
+ 2 files changed, 82 insertions(+)
+
+diff --git a/drivers/gpu/drm/drm_modes.c b/drivers/gpu/drm/drm_modes.c
+index 39e30abddf08..7e480a736974 100644
+--- a/drivers/gpu/drm/drm_modes.c
++++ b/drivers/gpu/drm/drm_modes.c
+@@ -575,6 +575,83 @@ EXPORT_SYMBOL(drm_gtf_mode);
+ 
+ #ifdef CONFIG_VIDEOMODE_HELPERS
+ /**
++ * drm_mode_valid_display_timing - check if @mode meeds @timing's constraints
++ * @mode: drm_display_mode structure to check against @timing
++ * @timing: display_timing structure containing valid timing ranges
++ *
++ * Returns a drm_mode_status enum, MODE_OK indicates compliance.
++ */
++enum drm_mode_status
++drm_mode_valid_display_timing(const struct drm_display_mode *mode,
++			      const struct display_timing *timing)
++{
++	int hfront_porch, hback_porch, hsync_len;
++	int vfront_porch, vback_porch, vsync_len;
++
++	if (mode->clock * 1000 < timing->pixelclock.min)
++		return MODE_CLOCK_LOW;
++	if (mode->clock * 1000 > timing->pixelclock.max)
++		return MODE_CLOCK_HIGH;
++
++	if (mode->hdisplay < timing->hactive.min ||
++	    mode->hdisplay > timing->hactive.max)
++		return MODE_H_ILLEGAL;
++	if (mode->vdisplay < timing->vactive.min ||
++	    mode->vdisplay > timing->vactive.max)
++		return MODE_V_ILLEGAL;
++
++	hfront_porch = mode->hsync_start - mode->hdisplay;
++	hback_porch = mode->htotal - mode->hsync_end;
++	if (hfront_porch < timing->hfront_porch.min ||
++	    hback_porch < timing->hback_porch.min)
++		return MODE_HBLANK_NARROW;
++	if (hfront_porch > timing->hfront_porch.max ||
++	    hback_porch > timing->hback_porch.max)
++		return MODE_HBLANK_WIDE;
++
++	hsync_len = mode->hsync_end - mode->hsync_start;
++	if (hsync_len < timing->hsync_len.min)
++		return MODE_HSYNC_NARROW;
++	if (hsync_len > timing->hsync_len.max)
++		return MODE_HSYNC_WIDE;
++
++	vfront_porch = mode->vsync_start - mode->vdisplay;
++	vback_porch = mode->vtotal - mode->vsync_end;
++	if (vfront_porch < timing->vfront_porch.min ||
++	    vfront_porch > timing->vfront_porch.max)
++		return MODE_VBLANK_NARROW;
++	if (vback_porch < timing->vback_porch.min ||
++	    vback_porch > timing->vback_porch.max)
++		return MODE_VBLANK_WIDE;
++
++	vsync_len = mode->vsync_end - mode->vsync_start;
++	if (vsync_len < timing->vsync_len.min)
++		return MODE_VSYNC_NARROW;
++	if (vsync_len > timing->vsync_len.max)
++		return MODE_VSYNC_WIDE;
++
++	if ((timing->flags & DISPLAY_FLAGS_HSYNC_HIGH &&
++	     !(mode->flags & DRM_MODE_FLAG_PHSYNC)) ||
++	    (timing->flags & DISPLAY_FLAGS_HSYNC_LOW &&
++	     !(mode->flags & DRM_MODE_FLAG_NHSYNC)) ||
++	    (timing->flags & DISPLAY_FLAGS_VSYNC_HIGH &&
++	     !(mode->flags & DRM_MODE_FLAG_PVSYNC)) ||
++	    (timing->flags & DISPLAY_FLAGS_VSYNC_LOW &&
++	     !(mode->flags & DRM_MODE_FLAG_NVSYNC)))
++		return MODE_BAD;
++
++	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
++		return MODE_NO_INTERLACE;
++	if (mode->flags & DRM_MODE_FLAG_DBLSCAN)
++		return MODE_NO_DBLESCAN;
++	if (mode->flags & DRM_MODE_FLAG_3D_MASK)
++		return MODE_NO_STEREO;
++
++	return MODE_OK;
++}
++EXPORT_SYMBOL_GPL(drm_mode_valid_display_timing);
++
++/**
+  * drm_display_mode_from_videomode - fill in @dmode using @vm,
+  * @vm: videomode structure to use as source
+  * @dmode: drm_display_mode structure to use as destination
+diff --git a/include/drm/drm_modes.h b/include/drm/drm_modes.h
+index 08a8cac9e555..2f388e62d03e 100644
+--- a/include/drm/drm_modes.h
++++ b/include/drm/drm_modes.h
+@@ -179,6 +179,8 @@ static inline bool drm_mode_is_stereo(const struct drm_display_mode *mode)
+ 
+ struct drm_connector;
+ struct drm_cmdline_mode;
++struct videomode;
++struct display_timing;
+ 
+ struct drm_display_mode *drm_mode_create(struct drm_device *dev);
+ void drm_mode_destroy(struct drm_device *dev, struct drm_display_mode *mode);
+@@ -202,6 +204,9 @@ struct drm_display_mode *drm_gtf_mode_complex(struct drm_device *dev,
+ 					      int margins,
+ 					      int GTF_M, int GTF_2C,
+ 					      int GTF_K, int GTF_2J);
++enum drm_mode_status
++drm_mode_valid_display_timing(const struct drm_display_mode *dmode,
++			      const struct display_timing *timing);
+ void drm_display_mode_from_videomode(const struct videomode *vm,
+ 				     struct drm_display_mode *dmode);
+ void drm_display_mode_to_videomode(const struct drm_display_mode *dmode,

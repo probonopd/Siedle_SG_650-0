@@ -1,0 +1,143 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 31 Oct 2014 18:42:21 +0100
+Subject: [PATCH] ASoC: ssm2602: Fix ADC powerup sequencing
+
+According to the ssm2603 data sheet (control register sequencing), the
+digital core should be activated only after all necessary bits in the
+power register are enabled, and a delay determined by the decoupling
+capacitor on the VMID pin has passed. If the digital core is activated
+too early, or even before the ADC is powered up, audible artifacts
+appear at the beginning of the recorded signal.
+
+The digital core is also needed for playback, so when recording starts
+it may already be enabled. This means we cannot get the power sequence
+correct when we want to be able to start recording after playback.
+
+As a workaround put the MIC mute switch into the DAPM routes. This
+way we can keep the recording disabled until the MIC Bias has settled
+and thus get rid of audible artifacts.
+
+The delay we have to wait depends on a board specific capacitor
+connected to the VMID pins, so make the delay configurable in the device
+tree.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+---
+ .../devicetree/bindings/sound/adi,ssm2602.txt      |  7 +++++
+ sound/soc/codecs/ssm2602.c                         | 30 ++++++++++++++++++++--
+ 2 files changed, 35 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/sound/adi,ssm2602.txt b/Documentation/devicetree/bindings/sound/adi,ssm2602.txt
+index 3b3302fe399b..9334d48c0462 100644
+--- a/Documentation/devicetree/bindings/sound/adi,ssm2602.txt
++++ b/Documentation/devicetree/bindings/sound/adi,ssm2602.txt
+@@ -11,9 +11,16 @@ Required properties:
+   - reg : the I2C address of the device for I2C, the chip select
+           number for SPI.
+ 
++Optional properties:
++
++  - startup-delay-us : delay between powering on and activating the digital
++                       core, determined by the decoupling capacitor C on the
++		       VMID pin: delay [µs] = C [µF] * 25000 / 3.5
++
+  Example:
+ 
+ 	ssm2602: ssm2602@1a {
+ 		compatible = "adi,ssm2602";
+ 		reg = <0x1a>;
++		startup-delay-us = <34000>; /* 4.7 µF * 25000 / 3.5 -> ~34 ms */
+ 	};
+diff --git a/sound/soc/codecs/ssm2602.c b/sound/soc/codecs/ssm2602.c
+index 4452fea0b118..b9b6099233bb 100644
+--- a/sound/soc/codecs/ssm2602.c
++++ b/sound/soc/codecs/ssm2602.c
+@@ -26,9 +26,11 @@
+  * 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+  */
+ 
++#include <linux/delay.h>
+ #include <linux/module.h>
+ #include <linux/regmap.h>
+ #include <linux/slab.h>
++#include <linux/of.h>
+ 
+ #include <sound/pcm.h>
+ #include <sound/pcm_params.h>
+@@ -46,6 +48,7 @@ struct ssm2602_priv {
+ 
+ 	enum ssm2602_type type;
+ 	unsigned int clk_out_pwr;
++	u32 startup_delay_us;
+ };
+ 
+ /*
+@@ -104,7 +107,6 @@ SOC_SINGLE_TLV("Sidetone Playback Volume", SSM2602_APANA, 6, 3, 1,
+ 
+ SOC_SINGLE("Mic Boost (+20dB)", SSM2602_APANA, 0, 1, 0),
+ SOC_SINGLE("Mic Boost2 (+20dB)", SSM2602_APANA, 8, 1, 0),
+-SOC_SINGLE("Mic Switch", SSM2602_APANA, 1, 1, 1),
+ };
+ 
+ /* Output Mixer */
+@@ -114,10 +116,26 @@ SOC_DAPM_SINGLE("HiFi Playback Switch", SSM2602_APANA, 4, 1, 0),
+ SOC_DAPM_SINGLE("Mic Sidetone Switch", SSM2602_APANA, 5, 1, 0),
+ };
+ 
++static const struct snd_kcontrol_new mic_ctl =
++	SOC_DAPM_SINGLE("Switch", SSM2602_APANA, 1, 1, 1);
++
+ /* Input mux */
+ static const struct snd_kcontrol_new ssm2602_input_mux_controls =
+ SOC_DAPM_ENUM("Input Select", ssm2602_enum[0]);
+ 
++static int ssm2602_mic_switch_event(struct snd_soc_dapm_widget *w,
++				struct snd_kcontrol *kcontrol, int event)
++{
++	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
++	struct ssm2602_priv *ssm2602 = snd_soc_codec_get_drvdata(codec);
++
++	if (ssm2602->startup_delay_us)
++		usleep_range(ssm2602->startup_delay_us,
++			     ssm2602->startup_delay_us * 2);
++
++	return 0;
++}
++
+ static const struct snd_soc_dapm_widget ssm260x_dapm_widgets[] = {
+ SND_SOC_DAPM_DAC("DAC", "HiFi Playback", SSM2602_PWR, 3, 1),
+ SND_SOC_DAPM_ADC("ADC", "HiFi Capture", SSM2602_PWR, 2, 1),
+@@ -139,6 +157,9 @@ SND_SOC_DAPM_MIXER("Output Mixer", SSM2602_PWR, 4, 1,
+ SND_SOC_DAPM_MUX("Input Mux", SND_SOC_NOPM, 0, 0, &ssm2602_input_mux_controls),
+ SND_SOC_DAPM_MICBIAS("Mic Bias", SSM2602_PWR, 1, 1),
+ 
++SND_SOC_DAPM_SWITCH_E("Mic Switch", SSM2602_APANA, 1, 1, &mic_ctl,
++		ssm2602_mic_switch_event, SND_SOC_DAPM_PRE_PMU),
++
+ SND_SOC_DAPM_OUTPUT("LHPOUT"),
+ SND_SOC_DAPM_OUTPUT("RHPOUT"),
+ SND_SOC_DAPM_INPUT("MICIN"),
+@@ -171,9 +192,11 @@ static const struct snd_soc_dapm_route ssm2602_routes[] = {
+ 	{"LHPOUT", NULL, "Output Mixer"},
+ 
+ 	{"Input Mux", "Line", "Line Input"},
+-	{"Input Mux", "Mic", "Mic Bias"},
++	{"Input Mux", "Mic", "Mic Switch"},
+ 	{"ADC", NULL, "Input Mux"},
+ 
++	{"Mic Switch", NULL, "Mic Bias"},
++
+ 	{"Mic Bias", NULL, "MICIN"},
+ };
+ 
+@@ -635,6 +658,9 @@ int ssm2602_probe(struct device *dev, enum ssm2602_type type,
+ 	if (ssm2602 == NULL)
+ 		return -ENOMEM;
+ 
++	of_property_read_u32(dev->of_node, "startup-delay-us",
++			     &ssm2602->startup_delay_us);
++
+ 	dev_set_drvdata(dev, ssm2602);
+ 	ssm2602->type = type;
+ 	ssm2602->regmap = regmap;

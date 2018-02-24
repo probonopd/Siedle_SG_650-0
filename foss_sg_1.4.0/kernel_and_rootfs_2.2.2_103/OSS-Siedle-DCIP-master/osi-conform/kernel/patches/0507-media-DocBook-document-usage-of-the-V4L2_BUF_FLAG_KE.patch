@@ -1,0 +1,37 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 19 Dec 2014 12:57:27 +0100
+Subject: [PATCH] [media] DocBook: document usage of the V4L2_BUF_FLAG_KEYFRAME
+ for encoder I-frame requests
+
+To implement VFU (Video Fast Update) in video streaming scenarios, the encoder
+must be able to produce an I-frame in the middle of a GOP in reaction to a
+client request, for example due to a new client joining a stream, or after
+packet loss.
+This patch clarifies the use of the V4L2_BUF_FLAG_KEYFRAME flag for this
+purpose: an application sets the flag on an uncompressed output frame before
+queueing it, to instruct the driver to encode it into an I-frame. If the
+driver supports this feature, it clears the flag before marking the buffer
+as done.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ Documentation/DocBook/media/v4l/io.xml | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/DocBook/media/v4l/io.xml b/Documentation/DocBook/media/v4l/io.xml
+index da654031ef3f..10c67688a830 100644
+--- a/Documentation/DocBook/media/v4l/io.xml
++++ b/Documentation/DocBook/media/v4l/io.xml
+@@ -1079,7 +1079,11 @@ state, in the application domain so to say.</entry>
+ capture devices when the buffer contains a compressed image which is a
+ key frame (or field), &ie; can be decompressed on its own. Also known as
+ an I-frame.  Applications can set this bit when <structfield>type</structfield>
+-refers to an output stream.</entry>
++refers to an output stream. For encoder devices, setting this bit on an
++uncompressed output buffer can be used to instruct the driver to encode
++this buffer as an I-frame, even if it otherwise would have produced an inter
++frame at this point. The driver clears this flag if it supports the keyframe
++request.</entry>
+ 	  </row>
+ 	  <row>
+ 	    <entry><constant>V4L2_BUF_FLAG_PFRAME</constant></entry>

@@ -1,0 +1,11 @@
+## SECTION=multimedia_xorg_font_base
+
+config XORG_FONT_MISC_MISC
+	tristate
+	select XORG_FONTS
+	prompt "misc misc"
+	help
+	  These are most fundamental fonts in misc section.
+	  You might most probably want it.
+	  This package contains fonts in the ISO 10646-1,
+	  ISO 8859-1 and ISO 8859-15 encodings

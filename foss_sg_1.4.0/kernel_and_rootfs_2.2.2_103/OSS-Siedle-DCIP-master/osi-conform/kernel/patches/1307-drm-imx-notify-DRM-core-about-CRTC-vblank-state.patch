@@ -1,0 +1,33 @@
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Tue, 3 Nov 2015 12:02:17 +0100
+Subject: [PATCH] drm/imx: notify DRM core about CRTC vblank state
+
+Make sure the DRM core is aware that there will be no vblank interrupts
+incoming if the CRTC is disabled. That way the core will reject any
+attempts from userspace to wait on a vblank event on a disabled CRTC.
+
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ drivers/gpu/drm/imx/ipuv3-crtc.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/imx/ipuv3-crtc.c b/drivers/gpu/drm/imx/ipuv3-crtc.c
+index 9b0abd44b751..22f36eea65d5 100644
+--- a/drivers/gpu/drm/imx/ipuv3-crtc.c
++++ b/drivers/gpu/drm/imx/ipuv3-crtc.c
+@@ -64,6 +64,7 @@ static void ipu_fb_enable(struct ipu_crtc *ipu_crtc)
+ 	/* Start DC channel and DI after IDMAC */
+ 	ipu_dc_enable_channel(ipu_crtc->dc);
+ 	ipu_di_enable(ipu_crtc->di);
++	drm_crtc_vblank_on(&ipu_crtc->base);
+ 
+ 	ipu_crtc->enabled = 1;
+ }
+@@ -80,6 +81,7 @@ static void ipu_fb_disable(struct ipu_crtc *ipu_crtc)
+ 	ipu_di_disable(ipu_crtc->di);
+ 	ipu_plane_disable(ipu_crtc->plane[0]);
+ 	ipu_dc_disable(ipu);
++	drm_crtc_vblank_off(&ipu_crtc->base);
+ 
+ 	ipu_crtc->enabled = 0;
+ }

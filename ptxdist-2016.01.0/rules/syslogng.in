@@ -1,0 +1,60 @@
+## SECTION=networking
+# syslog-ng configuration
+
+menuconfig SYSLOGNG
+	tristate
+	prompt "syslog-ng                     "
+	select EVENTLOG
+	select GLIB
+	select LIBC_NSL
+	select LIBC_RT
+	select LIBNET		if SYSLOGNG_SPOOF_SOURCE
+	select TCPWRAPPER	if SYSLOGNG_TCP_WRAPPER
+	help
+	  The next generation syslog daemon.
+
+if SYSLOGNG
+
+config SYSLOGNG_TCP_WRAPPER
+	bool
+	prompt "tcpwrapper support"
+	help
+	  Support /etc/hosts.deny and /etc/hosts.allow.
+
+config SYSLOGNG_SPOOF_SOURCE
+	bool
+	prompt "spoof_source feature"
+	help
+	  Enables the ability for source address spoofing.
+	  This means that the host running syslog-ng generates
+	  UDP packets with the source IP address matching the
+	  original sender of the message. It is useful when
+	  you want to perform some kind of preprocessing via
+	  syslog-ng then forward messages to your central log
+	  management solution with the source address of the
+	  original sender. This option only works for UDP
+	  destinations though the original message can be
+	  received by TCP as well.
+
+comment "runtime options   ---"
+
+config SYSLOGNG_CONFIG
+	bool
+	default y
+	prompt "Install configuration file"
+	help
+	  Installs (if present) the "./projectroot/etc/syslog-ng.conf"
+	  file from your workspace, otherwise a generic one from the
+	  ptxdist installation
+	  ("<PTXDIST>/projectroot/etc/syslog-ng.conf").
+
+config SYSLOGNG_STARTSCRIPT
+	bool
+	default y
+	help
+	  Installs (if present) the
+	  "./projectroot/etc/init.d/syslog-ng" startscript from your
+	  workspace, otherwise a generic one from the ptxdist
+	  installation ("<PTXDIST>/projectroot/etc/init.d/syslog-ng").
+
+endif

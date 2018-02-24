@@ -1,0 +1,57 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 23 Feb 2015 16:45:23 +0100
+Subject: [PATCH] [media] coda: Until GStreamer is fixed, allow S_PARM on the
+ CAPTURE side
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-common.c | 25 ++++++++++++++++++++-----
+ 1 file changed, 20 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index 5caebefaec56..83f529c47cf6 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -853,11 +853,19 @@ static int coda_g_parm(struct file *file, void *fh, struct v4l2_streamparm *a)
+ 	struct coda_ctx *ctx = fh_to_ctx(fh);
+ 	struct v4l2_fract *tpf;
+ 
+-	if (a->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)
++	switch (a->type) {
++	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
++		a->parm.output.capability = V4L2_CAP_TIMEPERFRAME;
++		tpf = &a->parm.output.timeperframe;
++		break;
++	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
++		a->parm.capture.capability = V4L2_CAP_TIMEPERFRAME;
++		tpf = &a->parm.capture.timeperframe;
++		break;
++	default:
+ 		return -EINVAL;
++	}
+ 
+-	a->parm.output.capability = V4L2_CAP_TIMEPERFRAME;
+-	tpf = &a->parm.output.timeperframe;
+ 	tpf->denominator = ctx->params.framerate & CODA_FRATE_RES_MASK;
+ 	tpf->numerator = 1 + (ctx->params.framerate >>
+ 			      CODA_FRATE_DIV_OFFSET);
+@@ -936,10 +944,17 @@ static int coda_s_parm(struct file *file, void *fh, struct v4l2_streamparm *a)
+ 	struct coda_ctx *ctx = fh_to_ctx(fh);
+ 	struct v4l2_fract *tpf;
+ 
+-	if (a->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)
++	switch (a->type) {
++	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
++		tpf = &a->parm.output.timeperframe;
++		break;
++	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
++		tpf = &a->parm.capture.timeperframe;
++		break;
++	default:
+ 		return -EINVAL;
++	}
+ 
+-	tpf = &a->parm.output.timeperframe;
+ 	coda_approximate_timeperframe(tpf);
+ 	ctx->params.framerate = coda_timeperframe_to_frate(tpf);
+ 

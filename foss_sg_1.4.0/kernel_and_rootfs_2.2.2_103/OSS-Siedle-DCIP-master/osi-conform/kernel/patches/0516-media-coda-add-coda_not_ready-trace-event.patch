@@ -1,0 +1,132 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 6 Jul 2015 16:19:09 +0200
+Subject: [PATCH] [media] coda: add coda_not_ready trace event
+
+Add a trace event to signal that decoding was held back by low
+bitstream buffer payload.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-common.c | 17 ++++++++++++++--
+ drivers/media/platform/coda/trace.h       | 32 +++++++++++++++++++++++++++++++
+ 2 files changed, 47 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index ad63b2aa198c..86db40d8e062 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -41,6 +41,7 @@
+ #include <media/videobuf2-vmalloc.h>
+ 
+ #include "coda.h"
++#include "trace.h"
+ 
+ #define CODA_NAME		"coda"
+ 
+@@ -1017,6 +1018,7 @@ static int coda_job_ready(void *m2m_priv)
+ {
+ 	struct coda_ctx *ctx = m2m_priv;
+ 	int src_bufs = v4l2_m2m_num_src_bufs_ready(ctx->fh.m2m_ctx);
++	bool stream_end = ctx->bit_stream_param & CODA_BIT_STREAM_END_FLAG;
+ 
+ 	/*
+ 	 * For both 'P' and 'key' frame cases 1 picture
+@@ -1024,20 +1026,20 @@ static int coda_job_ready(void *m2m_priv)
+ 	 * the compressed frame can be in the bitstream.
+ 	 */
+ 	if (!src_bufs && ctx->inst_type != CODA_INST_DECODER) {
++		trace_coda_not_ready(ctx, stream_end, src_bufs, -1, -1);
+ 		v4l2_dbg(1, coda_debug, &ctx->dev->v4l2_dev,
+ 			 "not ready: not enough video buffers.\n");
+ 		return 0;
+ 	}
+ 
+ 	if (!v4l2_m2m_num_dst_bufs_ready(ctx->fh.m2m_ctx)) {
++		trace_coda_not_ready(ctx, stream_end, src_bufs, -2, -2);
+ 		v4l2_dbg(1, coda_debug, &ctx->dev->v4l2_dev,
+ 			 "not ready: not enough video capture buffers.\n");
+ 		return 0;
+ 	}
+ 
+ 	if (ctx->inst_type == CODA_INST_DECODER && ctx->use_bit) {
+-		bool stream_end = ctx->bit_stream_param &
+-				  CODA_BIT_STREAM_END_FLAG;
+ 		int num_metas = ctx->num_metas;
+ 		struct coda_buffer_meta *meta;
+ 		unsigned int meta_size;
+@@ -1050,7 +1052,16 @@ static int coda_job_ready(void *m2m_priv)
+ 			return 0;
+ 		}
+ 
++		if (ctx->hold && !src_bufs) {
++			trace_coda_not_ready(ctx, stream_end, src_bufs, num_metas, payload);
++			v4l2_dbg(1, coda_debug, &ctx->dev->v4l2_dev,
++				 "%d: not ready: on hold for more buffers.\n",
++				 ctx->idx);
++			return 0;
++		}
++
+ 		if (!stream_end && (num_metas + src_bufs) < 2) {
++			trace_coda_not_ready(ctx, stream_end, src_bufs, num_metas, payload);
+ 			v4l2_dbg(1, coda_debug, &ctx->dev->v4l2_dev,
+ 				 "%d: not ready: need 2 buffers available (queue:%d + bitstream:%d)\n",
+ 				 ctx->idx, num_metas, src_bufs);
+@@ -1064,6 +1075,7 @@ static int coda_job_ready(void *m2m_priv)
+ 		else
+ 			meta_size = ctx->bitstream.size - meta->start + meta->end;
+ 		if (!stream_end && payload < meta_size + 512) {
++			trace_coda_not_ready(ctx, stream_end, src_bufs, num_metas, payload);
+ 			v4l2_dbg(1, coda_debug, &ctx->dev->v4l2_dev,
+ 				 "%d: not ready: need 3*256 bytes beyond first buffer in bitstream (%d %d)\n",
+ 				 ctx->idx, meta_size, payload);
+@@ -1072,6 +1084,7 @@ static int coda_job_ready(void *m2m_priv)
+ 
+ 		if (!src_bufs && !stream_end &&
+ 		    (payload < 512)) {
++			trace_coda_not_ready(ctx, stream_end, src_bufs, num_metas, payload);
+ 			v4l2_dbg(1, coda_debug, &ctx->dev->v4l2_dev,
+ 				 "%d: not ready: not enough bitstream data (%d).\n",
+ 				 ctx->idx, payload);
+diff --git a/drivers/media/platform/coda/trace.h b/drivers/media/platform/coda/trace.h
+index f0ff26a40775..1e7c94680f3d 100644
+--- a/drivers/media/platform/coda/trace.h
++++ b/drivers/media/platform/coda/trace.h
+@@ -153,6 +153,38 @@ DEFINE_EVENT(coda_buf_meta_class, coda_dec_rot_done,
+ 	TP_ARGS(ctx, buf, meta)
+ );
+ 
++TRACE_EVENT(coda_not_ready,
++	TP_PROTO(struct coda_ctx *ctx, bool stream_end, int src_bufs,
++		 int num_metas, int payload),
++
++	TP_ARGS(ctx, stream_end, src_bufs, num_metas, payload),
++
++	TP_STRUCT__entry(
++		__field(int, minor)
++		__field(bool, hold)
++		__field(bool, stream_end)
++		__field(int, src_bufs)
++		__field(int, num_metas)
++		__field(int, payload)
++		__field(int, ctx)
++	),
++
++	TP_fast_assign(
++		__entry->minor = ctx->fh.vdev->minor;
++		__entry->hold = ctx->hold;
++		__entry->stream_end = stream_end;
++		__entry->src_bufs = src_bufs;
++		__entry->num_metas = num_metas;
++		__entry->payload = payload;
++		__entry->ctx = ctx->idx;
++	),
++
++	TP_printk("minor = %d, hold = %d, stream_end = %d, src_bufs = %d, metas = %d, payload = %d, ctx = %d",
++		  __entry->minor, __entry->hold, __entry->stream_end,
++		  __entry->src_bufs, __entry->num_metas, __entry->payload,
++		  __entry->ctx)
++);
++
+ #endif /* __CODA_TRACE_H__ */
+ 
+ #undef TRACE_INCLUDE_PATH

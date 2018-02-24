@@ -1,0 +1,20 @@
+## SECTION=system_libraries
+
+menuconfig LIBNL
+	tristate
+	prompt "libnl                         "
+	select LIBC_M
+	select GCCLIBS_GCC_S
+	help
+	  libnl is a library for applications dealing with netlink
+	  sockets. The library provides an interface for raw
+	  netlink messaging and various netlink family specific
+	  interfaces.
+
+if LIBNL
+
+config LIBNL_MONITOR
+	bool
+	prompt "nl-monitor"
+
+endif

@@ -1,0 +1,31 @@
+Increase minimal polling interval ("Peer Polling Interval" in
+ntpdate requests) from 3 back to the old value of 4.
+
+Spec at http://www.ntp.org/ntpfaq/NTP-s-algo.htm states that the
+minimal poll interval has to be 4.
+In (at least) ntp 4.2.4p4, it was set to 4.
+In (at least) ntp 4.2.6 and up to current dev-snapshot 4.2.7p401,
+it is set to 3.
+
+A value of 3 leads to a non-working request from (at least) ntpdate
+to an (older) ntpd.
+
+There is also an open bug for this:
+http://bugs.ntp.org/show_bug.cgi?id=2386
+---
+ include/ntp.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: b/include/ntp.h
+===================================================================
+--- a/include/ntp.h
++++ b/include/ntp.h
+@@ -108,7 +108,7 @@
+  * Poll interval parameters
+  */
+ #define NTP_UNREACH	10	/* poll unreach threshold */
+-#define	NTP_MINPOLL	3	/* log2 min poll interval (8 s) */
++#define	NTP_MINPOLL	4	/* log2 min poll interval (16 s) */
+ #define NTP_MINDPOLL	6	/* log2 default min poll (64 s) */
+ #define NTP_MAXDPOLL	10	/* log2 default max poll (~17 m) */
+ #define	NTP_MAXPOLL	17	/* log2 max poll interval (~36 h) */

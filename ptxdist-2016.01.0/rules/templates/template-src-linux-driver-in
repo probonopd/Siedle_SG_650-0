@@ -1,0 +1,8 @@
+## SECTION=@section@
+
+config @PACKAGE@
+	tristate
+	select KERNEL
+	prompt "@package@"
+	help
+	  FIXME

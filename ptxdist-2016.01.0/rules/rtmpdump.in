@@ -1,0 +1,9 @@
+## SECTION=multimedia_libs
+
+config RTMPDUMP
+	tristate
+	select ZLIB
+	select OPENSSL
+	prompt "rtmpdump"
+	help
+	  FIXME

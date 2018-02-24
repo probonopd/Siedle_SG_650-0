@@ -1,0 +1,43 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 18 Nov 2015 14:36:35 +0100
+Subject: [PATCH] reset: remove unused device pointer from struct reset_control
+
+Commit 0c5b2b915a58 ("reset: Mark function as static and remove unused
+function in core.c") removed the only user of the device pointer in
+struct reset_control. As it is now unused, remove it.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/reset/core.c | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
+
+diff --git a/drivers/reset/core.c b/drivers/reset/core.c
+index 9ab929049b9d..87376638948d 100644
+--- a/drivers/reset/core.c
++++ b/drivers/reset/core.c
+@@ -30,7 +30,6 @@ static LIST_HEAD(reset_controller_list);
+  */
+ struct reset_control {
+ 	struct reset_controller_dev *rcdev;
+-	struct device *dev;
+ 	unsigned int id;
+ };
+ 
+@@ -236,16 +235,10 @@ EXPORT_SYMBOL_GPL(of_reset_control_get);
+  */
+ struct reset_control *reset_control_get(struct device *dev, const char *id)
+ {
+-	struct reset_control *rstc;
+-
+ 	if (!dev)
+ 		return ERR_PTR(-EINVAL);
+ 
+-	rstc = of_reset_control_get(dev->of_node, id);
+-	if (!IS_ERR(rstc))
+-		rstc->dev = dev;
+-
+-	return rstc;
++	return of_reset_control_get(dev->of_node, id);
+ }
+ EXPORT_SYMBOL_GPL(reset_control_get);
+ 

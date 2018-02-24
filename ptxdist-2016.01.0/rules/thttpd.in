@@ -1,0 +1,42 @@
+## SECTION=networking
+menuconfig THTTPD
+	tristate
+	prompt "thttpd                        "
+	select LIBC_CRYPT
+	help
+	  thttpd (thin httpd) is a small, fast secure webserver.
+
+	  It features CGI support, URL-traffic-based throttling
+	  and basic authentication. thttpd has a very small memory
+	  footprint as it only forks itself in order to execute
+	  CGI scripts. It is designed to be as fast as fully
+	  featured web-servers and it performs extremely well
+	  under high load.
+
+	comment "runtime options  ---"
+	depends on THTTPD
+
+if THTTPD
+
+config THTTPD__GENERIC_SITE
+	depends on THTTPD
+	bool
+	default y
+	prompt "Populate a generic website"
+	help
+	  This install a generic website into /var/www/index.html
+	  from <ptxdist-install>/projectroot/var/www/thttpd.html
+
+config THTTPD__INSTALL_HTPASSWD
+	bool "Install mkpasswd tool."
+	default y
+	help
+	  Install the mkpasswd tool. It can create and manage .htpasswd file
+	  for authentication of users.
+
+config THTTPD_STARTSCRIPT
+	bool
+	default y
+	prompt "install /etc/init.d/thttpd"
+
+endif

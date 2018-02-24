@@ -1,0 +1,57 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 3 Mar 2016 11:25:33 +0100
+Subject: [PATCH] [media] v4l2-ioctl: allow video overlay for output devices
+
+---
+ drivers/media/v4l2-core/v4l2-ioctl.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/media/v4l2-core/v4l2-ioctl.c b/drivers/media/v4l2-core/v4l2-ioctl.c
+index 17ff837113e7..9e1362c9a2b4 100644
+--- a/drivers/media/v4l2-core/v4l2-ioctl.c
++++ b/drivers/media/v4l2-core/v4l2-ioctl.c
+@@ -940,7 +940,7 @@ static int check_fmt(struct file *file, enum v4l2_buf_type type)
+ 			return 0;
+ 		break;
+ 	case V4L2_BUF_TYPE_VIDEO_OVERLAY:
+-		if (is_vid && is_rx && ops->vidioc_g_fmt_vid_overlay)
++		if (is_vid && ops->vidioc_g_fmt_vid_overlay)
+ 			return 0;
+ 		break;
+ 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+@@ -1312,7 +1312,7 @@ static int v4l_enum_fmt(const struct v4l2_ioctl_ops *ops,
+ 		ret = ops->vidioc_enum_fmt_vid_cap_mplane(file, fh, arg);
+ 		break;
+ 	case V4L2_BUF_TYPE_VIDEO_OVERLAY:
+-		if (unlikely(!is_rx || !is_vid || !ops->vidioc_enum_fmt_vid_overlay))
++		if (unlikely(!is_vid || !ops->vidioc_enum_fmt_vid_overlay))
+ 			break;
+ 		ret = ops->vidioc_enum_fmt_vid_overlay(file, fh, arg);
+ 		break;
+@@ -1391,7 +1391,7 @@ static int v4l_g_fmt(const struct v4l2_ioctl_ops *ops,
+ 			break;
+ 		return ops->vidioc_g_fmt_vid_cap_mplane(file, fh, arg);
+ 	case V4L2_BUF_TYPE_VIDEO_OVERLAY:
+-		if (unlikely(!is_rx || !is_vid || !ops->vidioc_g_fmt_vid_overlay))
++		if (unlikely(!is_vid || !ops->vidioc_g_fmt_vid_overlay))
+ 			break;
+ 		return ops->vidioc_g_fmt_vid_overlay(file, fh, arg);
+ 	case V4L2_BUF_TYPE_VBI_CAPTURE:
+@@ -1466,7 +1466,7 @@ static int v4l_s_fmt(const struct v4l2_ioctl_ops *ops,
+ 		CLEAR_AFTER_FIELD(p, fmt.pix_mp);
+ 		return ops->vidioc_s_fmt_vid_cap_mplane(file, fh, arg);
+ 	case V4L2_BUF_TYPE_VIDEO_OVERLAY:
+-		if (unlikely(!is_rx || !is_vid || !ops->vidioc_s_fmt_vid_overlay))
++		if (unlikely(!is_vid || !ops->vidioc_s_fmt_vid_overlay))
+ 			break;
+ 		CLEAR_AFTER_FIELD(p, fmt.win);
+ 		return ops->vidioc_s_fmt_vid_overlay(file, fh, arg);
+@@ -1550,7 +1550,7 @@ static int v4l_try_fmt(const struct v4l2_ioctl_ops *ops,
+ 		CLEAR_AFTER_FIELD(p, fmt.pix_mp);
+ 		return ops->vidioc_try_fmt_vid_cap_mplane(file, fh, arg);
+ 	case V4L2_BUF_TYPE_VIDEO_OVERLAY:
+-		if (unlikely(!is_rx || !is_vid || !ops->vidioc_try_fmt_vid_overlay))
++		if (unlikely(!is_vid || !ops->vidioc_try_fmt_vid_overlay))
+ 			break;
+ 		CLEAR_AFTER_FIELD(p, fmt.win);
+ 		return ops->vidioc_try_fmt_vid_overlay(file, fh, arg);

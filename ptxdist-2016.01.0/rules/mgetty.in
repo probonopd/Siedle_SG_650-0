@@ -1,0 +1,71 @@
+## SECTION=communication
+menuconfig MGETTY
+	tristate
+	prompt "mgetty & sendfax              "
+	help
+	  mgetty+sendfax is a reliable and proven fax send and receive solution.
+
+	  mgetty is a modem-aware getty. It supports modems with the Hayes AT
+	  command set and is especially designed for supporting modems that
+	  are used to send faxes and to dial out as well as dial in. These
+	  features are not required for a serial console.
+
+	  Sendfax is designed to be able to send exactly one fax (consisting
+	  of multiple pages) to exactly one fax machine, but it is usable from
+	  within shell scripts. Its input are pages in "g3" format, either
+	  created with ghostscript or with pbm2g3.
+
+if MGETTY
+
+config MGETTY_CONFIG
+	prompt "Name of policy.h file to be used"
+	string
+	default "${MGETTY_DIR}/policy.h-dist"
+	help
+	  policy.h-dist is the default policy.h file provided by the
+	  distribution. It will be renamed to policy.h and used if
+	  no other policy.h file is supplied.
+
+config MGETTY_INSTALL_CONFIG
+	prompt "Install default config files to ${ROOTDIR}/etc/mgetty+sendfax"
+	bool
+	default y
+	help
+	  Enabling this option installs mgetty's default config files onto your target.
+	  Say N here if you want to use your own files and make sure they're installed
+	  by your vendortweaks.
+
+config SENDFAX
+	prompt "Install sendfax and G3 helper tools"
+	bool
+	default y
+	help
+	  Choose here if you want to install sendfax in addition
+	  to mgetty. If you only need mgetty for its getty
+	  functionality, but are not going to use faxes, you can
+	  opt to omit sendfax.
+
+config SENDFAX_SPOOL
+	bool
+	default y
+	prompt "Install faxspooling programs"
+	help
+	  This will install
+	  /usr/bin/faxspool
+	  /usr/bin/faxrunq
+	  /usr/bin/faxq
+	  /usr/bin/faxrm
+	  /usr/bin/faxrunqd
+	  /usr/lib/mgetty+sendfax/faxq-helper
+
+
+config MGETTY_CALLBACK
+	prompt "Install callback program"
+	bool
+	help
+	  The callback utility of mgetty is able to call
+	  back after a login 'attempt' based on entries in
+	  /etc/mgetty+sendfax/login.conf
+
+endif
+

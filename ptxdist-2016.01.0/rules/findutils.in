@@ -1,0 +1,42 @@
+## SECTION=shell_and_console
+menuconfig FINDUTILS
+	tristate
+	prompt "findutils                     "
+	select GCCLIBS_GCC_S if FINDUTILS_FIND
+	help
+	  The Findutils package contains programs to find files. These programs are provided to
+	  recursively search through a directory tree and to create, maintain, and search a
+	  database.
+
+if FINDUTILS
+
+config FINDUTILS_FIND
+	bool
+	depends on !BUSYBOX_FIND || ALLYES
+	prompt "find"
+	help
+	  Searches given directory trees for files matching the specified criteria
+
+comment "BusyBox' find is selected!"
+	depends on BUSYBOX_FIND
+
+config FINDUTILS_XARGS
+   bool
+	depends on !BUSYBOX_XARGS || ALLYES
+	prompt "xargs"
+	help
+	  Can be used to apply a given command to a list of files
+
+comment "BusyBox' xargs is selected!"
+   depends on BUSYBOX_XARGS
+
+config FINDUTILS_DATABASE
+	bool
+	depends on !BUSYBOX_FIND && !BUSYBOX_XARGS || ALLYES
+	select FINDUTILS_FIND
+	select FINDUTILS_XARGS
+	prompt "database support"
+	help
+	  Uses a database to speed up finding files. See manpages of locate and updatedb
+
+endif

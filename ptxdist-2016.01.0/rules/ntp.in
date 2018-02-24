@@ -1,0 +1,267 @@
+## SECTION=networking
+
+menuconfig NTP
+	tristate
+	prompt "ntp                           "
+	select OPENSSL		if NTP_CRYPTO
+	select ROOTFS_VAR_CACHE	if NTP_NTPD
+	select LIBC_M
+	select LIBC_RT
+	select GCCLIBS_GCC_S
+	select LIBMD
+	help
+	  Build the standard NTP Daemon Process and supplementary programs.
+	  This conflicts with BSD openntpd.
+
+# ----- Compile Options
+
+if NTP
+
+comment "Compile Options"
+
+config NTP_CLOCKCTL
+	bool
+	prompt "Use /dev/clockctl for non-root time control"
+	help
+	  The clockctl device introduces alternative entry
+	  points to these system calls, through a special
+	  device file typically named /dev/clockctl
+	  The access control is made upon this file: if a
+	  user can write to it, then the user is allowed to
+	  change system time. The goal is to enable daemons
+	  such as ntpd to run in a chroot jail and hence to
+	  enhance the security of the system.
+
+config NTP_DEBUGGING
+	bool
+	prompt "include debugging code"
+	help
+	  Include a lot of debugging code.
+
+config NTP_DST_MINUTES
+	int
+	prompt "minutes per DST adjustment"
+	default 60
+	help
+	  Enter here how many minutes should be added when
+	  switching to daylight saving time.
+
+config NTP_BANCOMM
+	bool
+	prompt "Datum/Bancomm bc635/VME interface"
+	help
+	  FIXME: This item needs to be documented
+
+config NTP_GPSVME
+	bool
+	prompt "TrueTime GPS receiver/VME interface"
+	help
+	  FIXME: This item needs to be documented
+
+config NTP_KMEM
+	bool
+	prompt "read /dev/kmem for tick and/or tickadj"
+	help
+	  This feature seems only required on non Linux based systems
+
+config NTP_ACCURATE_ADJTIME
+	bool
+	prompt "the adjtime () call is accurate"
+	help
+	  The adjtime() call is accurate.
+
+config NTP_TICK_FORCE
+	bool
+	prompt "force a value for 'tick'"
+	help
+	  FIXME: This item needs to be documented
+
+config NTP_TICK
+	int
+	prompt "value for 'tick'"
+	default 1
+	depends on NTP_TICK_FORCE
+	help
+	  FIXME: This item needs to be documented
+
+config NTP_TICKADJ_FORCE
+	bool
+	prompt "force a value for 'tickadj'"
+	help
+	  FIXME: This item needs to be documented
+
+config NTP_TICKADJ
+	bool
+	prompt "value for 'tickadj'"
+	default 1
+	depends on NTP_TICKADJ_FORCE
+	help
+	  FIXME: This item needs to be documented
+
+config NTP_SIMULATOR
+	bool
+	prompt "build/install the NTPD simulator"
+	help
+	  FIXME: This item needs to be documented
+
+config NTP_UDP_WILDCARD
+	bool
+	prompt "use UDP wildcard delivery"
+	help
+	  FIXME: This item needs to be documented
+
+config NTP_SLEW_ALWAYS
+	bool
+	prompt "always slew the time"
+	help
+	  Slew the clock back into line by making gradual adjustments to the
+	  clock over a couple of minutes.
+	  (The slew rate of typical Unix kernels is limited to 0.5 ms/s.)
+
+config NTP_STEP_SLEW
+	bool
+	prompt "step and slew the time"
+	help
+	  Slew the clock back into line by making step adjustments to the
+	  clock over a couple of minutes.
+
+config NTP_NTPDATE_STEP
+	bool
+	prompt "ntpdate should step the time"
+	help
+	  FIXME: This item needs to be documented
+
+config NTP_HOURLY_TODR_SYNC
+	bool
+	prompt "sync TODR hourly"
+	help
+	  If we should sync TODR hourly (the Solaris hardware clock).
+	  When unsure, say no here.
+
+config NTP_KERNEL_FLL_BUG
+	bool
+	prompt "avoid a kernel FLL bug"
+	help
+	  If we should avoid a (Solaris) kernel FLL bug.
+
+config NTP_IRIG_SAWTOOTH
+	bool
+	prompt "enable the IRIG sawtooth filter"
+	help
+	  The Sun kernel driver has a sawtooth modulation with
+	  amplitude over 5 ms peak-peak and period 5.5 s. The crafty
+	  IRIG driver uses a transverse filter to remove the
+	  modulation and something called a botttom-fisher to remove
+	  incidental positive spikes especially prevalent with Sun
+	  Blade 1000 and possibly other systems.
+
+config NTP_NIST
+	bool
+	prompt "enable the NIST lockclock scheme"
+	help
+	  The NIST lockclock program synchronizes the local clock
+	  via a telephone modem and the NIST Automated Computer
+	  Time Service (ACTS), or the Digital Time Synchronization
+	  Service (DTSS), which runs on DCE machines.
+
+config NTP_CRYPTO
+	bool
+	prompt "use openssl"
+	help
+	  FIXME: This item needs to be documented
+
+config NTP_SNTP
+	bool
+	prompt "build SNTP"
+	help
+	  Simple Network Time Protocol is a subset of the Network
+	  Time Protocol (NTP). SNTP can be used when the ultimate
+	  performance of a full NTP implementation based on
+	  RFC 1305 is neither needed nor justified.
+	  It is strongly recommended that SNTP be used only at
+	  the extremities of the synchronization subnet.
+
+config NTP_ARLIB
+	bool
+	prompt "compile the async resolver library"
+	help
+	  FIXME: This item needs to be documented
+
+comment "Clock drivers"
+
+config NTP_ALL_CLOCK_DRIVERS
+	bool
+	prompt "build all clock drivers"
+	default y
+	help
+	  Disabling this entry will only build a set of selected clock drivers.
+	  Else all clock drivers are included into the ntpd.
+
+source "generated/networking_ntp.in"
+
+# ---------- Install Options
+
+comment "Install Options"
+depends on NTP
+
+config NTP_NTPDATE
+	bool
+	prompt "install ntpdate"
+	depends on NTP
+	help
+	  ntpdate sets the local date and time by polling the Network
+	  Time Protocol (NTP) server(s) given as the server arguments
+	  to determine the correct time.
+
+config NTP_NTPD
+	bool
+	prompt "install ntpd"
+	depends on NTP
+	depends on !BUSYBOX_NTPD || ALLYES
+	help
+	  The ntpd program is an operating system daemon which sets and
+	  maintains the system time of day in synchronism with Internet
+	  standard time servers.
+
+comment "BusyBox' ntpd is selected"
+	depends on BUSYBOX_NTPD
+
+config NTP_NTPD_STARTSCRIPT
+	bool
+	default y
+	depends on NTP_NTPD
+	prompt "install /etc/init.d/ntp-server"
+
+config NTP_NTPD_SYSTEMD_UNIT
+	bool
+	default y
+	depends on NTP_NTPD && SYSTEMD
+	prompt "install systemd service file"
+
+config NTP_NTPDC
+	bool
+	prompt "install ntpdc"
+	depends on NTP
+	help
+	  ntpdc is used to query the ntpd daemon about its
+	  current state and to request changes in that state.
+
+config NTP_NTPC_STARTSCRIPT
+	bool
+	default y
+	depends on NTP_NTPDC
+	prompt "install /etc/init.d/ntp-client"
+
+config NTP_NTPQ
+	bool
+	prompt "install ntpq"
+	depends on NTP
+	help
+	  The ntpq utility program is used to monitor NTP daemon ntpd
+	  operations and determine performance.
+
+endif
+
+comment "NTP conflicts with OpenNTPD"
+	depends on NTP && OPENNTPD
+

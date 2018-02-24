@@ -1,0 +1,4 @@
+609e04caed32185a397ad654a215e37b  0001-HACK-use-the-environment-variable-UNFS_BASE-as-root-.patch
+0c7b50289371feea0d22357a9b36d1c6  0002-fix-unfs3-build-with-recent-versions-of-flex.patch
+66d9cfb6fa2350687f05fb4c3436c975  0003-64-bit-fixes-don-t-assume-that-long-is-the-same-size.patch
+c243536ac7033ee28ca91ec731738a88  series

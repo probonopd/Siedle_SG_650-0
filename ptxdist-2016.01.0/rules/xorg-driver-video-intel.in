@@ -1,0 +1,55 @@
+## SECTION=multimedia_xorg_driver_video
+
+menuconfig XORG_DRIVER_VIDEO_INTEL
+	tristate
+	select UDEV
+	select UDEV_LIBUDEV
+	select LIBDRM
+	select LIBDRM_INTEL
+	select LIBPCIACCESS
+	select PIXMAN
+	select XCB_UTIL
+	select XORG_LIB_X11
+	select XORG_PROTO_FONTS
+	select XORG_PROTO_RANDR
+	select XORG_PROTO_RENDER
+	select XORG_PROTO_X
+	select XORG_PROTO_XEXT
+	select XORG_SERVER
+	select XORG_SERVER_XORG
+
+
+	# Xorg segfaults without XV extension
+	select XORG_SERVER_EXT_XV
+	select XORG_PROTO_DRI2		if XORG_DRIVER_VIDEO_INTEL_DRI
+	select XORG_SERVER_EXT_DRI2	if XORG_DRIVER_VIDEO_INTEL_DRI
+	select XORG_SERVER_EXT_GLX	if XORG_DRIVER_VIDEO_INTEL_DRI
+
+	select XORG_LIB_XVMC		if XORG_DRIVER_VIDEO_INTEL_XVMC
+	select XORG_PROTO_DRI2		if XORG_DRIVER_VIDEO_INTEL_XVMC
+	select XORG_SERVER_EXT_DRI2	if XORG_DRIVER_VIDEO_INTEL_XVMC
+	select LIBXCB			if XORG_DRIVER_VIDEO_INTEL_XVMC
+
+	prompt "Intel"
+	help
+	  This is the video driver for Intel cards for the modular Xorg server.
+
+if XORG_DRIVER_VIDEO_INTEL
+
+comment "X.org Intel Driver"
+
+config XORG_DRIVER_VIDEO_INTEL_DRI
+	bool
+	prompt "Enable DRI" if BROKEN
+	default y
+	help
+	  --enable-dri
+	  Note: The driver cannot be built without this option enabled.
+
+config XORG_DRIVER_VIDEO_INTEL_XVMC
+	bool
+	prompt "Enable XvMC Support"
+	help
+	  Enable XvMC support
+
+endif

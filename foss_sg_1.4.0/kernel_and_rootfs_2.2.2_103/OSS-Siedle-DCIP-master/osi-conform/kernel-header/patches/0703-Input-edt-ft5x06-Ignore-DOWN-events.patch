@@ -1,0 +1,31 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 24 Mar 2014 10:27:54 +0100
+Subject: [PATCH] Input: edt-ft5x06: Ignore DOWN events
+
+According to documentation, the first DOWN event may contain old coordinates
+and as such is not to be trusted. Instead, wait for the first succeding ON
+event before reporting a touch with coordinates.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/input/touchscreen/edt-ft5x06.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/input/touchscreen/edt-ft5x06.c b/drivers/input/touchscreen/edt-ft5x06.c
+index 37ac1f27202b..7b541100236a 100644
+--- a/drivers/input/touchscreen/edt-ft5x06.c
++++ b/drivers/input/touchscreen/edt-ft5x06.c
+@@ -228,7 +228,12 @@ static irqreturn_t edt_ft5x06_ts_isr(int irq, void *dev_id)
+ 
+ 		type = buf[0] >> 6;
+ 		/* ignore Reserved events */
+-		if (type == TOUCH_EVENT_RESERVED)
++		if (type == TOUCH_EVENT_RESERVED ||
++		/*
++		 * The touch down event can contain old coordinates.
++		 * Ignore it, too.
++		 */
++		    type == TOUCH_EVENT_DOWN)
+ 			continue;
+ 
+ 		/* M06 sometimes sends bogus coordinates in TOUCH_DOWN */

@@ -1,0 +1,99 @@
+# config for glibc
+
+config GLIBC_HEADERS
+	bool
+	select KERNEL_HEADERS
+	select CROSS_BINUTILS
+
+config GLIBC_CRT
+	bool
+	select CROSS_GCC_FIRST
+
+config GLIBC_FIRST
+	bool
+	select CROSS_GCC_FIRST
+
+menuconfig GLIBC
+	bool
+
+	select GLIBC_CRT
+
+	select TOOLCHAIN_ENABLE_SYSROOT
+	select TOOLCHAIN_DISABLE_MULTILIB
+
+	select CROSS_GCC
+	select CROSS_GCC_ENABLE_CXA_ATEXIT
+	select CROSS_GCC_DISABLE_SJLJ_EXCEPTIONS
+	select CROSS_GCC_DISABLE_LIBSSP
+	select CROSS_GCC_ENABLE_SHARED
+	select CROSS_GCC_THREADS_POSIX
+
+	prompt "glibc                       "
+
+if GLIBC
+
+config GLIBC_VERSION
+	string
+	prompt "glibc version"
+	default "2.8"
+	help
+	  Specify the glibc version here.
+	  Leave empty for glibc trunk snapshots and enter a timestamp below.
+
+config GLIBC_MD5
+	string
+	prompt "glibc source md5sum"
+
+config GLIBC_TIMESTAMP
+	string
+	prompt "glibc timestamp"
+	default ""
+	help
+	  For glibc releases just leave this field empty.
+
+	  For glibc snapshots enter a timestap (YYYYMMDD, e.g. 20080811) here,
+	  or "latest" or if you want try the latest snapshot.
+
+config GLIBC_SERIES
+	string
+	prompt "glibc patch series file"
+	default "series"
+
+config GLIBC_ENABLE_KERNEL
+	string
+	prompt "mininum kernel version"
+	default "2.6.23"
+
+config GLIBC_CONFIG_EXTRA
+	string
+	prompt "extra configure options"
+	help
+	  Add these extra options to glibc's configure script.
+
+config GLIBC_CONFIG_EXTRA_CROSS
+	string
+	prompt "extra configure options (cross)"
+	help
+	  Add these extra options to glibc's configure script.
+	  this is for configure options that require the cross gcc and can therefore
+	  not be used when building the glibc-headers
+
+config GLIBC_HEADERS_FAKE_CROSS
+	string
+	prompt "fake cross args"
+	default "-D__ARM_EABI__"	if ARCH_ARM
+	default "-DBOOTSTRAP_GCC"	if ARCH_MIPS
+	help
+	  Add these args to fake a crosscompiler during glibc-header extraction stage.
+
+config GLIBC_TLS
+	bool
+	prompt "enable TLS"
+	help
+	  Activate Thread Local Storage.
+
+config GLIBC_EXTRA_ADDONS
+	string
+	prompt "extra addons"
+
+endif

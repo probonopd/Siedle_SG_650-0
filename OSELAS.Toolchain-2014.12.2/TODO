@@ -1,0 +1,18 @@
+[ ] write fixup.make
+	[ ] chmod prefix 555, to prevent overwriting
+
+[ ] fix autobuilder
+
+[ ] java:
+	--enable-jni --enable-core-jni --enable-collections --enable-gtk-peer --enable-tool-wrappers --enable-load-library --enable-local-sockets
+
+[ ] http://www.google.com/search?q=poison-system-directories
+
+[ ] gdb.configure:
+    rm -rf $(GDB_BUILD)
+    mkdir -p $(GDB_BUILD)
+    cd $(GDB_BUILD) && ../gdb-stable/configure \
+        --prefix=$(INSTALL_DIR) \
+        --target=$(GNU_TARGET) \
+        --disable-nls \
+        --with-system-gdbinit=$(INSTALL_LIB)/gdbinit

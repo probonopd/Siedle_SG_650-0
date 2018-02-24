@@ -1,0 +1,64 @@
+From: Michael Olbrich <m.olbrich@pengutronix.de>
+Date: Thu, 15 Sep 2011 23:30:25 +0200
+Subject: [PATCH] add libc_hidden_builtin_def for all cortex functions
+
+Signed-off-by: Michael Olbrich <m.olbrich@pengutronix.de>
+---
+ cortex-strings/sysdeps/arm/armv7/memchr.S | 3 +++
+ cortex-strings/sysdeps/arm/armv7/memcpy.S | 2 ++
+ cortex-strings/sysdeps/arm/armv7/memset.S | 2 ++
+ cortex-strings/sysdeps/arm/armv7/strchr.S | 3 +++
+ cortex-strings/sysdeps/arm/armv7/strlen.S | 1 +
+ 5 files changed, 11 insertions(+)
+
+diff --git a/cortex-strings/sysdeps/arm/armv7/memchr.S b/cortex-strings/sysdeps/arm/armv7/memchr.S
+index 92a2d9f0967d..6e4195325c82 100644
+--- a/cortex-strings/sysdeps/arm/armv7/memchr.S
++++ b/cortex-strings/sysdeps/arm/armv7/memchr.S
+@@ -153,3 +153,6 @@ memchr:
+ 	pop	{r4,r5,r6,r7}
+ 	subs	r0,r0,#1
+ 	bx	lr
++
++strong_alias (memchr, __memchr)
++libc_hidden_builtin_def (memchr)
+diff --git a/cortex-strings/sysdeps/arm/armv7/memcpy.S b/cortex-strings/sysdeps/arm/armv7/memcpy.S
+index 3be24cad2c8d..c2742073a329 100644
+--- a/cortex-strings/sysdeps/arm/armv7/memcpy.S
++++ b/cortex-strings/sysdeps/arm/armv7/memcpy.S
+@@ -150,3 +150,5 @@ memcpy:
+ 	cmp	r2,#32
+ 	blt	10b
+ 	b	4b
++
++libc_hidden_builtin_def (memcpy)
+diff --git a/cortex-strings/sysdeps/arm/armv7/memset.S b/cortex-strings/sysdeps/arm/armv7/memset.S
+index 921cb7535cc8..d4c12a4d1243 100644
+--- a/cortex-strings/sysdeps/arm/armv7/memset.S
++++ b/cortex-strings/sysdeps/arm/armv7/memset.S
+@@ -116,3 +116,5 @@ memset:
+ 
+ 10:
+ 	bx	lr		@ goodbye
++
++libc_hidden_builtin_def (memset)
+diff --git a/cortex-strings/sysdeps/arm/armv7/strchr.S b/cortex-strings/sysdeps/arm/armv7/strchr.S
+index 8875dbfce6da..05c832f1faf4 100644
+--- a/cortex-strings/sysdeps/arm/armv7/strchr.S
++++ b/cortex-strings/sysdeps/arm/armv7/strchr.S
+@@ -74,3 +74,6 @@ strchr:
+ 	beq	5b	@ A bit messy, if it's common we should branch at the start to a special loop
+ 	mov	r0,#0
+ 	bx	lr
++
++weak_alias (strchr, index)
++libc_hidden_builtin_def (strchr)
+diff --git a/cortex-strings/sysdeps/arm/armv7/strlen.S b/cortex-strings/sysdeps/arm/armv7/strlen.S
+index 8efa2356fdd1..1445d8e8118e 100644
+--- a/cortex-strings/sysdeps/arm/armv7/strlen.S
++++ b/cortex-strings/sysdeps/arm/armv7/strlen.S
+@@ -148,3 +148,4 @@ def_fn	strlen p2align=6
+ 	b	.Lstart_realigned
+ 	.size	strlen, . - strlen
+ 
++libc_hidden_builtin_def (strlen)

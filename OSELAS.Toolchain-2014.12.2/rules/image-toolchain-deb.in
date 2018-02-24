@@ -1,0 +1,3 @@
+config IMAGE_TOOLCHAIN_DEB
+	bool
+	default y

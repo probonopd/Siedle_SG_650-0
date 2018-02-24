@@ -1,0 +1,52 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 7 Aug 2014 18:43:11 +0200
+Subject: [PATCH] gpu: ipu-v3: add ipu_ic_csi_mem_wr_en
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-ic.c  | 19 +++++++++++++++++++
+ drivers/gpu/ipu-v3/ipu-prv.h |  1 +
+ 2 files changed, 20 insertions(+)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-ic.c b/drivers/gpu/ipu-v3/ipu-ic.c
+index 947180a6b344..0a2671b07817 100644
+--- a/drivers/gpu/ipu-v3/ipu-ic.c
++++ b/drivers/gpu/ipu-v3/ipu-ic.c
+@@ -410,6 +410,25 @@ static int calc_resize_coeffs(struct ipu_ic *ic,
+ 	return 0;
+ }
+ 
++void ipu_ic_csi_mem_wr_en(struct ipu_ic_priv *priv, bool mem_wr_en)
++{
++	unsigned long flags;
++	u32 ic_conf;
++
++	spin_lock_irqsave(&priv->lock, flags);
++
++	ic_conf = readl(priv->base + IC_CONF);
++
++	if (mem_wr_en)
++		ic_conf |= IC_CONF_CSI_MEM_WR_EN;
++	else
++		ic_conf &= ~IC_CONF_CSI_MEM_WR_EN;
++
++	writel(ic_conf, priv->base + IC_CONF);
++
++	spin_unlock_irqrestore(&priv->lock, flags);
++}
++
+ void ipu_ic_task_enable(struct ipu_ic *ic)
+ {
+ 	struct ipu_ic_priv *priv = ic->priv;
+diff --git a/drivers/gpu/ipu-v3/ipu-prv.h b/drivers/gpu/ipu-v3/ipu-prv.h
+index 85388198d1a7..3dacc002d2c8 100644
+--- a/drivers/gpu/ipu-v3/ipu-prv.h
++++ b/drivers/gpu/ipu-v3/ipu-prv.h
+@@ -408,6 +408,7 @@ int ipu_ic_init(struct ipu_soc *ipu, struct device *dev,
+ 		unsigned long base, unsigned long tpmem_base,
+ 		unsigned long vdi_base);
+ void ipu_ic_exit(struct ipu_soc *ipu);
++void ipu_ic_csi_mem_wr_en(struct ipu_ic_priv *priv, bool mem_wr_en);
+ 
+ int ipu_di_init(struct ipu_soc *ipu, struct device *dev, int id,
+ 		unsigned long base, u32 module, struct clk *ipu_clk);

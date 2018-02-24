@@ -1,0 +1,40 @@
+From: Andreas Pretzsch <apr@cn-eng.de>
+Date: Mon, 14 Apr 2014 08:38:30 +0200
+Subject: [PATCH] ARM: dts: sabrelite: import USB setup from BoundaryDevices
+ linux-imx6 3.12.0
+
+Signed-off-by: Andreas Pretzsch <apr@cn-eng.de>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ arch/arm/boot/dts/imx6qdl-sabrelite.dtsi | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/arch/arm/boot/dts/imx6qdl-sabrelite.dtsi b/arch/arm/boot/dts/imx6qdl-sabrelite.dtsi
+index 181c0c7b92f6..64bf8c56766b 100644
+--- a/arch/arm/boot/dts/imx6qdl-sabrelite.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-sabrelite.dtsi
+@@ -442,6 +442,14 @@
+ 			>;
+ 		};
+ 
++		pinctrl_usbh1: usbh1grp {
++			fsl,pins = <
++				MX6QDL_PAD_EIM_D30__USB_H1_OC  0x1b0b0
++				/* hub reset */
++				MX6QDL_PAD_GPIO_17__GPIO7_IO12 0x1b0b0
++			>;
++		};
++
+ 		pinctrl_usbotg: usbotggrp {
+ 			fsl,pins = <
+ 				MX6QDL_PAD_GPIO_1__USB_OTG_ID		0x17059
+@@ -535,6 +543,9 @@
+ };
+ 
+ &usbh1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_usbh1>;
++	disable-over-current;
+ 	status = "okay";
+ };
+ 

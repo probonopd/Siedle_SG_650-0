@@ -1,0 +1,28 @@
+From eebb9e9abd3405fd72b7e7527132b605e406e83e Mon Sep 17 00:00:00 2001
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Sat, 13 Jun 2015 19:25:07 +0200
+Subject: [PATCH] ARM: fix PI futex breakge - glibc bug 18463
+
+This patch fixes glibc bug 18463:
+
+    https://sourceware.org/bugzilla/show_bug.cgi?id=18463
+
+The problem is caused by:
+
+    47c5adebd2c8 Correct robust mutex / PI futex kernel assumptions (bug 9894).
+
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+ sysdeps/unix/sysv/linux/arm/kernel-features.h | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/sysdeps/unix/sysv/linux/arm/kernel-features.h b/sysdeps/unix/sysv/linux/arm/kernel-features.h
+index e755741de60b..0d9f8910d650 100644
+--- a/sysdeps/unix/sysv/linux/arm/kernel-features.h
++++ b/sysdeps/unix/sysv/linux/arm/kernel-features.h
+@@ -38,5 +38,4 @@
+    futex_atomic_cmpxchg_inatomic, depending on kernel
+    configuration.  */
+ #undef __ASSUME_FUTEX_LOCK_PI
+-#undef __ASSUME_REQUEUE_PI
+ #undef __ASSUME_SET_ROBUST_LIST

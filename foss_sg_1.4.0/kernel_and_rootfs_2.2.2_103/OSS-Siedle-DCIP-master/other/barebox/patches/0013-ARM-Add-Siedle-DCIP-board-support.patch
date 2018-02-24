@@ -1,0 +1,1818 @@
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Date: Wed, 26 Aug 2015 16:11:36 +0200
+Subject: [PATCH] ARM: Add Siedle DCIP board support
+
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ arch/arm/boards/Makefile                           |   1 +
+ arch/arm/boards/siedle-dcip/Makefile               |   3 +
+ arch/arm/boards/siedle-dcip/board.c                | 213 ++++++
+ .../siedle-dcip/defaultenv-siedle-dcip/boot/rescue |   6 +
+ .../siedle-dcip/defaultenv-siedle-dcip/boot/slots  | 106 +++
+ .../defaultenv-siedle-dcip/init/boot-decision      |  92 +++
+ .../nv/boot.watchdog_timeout                       |   1 +
+ .../defaultenv-siedle-dcip/nv/bootlimit            |   1 +
+ .../defaultenv-siedle-dcip/nv/login.timeout        |   1 +
+ .../siedle-dcip/flash-header-siedle-avp.imxcfg     |   8 +
+ arch/arm/boards/siedle-dcip/lowlevel.c             |  76 +++
+ arch/arm/dts/Makefile                              |   1 +
+ arch/arm/dts/imx6q-siedle-avp.dts                  | 716 +++++++++++++++++++++
+ arch/arm/dts/imx6q-siedle-bipg650-0m.dts           |  62 ++
+ arch/arm/dts/imx6q-siedle-dcip2-evalboard.dts      |  43 ++
+ arch/arm/dts/imx6q-siedle-phytec-pfla02.dtsi       | 287 +++++++++
+ arch/arm/mach-imx/Kconfig                          |   4 +
+ images/Makefile.imx                                |  28 +
+ 18 files changed, 1649 insertions(+)
+ create mode 100644 arch/arm/boards/siedle-dcip/Makefile
+ create mode 100644 arch/arm/boards/siedle-dcip/board.c
+ create mode 100644 arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/boot/rescue
+ create mode 100644 arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/boot/slots
+ create mode 100644 arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/init/boot-decision
+ create mode 100644 arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/nv/boot.watchdog_timeout
+ create mode 100644 arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/nv/bootlimit
+ create mode 100644 arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/nv/login.timeout
+ create mode 100644 arch/arm/boards/siedle-dcip/flash-header-siedle-avp.imxcfg
+ create mode 100644 arch/arm/boards/siedle-dcip/lowlevel.c
+ create mode 100644 arch/arm/dts/imx6q-siedle-avp.dts
+ create mode 100644 arch/arm/dts/imx6q-siedle-bipg650-0m.dts
+ create mode 100644 arch/arm/dts/imx6q-siedle-dcip2-evalboard.dts
+ create mode 100644 arch/arm/dts/imx6q-siedle-phytec-pfla02.dtsi
+
+diff --git a/arch/arm/boards/Makefile b/arch/arm/boards/Makefile
+index 1029e8f46f3a..047edcd0ce98 100644
+--- a/arch/arm/boards/Makefile
++++ b/arch/arm/boards/Makefile
+@@ -104,6 +104,7 @@ obj-$(CONFIG_MACH_SAMA5D3_XPLAINED)		+= sama5d3_xplained/
+ obj-$(CONFIG_MACH_SAMA5D4_XPLAINED)		+= sama5d4_xplained/
+ obj-$(CONFIG_MACH_SAMA5D4EK)			+= sama5d4ek/
+ obj-$(CONFIG_MACH_SCB9328)			+= scb9328/
++obj-$(CONFIG_MACH_SIEDLE_DCIP)			+= siedle-dcip/
+ obj-$(CONFIG_MACH_SOCFPGA_ALTERA_SOCDK)		+= altera-socdk/
+ obj-$(CONFIG_MACH_SOCFPGA_EBV_SOCRATES)		+= ebv-socrates/
+ obj-$(CONFIG_MACH_SOCFPGA_TERASIC_SOCKIT)	+= terasic-sockit/
+diff --git a/arch/arm/boards/siedle-dcip/Makefile b/arch/arm/boards/siedle-dcip/Makefile
+new file mode 100644
+index 000000000000..30094181387b
+--- /dev/null
++++ b/arch/arm/boards/siedle-dcip/Makefile
+@@ -0,0 +1,3 @@
++obj-y += board.o
++lwl-y += lowlevel.o
++bbenv-y += defaultenv-siedle-dcip
+diff --git a/arch/arm/boards/siedle-dcip/board.c b/arch/arm/boards/siedle-dcip/board.c
+new file mode 100644
+index 000000000000..7c194eaf1e97
+--- /dev/null
++++ b/arch/arm/boards/siedle-dcip/board.c
+@@ -0,0 +1,213 @@
++/*
++ * Copyright (C) 2013 Sascha Hauer, Pengutronix
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation.
++ *
++ */
++#define pr_fmt(fmt) "Siedle-DCIP: " fmt
++
++#include <environment.h>
++#include <bootsource.h>
++#include <globalvar.h>
++#include <common.h>
++#include <malloc.h>
++#include <envfs.h>
++#include <gpio.h>
++#include <init.h>
++#include <of.h>
++
++#include <linux/micrel_phy.h>
++
++#include <mfd/imx6q-iomuxc-gpr.h>
++#include <mach/imx6-regs.h>
++#include <mach/iomux-mx6.h>
++#include <mach/imx6.h>
++#include <mach/bbu.h>
++
++#define PHYFLEX_MODULE_REV_1	0x1
++#define PHYFLEX_MODULE_REV_2	0x2
++
++#define GPIO_2_11_PD_CTL	MX6_PAD_CTL_PUS_100K_DOWN | MX6_PAD_CTL_PUE | MX6_PAD_CTL_PKE | \
++				MX6_PAD_CTL_SPEED_MED | MX6_PAD_CTL_DSE_40ohm | MX6_PAD_CTL_HYS
++
++#define MX6Q_PAD_SD4_DAT3__GPIO_2_11_PD (_MX6Q_PAD_SD4_DAT3__GPIO_2_11 | MUX_PAD_CTRL(GPIO_2_11_PD_CTL))
++#define MX6DL_PAD_SD4_DAT3__GPIO_2_11 IOMUX_PAD(0x0734, 0x034C, 5, 0x0000, 0, GPIO_2_11_PD_CTL)
++
++#define MX6_PHYFLEX_ERR006282	IMX_GPIO_NR(2, 11)
++
++static void phyflex_err006282_workaround(void)
++{
++	/*
++	 * Boards beginning with 1362.2 have the SD4_DAT3 pin connected
++	 * to the CMIC. If this pin isn't toggled within 10s the boards
++	 * reset. The pin is unconnected on older boards, so we do not
++	 * need a check for older boards before applying this fixup.
++	 */
++
++	gpio_direction_output(MX6_PHYFLEX_ERR006282, 0);
++	mdelay(2);
++	gpio_direction_output(MX6_PHYFLEX_ERR006282, 1);
++	mdelay(2);
++	gpio_set_value(MX6_PHYFLEX_ERR006282, 0);
++
++	if (cpu_is_mx6q())
++		mxc_iomux_v3_setup_pad(MX6Q_PAD_SD4_DAT3__GPIO_2_11_PD);
++	else if (cpu_is_mx6dl())
++		mxc_iomux_v3_setup_pad(MX6DL_PAD_SD4_DAT3__GPIO_2_11);
++
++	gpio_direction_input(MX6_PHYFLEX_ERR006282);
++}
++
++static unsigned int pfla02_module_revision;
++
++static unsigned int get_module_rev(void)
++{
++	unsigned int val = 0;
++
++	val = gpio_get_value(IMX_GPIO_NR(2, 12));
++	val |= (gpio_get_value(IMX_GPIO_NR(2, 13)) << 1);
++	val |= (gpio_get_value(IMX_GPIO_NR(2, 14)) << 2);
++	val |= (gpio_get_value(IMX_GPIO_NR(2, 15)) << 3);
++
++	return 16 - val;
++}
++
++/* Output 50 MHz enet_ref clk on pad GPIO_16 */
++static int imx6_rmii_init(void)
++{
++	u32 val;
++	void __iomem *base = (void *)MX6_IOMUXC_BASE_ADDR;
++
++	val = readl(base + IOMUXC_GPR1) | IMX6Q_GPR1_ENET_CLK_SEL_ANATOP;
++	writel(val, base + IOMUXC_GPR1);
++
++	return 0;
++}
++
++static u32 bootcount;
++
++#define MX6_SNVS_LPGPR 0x68
++
++static int bootcount_set(struct param_d *param, void *priv)
++{
++	void __iomem *base = priv;
++
++	writel(bootcount, base + MX6_SNVS_LPGPR);
++
++	return 0;
++}
++
++static int bootcount_get(struct param_d *param, void *priv)
++{
++	void __iomem *base = priv;
++
++	bootcount = readl(base + MX6_SNVS_LPGPR);
++
++	return 0;
++}
++
++static void update_bootcount(void)
++{
++	struct param_d *param;
++	void *priv = (void *)MX6_SNVS_BASE_ADDR;
++
++	param = dev_add_param_int(&global_device, "system.bootcount", bootcount_set,
++				  bootcount_get, &bootcount, "%u", priv);
++	if (!param)
++		return;
++
++	bootcount_get(param, priv);
++	bootcount++;
++	bootcount_set(param, priv);
++}
++
++static int phytec_pfla02_init(void)
++{
++	int ret;
++	char *environment_path, *envdev;
++
++	if (!of_machine_is_compatible("siedle,dcip"))
++		return 0;
++
++	phyflex_err006282_workaround();
++
++	imx6_bbu_internal_spi_i2c_register_handler("spiflash", "/dev/m25p0.barebox",
++				BBU_HANDLER_FLAG_DEFAULT);
++
++	pfla02_module_revision = get_module_rev();
++	globalvar_add_simple_int("board.revision", &pfla02_module_revision, "%u");
++
++	pr_info("Module Revision: %u\n", pfla02_module_revision);
++
++	if (of_machine_is_compatible("siedle,imx6q-dcip2"))
++		barebox_set_hostname("dcip2");
++
++	if (of_machine_is_compatible("siedle,imx6q-bipg650-0m"))
++		barebox_set_hostname("bipg650");
++
++	if (of_machine_is_compatible("siedle,imx6q-avp")) {
++		barebox_set_hostname("avp");
++		imx6_bbu_internal_mmc_register_handler("mmc2", "/dev/mmc2", 0);
++	}
++
++	switch (bootsource_get()) {
++	case BOOTSOURCE_MMC:
++		environment_path = asprintf("/chosen/environment-sd%d",
++					bootsource_get_instance() + 1);
++		envdev = "MMC";
++		break;
++	default:
++	case BOOTSOURCE_SPI:
++		environment_path = asprintf("/chosen/environment-spinor");
++		envdev = "SPI NOR flash";
++		break;
++	}
++
++	ret = of_device_enable_path(environment_path);
++	if (ret < 0)
++		pr_warn("Failed to enable environment partition '%s' (%d)\n",
++			environment_path, ret);
++
++	free(environment_path);
++
++	pr_notice("Using environment in %s\n", envdev);
++
++	update_bootcount();
++
++	return 0;
++}
++device_initcall(phytec_pfla02_init);
++
++static int phytec_pbab0x_init(void)
++{
++	if (!of_machine_is_compatible("siedle,dcip"))
++		return 0;
++
++	defaultenv_append_directory(defaultenv_siedle_dcip);
++
++	return 0;
++}
++device_initcall(phytec_pbab0x_init);
++
++static int siedle_avp_core_init(void)
++{
++	if (!of_machine_is_compatible("siedle,imx6q-avp"))
++		return 0;
++
++	imx6_rmii_init();
++
++	return 0;
++}
++postcore_initcall(siedle_avp_core_init);
+diff --git a/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/boot/rescue b/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/boot/rescue
+new file mode 100644
+index 000000000000..f866afb851c4
+--- /dev/null
++++ b/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/boot/rescue
+@@ -0,0 +1,6 @@
++#!/bin/sh
++
++# Kernel and oftree are defined by the boot spec
++# we just have to define the root filesystem entry
++
++boot m25p0.rescue-rootfs.ubi.rescue-rootfs
+diff --git a/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/boot/slots b/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/boot/slots
+new file mode 100644
+index 000000000000..15153a08bb00
+--- /dev/null
++++ b/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/boot/slots
+@@ -0,0 +1,106 @@
++#!/bin/sh
++
++# we want to run a NAND based regular firmware slot
++
++# Kernel and oftree are defined by the boot spec
++# we just have to define the root filesystem slot to be used when booting
++# the kernel
++
++if [ "$state.next_firmware_slot" != "none" ]; then
++	slot_candidate=$state.next_firmware_slot
++else
++	if [ "$state.active_firmware_slot" != "none" ]; then
++		slot_candidate=$state.active_firmware_slot
++	else
++		# we should not reach this point. In this case we should end up in the NOR
++		echo "Error: no firmware slot defined to boot from NAND"
++		exit 1
++	fi
++fi
++
++if [ "$slot_candidate" = "slot1" ]; then
++	if [ "$state.content_firmware_slot1" != "deployed" ]; then
++		echo "Error: firmware 'slot1' is marked inoperative"
++		if [ "$state.next_firmware_slot" != "none" ]; then
++			# don't try this slot again
++			state.next_firmware_slot=none
++		fi
++		if [ "$state.active_firmware_slot" != "none" ]; then
++			# don't try this slot again
++			state.active_firmware_slot=none
++		fi
++		state -s
++		# try again
++		reset
++	fi
++	mtd_boot_part_name=slot1
++else
++	if [ "$slot_candidate" = "slot2" ]; then
++		if [ "$state.content_firmware_slot2" != "deployed" ]; then
++			echo "Error: firmware 'slot2' is marked inoperative"
++			if [ "$state.next_firmware_slot" != "none" ]; then
++				# don't try this slot again
++				state.next_firmware_slot=none
++			fi
++			if [ "$state.active_firmware_slot" != "none" ]; then
++				# don't try this slot again
++				state.active_firmware_slot=none
++			fi
++			state -s
++			# try again
++			reset
++		fi
++		mtd_boot_part_name=slot2
++	else
++		echo "Error: unexpected content in 'active_firmware_slot' marker: '$state.active_firmware_slot'"
++		if [ "$state.next_firmware_slot" != "none" ]; then
++			# don't try this slot again
++			state.next_firmware_slot=none
++		fi
++		if [ "$state.active_firmware_slot" != "none" ]; then
++			# don't try this slot again
++			state.active_firmware_slot=none
++		fi
++		state -s
++		# try again
++		reset
++	fi
++fi
++
++# forward the correct MTD partition for the root filesystem
++# keep in mind here: we are using a partition name here to identify the
++# root filesystem's slot. So, this name must be declared in the device tree!
++global linux.bootargs.root="ubi.mtd=$mtd_boot_part_name root=ubi0:slot rootfstype=ubifs"
++
++echo "Info: Booting NAND $slot_candidate"
++
++# remaining tasks are done by the automounter and the boot command
++boot nand0.${slot_candidate}.ubi.slot
++
++# this command can return which means it failed! For example if the
++# bootspec file defines filenames which do not exist. Reject this slot
++# in this case
++if [ $? -ne 0 ]; then
++	# the slot cannot be booted. If it is new, don't try it again
++	if [ "$state.next_firmware_slot" != "none" ]; then
++		# don't try this slot again
++		echo "Error: Cannot boot next slot. Mark it as broken"
++		state.next_firmware_slot=none
++		state.content_firmware_$slot_candidate=broken
++		state -s
++		# try again
++		reset
++	fi
++	if [ "$state.active_firmware_slot" != "none" ]; then
++		# don't try this slot again
++		echo "Error: Cannot boot active slot. Mark it as broken"
++		state.active_firmware_slot=none
++		state.content_firmware_$slot_candidate=broken
++		state -s
++		# try again
++		reset
++	fi
++fi
++
++echo "Error: unknown reason when trying to boot from NAND"
++exit 1
+diff --git a/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/init/boot-decision b/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/init/boot-decision
+new file mode 100644
+index 000000000000..d497d1da9806
+--- /dev/null
++++ b/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/init/boot-decision
+@@ -0,0 +1,92 @@
++#!/bin/sh
++# decide which type of memory we can use to boot this system
++
++# for the very first boot, select a regular NAND firmware slot if available
++if [ "$state.active_firmware_slot" = "none" ]; then
++	# if the next slot is defined, do nothing here
++	if [ "$state.next_firmware_slot" != "none" ]; then
++		# try to run the next NAND slot content
++		echo "Info: defined to boot $state.next_firmware_slot from NAND"
++		global boot.default=slots
++		exit 0
++	fi
++
++	# no slot defined yet (no 'active', nor 'next' one). Use an available
++	# one and prefer slot1 when available
++	if [ "$state.content_firmware_slot2" = "deployed" ]; then
++		state.next_firmware_slot=slot2
++	fi
++	if [ "$state.content_firmware_slot1" = "deployed" ]; then
++		state.next_firmware_slot=slot1
++	fi
++
++	# if we now have a valid firmware slot candidate, lets try to boot it
++	if [ "$state.next_firmware_slot" != "none" ]; then
++		echo "Info: trying to boot $state.next_firmware_slot from NAND"
++		# save this new state and start the regular test cycle
++		state -s
++		# try to run the next NAND slot content
++		global boot.default=slots
++		exit 0
++	fi
++fi
++
++# if we are here due to a watchdog reset, or
++# if we are here and have exceeded the bootlimit, we:
++# a) tried a new regular firmware slot (and it fails)
++# b) the current regular firmware slot had a hiccup
++# for case a) "$state.next_firmware_slot" contains the slot we tried
++# for case b) "$state.next_firmware_slot" is "none"
++if [ "$global.system.reset" = "WDG" -o "${global.system.bootcount}" -ge "${global.bootlimit}" ]; then
++	if [ "$state.next_firmware_slot" != "none" ]; then
++		# case a)
++		if [ "$state.next_firmware_slot" = "slot1" ]; then
++			# slot1 seems broken
++			echo "Error: trying to boot 'slot1' fails. Mark it as broken"
++			state.next_firmware_slot=none
++			state.content_firmware_slot1=broken
++			state -s
++		else
++			if [ "$state.next_firmware_slot" = "slot2" ]; then
++				# slot2 seems broken
++				echo "Error: trying to boot 'slot2' fails. Mark it as broken"
++				state.next_firmware_slot=none
++				state.content_firmware_slot2=broken
++				state -s
++			else
++				echo "Error: unexpected content in 'next_firmware_slot' marker: '$state.next_firmware_slot'"
++				# we are confused
++				echo "Error: Falling back into rescue system"
++				global boot.default=rescue
++				exit 0
++			fi
++		fi
++	else
++		# case b)
++		if [ "$state.active_firmware_slot" = "slot1" ]; then
++			# slot1 had a hiccup
++			echo "Ups: 'slot1' had a hiccup. Will try it again"
++		else
++			if [ "$state.active_firmware_slot" = "slot2" ]; then
++				# slot2 had a hiccup
++				echo "Ups: 'slot2' had a hiccup. Will try it again"
++			else
++				echo "Error: unexpected content in 'active_firmware_slot' marker: '$state.active_firmware_slot'"
++				# we are confused
++				echo "Error: Falling back into rescue system"
++				global boot.default=rescue
++				exit 0
++			fi
++		fi
++	fi
++fi
++
++if [ "$state.active_firmware_slot" = "none" ]; then
++	# fall back to the rescue systems when no NAND slot is active
++	echo "Info: Falling back into rescue system"
++	global boot.default=rescue
++	exit 0
++fi
++
++# if a regular firmware slot in the NAND is active, try to use it
++global boot.default=slots
+diff --git a/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/nv/boot.watchdog_timeout b/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/nv/boot.watchdog_timeout
+new file mode 100644
+index 000000000000..abdfb053e41e
+--- /dev/null
++++ b/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/nv/boot.watchdog_timeout
+@@ -0,0 +1 @@
++60
+diff --git a/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/nv/bootlimit b/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/nv/bootlimit
+new file mode 100644
+index 000000000000..0cfbf08886fc
+--- /dev/null
++++ b/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/nv/bootlimit
+@@ -0,0 +1 @@
++2
+diff --git a/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/nv/login.timeout b/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/nv/login.timeout
+new file mode 100644
+index 000000000000..f599e28b8ab0
+--- /dev/null
++++ b/arch/arm/boards/siedle-dcip/defaultenv-siedle-dcip/nv/login.timeout
+@@ -0,0 +1 @@
++10
+diff --git a/arch/arm/boards/siedle-dcip/flash-header-siedle-avp.imxcfg b/arch/arm/boards/siedle-dcip/flash-header-siedle-avp.imxcfg
+new file mode 100644
+index 000000000000..6896c2dd5900
+--- /dev/null
++++ b/arch/arm/boards/siedle-dcip/flash-header-siedle-avp.imxcfg
+@@ -0,0 +1,8 @@
++#define SETUP_MDCFG0			\
++	wm 32 0x021b000c 0x3c409b85
++
++#define SETUP_MDASP_MDCTL		\
++	wm 32 0x021b0040 0x00000017;	\
++	wm 32 0x021b0000 0x83190000
++
++#include "../phytec-som-imx6/flash-header-phytec-pfla02.h"
+diff --git a/arch/arm/boards/siedle-dcip/lowlevel.c b/arch/arm/boards/siedle-dcip/lowlevel.c
+new file mode 100644
+index 000000000000..48d148ccae5e
+--- /dev/null
++++ b/arch/arm/boards/siedle-dcip/lowlevel.c
+@@ -0,0 +1,76 @@
++/*
++ * Copyright (C) 2013 Sascha Hauer <s.hauer@pengutronix.de>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ */
++#include <debug_ll.h>
++#include <common.h>
++#include <linux/sizes.h>
++#include <io.h>
++#include <image-metadata.h>
++#include <asm/barebox-arm-head.h>
++#include <asm/barebox-arm.h>
++#include <asm/sections.h>
++#include <asm/cache.h>
++#include <asm/mmu.h>
++#include <mach/imx6.h>
++
++static inline void setup_uart(void)
++{
++	void __iomem *iomuxbase = (void *)MX6_IOMUXC_BASE_ADDR;
++
++	writel(0x4, iomuxbase + 0x01f8);
++
++	imx6_ungate_all_peripherals();
++	imx6_uart_setup_ll();
++
++	putc_ll('>');
++}
++
++#define SZ_4G 0xEFFFFFF8
++
++BAREBOX_IMD_TAG_STRING(siedle_dcip_memsize_SZ_512M, IMD_TYPE_PARAMETER, "memsize=512", 0);
++BAREBOX_IMD_TAG_STRING(siedle_dcip_memsize_SZ_1G, IMD_TYPE_PARAMETER, "memsize=1024", 0);
++
++static void __noreturn start_imx6_phytec_common(uint32_t size,
++						bool do_early_uart_config,
++						void *fdt_blob_fixed_offset)
++{
++	void *fdt;
++
++	imx6_cpu_lowlevel_init();
++
++	arm_setup_stack(0x00920000 - 8);
++
++	if (do_early_uart_config && IS_ENABLED(CONFIG_DEBUG_LL))
++		setup_uart();
++
++	fdt = fdt_blob_fixed_offset - get_runtime_offset();
++	barebox_arm_entry(0x10000000, size, fdt);
++}
++
++#define PHYTEC_ENTRY(name, fdt_name, memory_size, do_early_uart_config)	\
++	ENTRY_FUNCTION(name, r0, r1, r2)				\
++	{								\
++		extern char __dtb_##fdt_name##_start[];			\
++									\
++		IMD_USED(siedle_dcip_memsize_##memory_size);		\
++									\
++		start_imx6_phytec_common(memory_size, do_early_uart_config, \
++					 __dtb_##fdt_name##_start);	\
++	}
++
++PHYTEC_ENTRY(start_siedle_dcip2_evalboard, imx6q_siedle_dcip2_evalboard, SZ_1G, 0);
++PHYTEC_ENTRY(start_siedle_dcip2_evalboard_1bank, imx6q_siedle_dcip2_evalboard, SZ_1G, 0);
++PHYTEC_ENTRY(start_siedle_bipg650_0m, imx6q_siedle_bipg650_0m, SZ_1G, 0);
++PHYTEC_ENTRY(start_siedle_bipg650_0m_1bank, imx6q_siedle_bipg650_0m, SZ_1G, 0);
++PHYTEC_ENTRY(start_siedle_avp, imx6q_siedle_avp, SZ_512M, 4);
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index 2da930eb9108..15ed99438383 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -48,6 +48,7 @@ pbl-dtb-$(CONFIG_MACH_PHYTEC_SOM_IMX6) += imx6q-phytec-pbaa03.dtb.o \
+ 				imx6q-phytec-phycore-som-nand.dtb.o \
+ 				imx6q-phytec-phycore-som-emmc.dtb.o \
+ 				imx6dl-phytec-phycore-som-nand.dtb.o
++pbl-dtb-$(CONFIG_MACH_SIEDLE_DCIP) += imx6q-siedle-avp.dtb.o imx6q-siedle-dcip2-evalboard.dtb.o imx6q-siedle-bipg650-0m.dtb.o
+ pbl-dtb-$(CONFIG_MACH_PLATHOME_OPENBLOCKS_AX3) += armada-xp-openblocks-ax3-4-bb.dtb.o
+ pbl-dtb-$(CONFIG_MACH_PLATHOME_OPENBLOCKS_A6) += kirkwood-openblocks_a6-bb.dtb.o
+ pbl-dtb-$(CONFIG_MACH_RADXA_ROCK) += rk3188-radxarock.dtb.o
+diff --git a/arch/arm/dts/imx6q-siedle-avp.dts b/arch/arm/dts/imx6q-siedle-avp.dts
+new file mode 100644
+index 000000000000..8e926a6b655e
+--- /dev/null
++++ b/arch/arm/dts/imx6q-siedle-avp.dts
+@@ -0,0 +1,716 @@
++/*
++ * Copyright 2013 Philipp Zabel, Pengutronix
++ *
++ * The code contained herein is licensed under the GNU General Public
++ * License. You may obtain a copy of the GNU General Public License
++ * Version 2 or later at the following locations:
++ *
++ * http://www.opensource.org/licenses/gpl-license.html
++ * http://www.gnu.org/copyleft/gpl.html
++ */
++
++/dts-v1/;
++#include <arm/imx6q.dtsi>
++#include <dt-bindings/gpio/gpio.h>
++#include "imx6q.dtsi"
++
++/ {
++	model = "Siedle Access Video Panel";
++	compatible = "siedle,imx6q-avp", "siedle,dcip", "fsl,imx6q";
++
++	memory {
++		reg = <0x10000000 0x20000000>;
++	};
++
++	aliases {
++		/* make the 'state' tool happy */
++		state = &state;
++	};
++
++	chosen {
++		linux,stdout-path = &uart5;
++
++		environment-spinor {
++			compatible = "barebox,environment";
++			device-path = &flash, "partname:barebox-environment";
++		};
++	};
++
++	state: state@0 {
++		magic = <0x4d433230>;
++		compatible = "barebox,state";
++		backend-type = "raw";
++		backend = <&statedata>;
++		#address-cells = <1>;
++		#size-cells = <1>;
++
++		active_firmware_slot@0 {
++			reg = <0x0 4>;
++			type = "enum32";
++			names = "none", "slot1", "slot2";
++			default = <0>;
++		};
++
++		next_firmware_slot@4 {
++			reg = <0x4 4>;
++			type = "enum32";
++			names = "none", "slot1", "slot2";
++			default = <0>;
++		};
++
++		content_firmware_slot1@8 {
++			/* content description of slot#1 */
++			reg = <0x8 4>;
++			type = "enum32";
++			names = "empty", "deployed", "invalid", "broken";
++			default = <0>;
++		};
++
++		content_firmware_slot2@c {
++			/* content description of slot#1 */
++			reg = <0xc 4>;
++			type = "enum32";
++			names = "empty", "deployed", "invalid", "broken";
++			default = <0>;
++		};
++	};
++
++	codec_mclk: oscillator {
++		compatible = "fixed-clock";
++		#clock-cells = <1>;
++		clock-frequency = <12288000>;
++	};
++
++	backlight {
++		compatible = "pwm-backlight";
++		brightness-levels = <0 51 89 128 166 204 242 255>;	/* non-linear ; Attn.: 0 will use enable-gpio => won't work on AVP-E2 */
++		default-brightness-level = <0>;
++		/* AVP-E1 "n.c.":         no PWM, as GPIO3_16 is no PWM-output
++		 * AVP-E2 "#LED_PWM":     PWM3 @ GPIO1_17 connected as #EN of LED-driver (low-frequency) => use 500 Hz
++		 * AVP-E3 "#LED_PWM":     PWM3 @ GPIO1_17 connected to feedback path of LED-driver (high-frequency) => use 10kHz
++		 */
++		//pwms = <&pwm3 0 2000000 1>;	/*    500 Hz ; inverted */
++		pwms = <&pwm3 0 100000 1>;	/*  10000 Hz ; inverted */
++		/* AVP-E1 "#LED_PWM":     GPIO @ GPIO3_16 connected as #EN of LED-driver
++		 * AVP-E2 "n.c.":         GPIO @ GPIO3_16 not connected to anything
++		 * AVP-E3 "#DISP_LED_EN": GPIO @ GPIO3_16 connected as #EN of LED-driver
++		 */
++		enable-gpios = <&gpio3 16 GPIO_ACTIVE_LOW>;
++	};
++
++	gpio-keys {
++		compatible = "gpio-keys";
++
++		toe {
++			label = "Open Door";
++			gpios = <&gpio5 31 GPIO_ACTIVE_LOW>;
++			linux,code = <59>; /* KEY_F1 */
++			debounce-interval = <50>;
++		};
++
++		/* AVP-E1/2/3: #TAS_LS- attached to GPIO1_06 (ball T3) ; GPIO1_07 (ball R3) n.c.
++		 * AVP-V2:     #TAS_LS- attached to GPIO1_07 (ball R3) ; GPIO1_06 (ball T3) n.c.
++		 * For a period of transition, map both. Old E3-mapping to be removed when E3 is gone for good.
++		 */
++		volume-down-avp_e3 {
++			label = "Volume Down";
++			gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
++			linux,code = <114>; /* KEY_VOLUMEDOWN */
++			debounce-interval = <50>;
++		};
++		volume-down {
++			label = "Volume Down";
++			gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;
++			linux,code = <114>; /* KEY_VOLUMEDOWN */
++			debounce-interval = <50>;
++		};
++
++		talk {
++			label = "Talk";
++			gpios = <&gpio1 2 GPIO_ACTIVE_LOW>;
++			linux,code = <167>; /* KEY_RECORD */
++			debounce-interval = <50>;
++		};
++
++		volume-up {
++			label = "Volume Up";
++			gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
++			linux,code = <115>; /* KEY_VOLUMEUP */
++			debounce-interval = <50>;
++		};
++
++		ert { /* ERT: RJ45-3: active low input: connect RJ45 pin 3 to GND (RJ45 pin 6) */
++			label = "Input ERT";
++			gpios = <&gpio1 18 GPIO_ACTIVE_LOW>;
++			linux,code = <0x1d2>; /* KEY_FN_F1 */
++			debounce-interval = <50>;
++		};
++
++		// dynamic detection => handled by sss_azio driver
++		//io_x {	/* AZIO870: IO_X = RJ45-1_2: active low input: connect RJ45 pin 1 to GND (RJ45 pin 2) */
++		//	label = "AZIO870 RJ45-1_2";
++		//	gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
++		//	linux,code = <0x1d3>; /* KEY_FN_F2 */
++		//	debounce-interval = <50>;
++		//};
++	};
++
++	leds {
++		compatible = "gpio-leds";
++
++		sprechen {
++			label = "avp:amber:talk";
++			gpios = <&gpio5 30 GPIO_ACTIVE_LOW>;
++		};
++
++		toe {
++			label = "avp:amber:open";
++			gpios = <&gpio6 03 GPIO_ACTIVE_LOW>;
++		};
++
++		zar {	/* nZAR = RJ45-4_5: output active: connecting RJ45 pin 4 to RJ45 pin 5 */
++			label = "RJ45-4_5";
++			gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
++		};
++
++		// dynamic detection => handled by sss_azio driver
++		//io_y {	/* AZIO870: IO_Y = RJ45-7_8: output active: connecting RJ45 pin 7 to RJ45 pin 8 */
++		//	label = "RJ45-7_8";
++		//	gpios = <&gpio1 15 GPIO_ACTIVE_LOW>;
++		//};
++	};
++
++	panel: panel {
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_disp0_ipu1>;
++		compatible = "edt,etm0700g0dh6", "fsl,imx-parallel-display";
++		interface-pix-fmt = "bgr666";
++
++		display-timings {
++			native-timing = <&timing1>;
++			timing1: etm0700g0dh6 {
++				hactive = <800>;
++				vactive = <480>;
++				clock-frequency = <33260000>;
++				hsync-len = <128>;
++				hback-porch = <88>;
++				hfront-porch = <40>;
++				vsync-len = <2>;
++				vback-porch = <33>;
++				vfront-porch = <10>;
++				hsync-active = <0>;
++				vsync-active = <0>;
++			};
++		};
++	};
++
++        sound {
++		compatible = "fsl,imx6q-siedle-avp-ssm2603",
++			     "fsl,imx-audio-ssm2603";
++		model = "imx6q-siedle-avp-ssm2603";
++		ssi-controller = <&ssi1>;
++		audio-codec = <&codec>;
++		audio-routing =
++			"Int Spk", "LHPOUT",
++			"Int Spk", "RHPOUT",
++			"MICIN", "Mic";
++		fsl,spkr-en-gpios = <&gpio5 18 GPIO_ACTIVE_LOW>;
++		mux-int-port = <1>;
++		mux-ext-port = <3>;
++        };
++};
++
++&audmux {
++	status = "okay";
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_audmux>;
++};
++
++&ecspi4 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_ecspi4>;
++	fsl,spi-num-chipselects = <1>;
++	cs-gpios = <&gpio3 20 GPIO_ACTIVE_HIGH>;
++	status = "okay";
++
++	flash: m25p80@0 {
++		compatible = "m25p80";
++		spi-max-frequency = <20000000>;
++		use-large-blocks; /* barebox: use 64k instead of 4k erase blocks */
++		/* linux: disable CONFIG_MTD_SPI_NOR_USE_4K_SECTORS for this */
++		reg = <0x0>;
++		#address-cells = <1>;
++		#size-cells = <1>;
++
++		/* full size of this SPI NOR flash '25Q128' memory is 16 MiB */
++		partition@0 {
++			label = "barebox";
++			reg = <0x00000000 0x00080000>; /* 512 kiB */
++		};
++
++		partition@80000 {
++			label = "barebox-environment";
++			reg = <0x00080000 0x00010000>; /*  64 kiB */
++		};
++
++		partition@90000 {
++			label = "rescue-rootfs";
++			reg = <0x00090000 0x00f30000>; /* 15,2 MiB */
++		};
++
++		statedata: partition@fc0000 {
++			label = "state";
++			reg = <0x00fc0000 0x00020000>; /* 2 * 64 kiB */
++		};
++
++		/* free space: 0x00fe0000-0x00ffffff = 0x00020000 (128 kiB) */
++	};
++};
++
++&fec {
++	pinctrl-names = "default", "phy-config";
++	pinctrl-0 = <&pinctrl_enet>;
++	pinctrl-1 = <&pinctrl_phy_cfg>;
++	phy-mode = "rmii";
++	phy-reset-gpios = <&gpio7 12 GPIO_ACTIVE_LOW>;
++	status = "okay";
++};
++
++&ocotp {
++	barebox,provide-mac-address = <&fec 0x620>;
++};
++
++&gpmi {
++	/* 256 MiB of NAND */
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_gpmi_nand>;
++	nand-on-flash-bbt;
++	status = "okay";
++	#address-cells = <1>;
++	#size-cells = <1>;
++
++	partition@0 {
++		label = "slot1";
++		reg = <0x00000000 0x06e00000>; /* 110 MiB */
++	};
++
++	partition@6e00000 {
++		label = "slot2";
++		reg = <0x06e00000 0x06e00000>; /* 110 MiB */
++	};
++
++	partition@dc00000 {
++		label = "data";
++		reg = <0x0dc00000 0x02400000>; /*  36 MiB */
++	};
++};
++
++&i2c1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_i2c1>;
++	status = "okay";
++
++	codec: audio-codec@1b {
++		compatible = "adi,ssm2603";
++		reg = <0x1b>;
++		clocks = <&codec_mclk 0>;
++		/*
++		 * The AVP has 100 nF + 10 µF in parallel, so approx. 73 ms
++		 * should be enough. In practice, audible artifacts disappear
++		 * only well over 100 ms.
++		 */
++		startup-delay-us = <146000>;
++	};
++};
++
++&i2c2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_i2c2>;
++	status = "okay";
++
++	pmic@8 {
++		compatible = "fsl,pfuze100";
++		reg = <0x08>;
++
++		regulators {
++			/* ARM1V4 ARM-IN, VCC1V4 SOC-IN (vddarm, vddsoc) */
++			reg_vddarm: sw1ab {
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1875000>;
++				regulator-boot-on;
++				regulator-always-on;
++				regulator-ramp-delay = <6250>;
++			};
++
++			reg_vddsoc: sw1c {
++				regulator-min-microvolt = <300000>;
++				regulator-max-microvolt = <1875000>;
++				regulator-boot-on;
++				regulator-always-on;
++				regulator-ramp-delay = <6250>;
++			};
++
++			sw2 {
++				regulator-min-microvolt = <800000>;
++				regulator-max-microvolt = <3300000>;
++			};
++
++			vcc1v5_ddr3_reg: sw3a {
++				regulator-min-microvolt = <400000>;
++				regulator-max-microvolt = <1975000>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			sw3b {
++				regulator-min-microvolt = <400000>;
++				regulator-max-microvolt = <1975000>;
++			};
++
++			sw4 {
++				regulator-min-microvolt = <800000>;
++				regulator-max-microvolt = <3300000>;
++			};
++
++			/* VCC5V supplies SSM2305 and AZIO */
++			vcc5v_reg: swbst {
++				regulator-min-microvolt = <5000000>;
++				regulator-max-microvolt = <5150000>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			snvs_reg: vsnvs {
++				regulator-min-microvolt = <1000000>;
++				regulator-max-microvolt = <3000000>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			vref_reg: vrefddr {
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			vgen1 {
++				regulator-min-microvolt = <800000>;
++				regulator-max-microvolt = <1550000>;
++			};
++
++			vgen2 {
++				regulator-min-microvolt = <800000>;
++				regulator-max-microvolt = <1550000>;
++			};
++
++			vgen3 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <3300000>;
++			};
++
++			vgen4 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <3300000>;
++			};
++
++			/* VGEN5 supplies VCC3V3_PERI */
++			vgen5_reg: vgen5 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			vcc3v0_high_reg: vgen6 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++		};
++	};
++};
++
++&i2c3 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_i2c3>;
++	clock-frequency = <400000>;
++	status = "okay";
++
++	touchscreen@38 {
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_edt_ft5406>;
++		compatible = "edt,edt-ft5406";
++		reg = <0x38>;
++		interrupt-parent = <&gpio6>;
++		interrupts = <30 IRQ_TYPE_EDGE_FALLING>; /* RGMII_RXC */
++		reset-gpios = <&gpio6 23 GPIO_ACTIVE_LOW>;
++		/*
++		 * According to the AVP datasheet 4-0100/042630, TOUCH_WAKE is
++		 * active low. According to the FocalTech FT5x06 datasheet v4.0,
++		 * the Wake input signal is active high. Since only the
++		 * GPIO_ACTIVE_HIGH setting results in a working touchscreen,
++		 * we assume that TOUCH_WAKE is connected to the FT5x06 Wake
++		 * input without an inverter, and that the AVP datasheet is
++		 * mistaken about the polarity of this signal.
++		 */
++		wake-gpios = <&gpio6 28 GPIO_ACTIVE_HIGH>;
++		threshold = <27>;
++		gain = <3>;
++		offset = <31>;
++	};
++};
++
++&iomuxc {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_hog>;
++
++	avp {
++		pinctrl_audmux: audmuxgrp {
++			fsl,pins = <
++				MX6QDL_PAD_CSI0_DAT4__AUD3_TXC   0x18060	/* BCLK, 10k PU */
++				MX6QDL_PAD_CSI0_DAT5__AUD3_TXD   0x13060	/* PBDAT */
++				MX6QDL_PAD_CSI0_DAT6__AUD3_TXFS  0x1b060	/* PBLRC */
++				MX6QDL_PAD_CSI0_DAT7__AUD3_RXD   0x1b060	/* RECDAT */
++				MX6QDL_PAD_CSI0_DAT10__AUD3_RXC  0x1b060	/* BCLK */
++				MX6QDL_PAD_CSI0_DAT11__AUD3_RXFS 0x1b060	/* RECLRC */
++			>;
++		};
++
++		pinctrl_disp0_ipu1: disp0grp {
++			fsl,pins = <
++				MX6QDL_PAD_DISP0_DAT0__IPU1_DISP0_DATA00   0x13060
++				MX6QDL_PAD_DISP0_DAT1__IPU1_DISP0_DATA01   0x13060
++				MX6QDL_PAD_DISP0_DAT2__IPU1_DISP0_DATA02   0x13060
++				MX6QDL_PAD_DISP0_DAT3__IPU1_DISP0_DATA03   0x13060
++				MX6QDL_PAD_DISP0_DAT4__IPU1_DISP0_DATA04   0x13060
++				MX6QDL_PAD_DISP0_DAT5__IPU1_DISP0_DATA05   0x13060
++				MX6QDL_PAD_DISP0_DAT6__IPU1_DISP0_DATA06   0x13060
++				MX6QDL_PAD_DISP0_DAT7__IPU1_DISP0_DATA07   0x13060
++				MX6QDL_PAD_DISP0_DAT8__IPU1_DISP0_DATA08   0x13060
++				MX6QDL_PAD_DISP0_DAT9__IPU1_DISP0_DATA09   0x13060
++				MX6QDL_PAD_DISP0_DAT10__IPU1_DISP0_DATA10  0x13060
++				MX6QDL_PAD_DISP0_DAT11__IPU1_DISP0_DATA11  0x13060
++				MX6QDL_PAD_DISP0_DAT12__IPU1_DISP0_DATA12  0x13060
++				MX6QDL_PAD_DISP0_DAT13__IPU1_DISP0_DATA13  0x13060
++				MX6QDL_PAD_DISP0_DAT14__IPU1_DISP0_DATA14  0x13060
++				MX6QDL_PAD_DISP0_DAT15__IPU1_DISP0_DATA15  0x13060
++				MX6QDL_PAD_DISP0_DAT16__IPU1_DISP0_DATA16  0x13060
++				MX6QDL_PAD_DISP0_DAT17__IPU1_DISP0_DATA17  0x13060
++				MX6QDL_PAD_DI0_PIN2__IPU1_DI0_PIN02        0x1b060	/* HSYNC */
++				MX6QDL_PAD_DI0_PIN3__IPU1_DI0_PIN03        0x1b060	/* VSYNC */
++				MX6QDL_PAD_DI0_PIN15__IPU1_DI0_PIN15       0x1b070	/* DRDY/DV/DISP_EN */	/* increased DSE intentional */
++				MX6QDL_PAD_DI0_DISP_CLK__IPU1_DI0_DISP_CLK 0x1b060	/* DISP_CLK */
++			>;
++		};
++
++		pinctrl_enet: enetgrp {
++			fsl,pins = <
++				MX6QDL_PAD_ENET_MDIO__ENET_MDIO      0x18060	/* 1.5k PU */
++				MX6QDL_PAD_ENET_REF_CLK__GPIO1_IO23  0x18060	/* nPHY_INT, 4.7k PU */
++				MX6QDL_PAD_ENET_RX_ER__ENET_RX_ER    0x1b060
++				MX6QDL_PAD_ENET_CRS_DV__ENET_RX_EN   0x1b060
++				MX6QDL_PAD_ENET_RXD1__ENET_RX_DATA1  0x1b060
++				MX6QDL_PAD_ENET_RXD0__ENET_RX_DATA0  0x1b060
++				MX6QDL_PAD_ENET_TX_EN__ENET_TX_EN    0x1b060
++				MX6QDL_PAD_ENET_TXD0__ENET_TX_DATA0  0x1b060
++				MX6QDL_PAD_ENET_TXD1__ENET_TX_DATA1  0x1b060
++				MX6QDL_PAD_ENET_MDC__ENET_MDC        0x1b060
++				MX6QDL_PAD_GPIO_16__ENET_REF_CLK     0x4001b0b0
++			>;
++		};
++
++		pinctrl_phy_cfg: phycfggrp {
++			fsl,pins = <
++				/*
++				 * MODE[2:0] = 0b011 - 100Base-TX Full Duplex,
++				 * Auto-negotiation disabled
++				 */
++				MX6QDL_PAD_ENET_CRS_DV__GPIO1_IO25 0x130b0
++				MX6QDL_PAD_ENET_RXD1__GPIO1_IO26   0x1b0b0
++				MX6QDL_PAD_ENET_RXD0__GPIO1_IO27   0x1b0b0
++			>;
++		};
++
++		pinctrl_ecspi4: ecspi4grp {
++			fsl,pins = <
++				MX6QDL_PAD_EIM_D20__GPIO3_IO20  0x10060
++				MX6QDL_PAD_EIM_D21__ECSPI4_SCLK 0x10060
++				MX6QDL_PAD_EIM_D22__ECSPI4_MISO 0x10060
++				MX6QDL_PAD_EIM_D28__ECSPI4_MOSI 0x10060
++			>;
++		};
++
++		pinctrl_gpmi_nand: gpmi-nand {
++			fsl,pins = <
++				MX6QDL_PAD_NANDF_CLE__NAND_CLE     0xb0b1
++				MX6QDL_PAD_NANDF_ALE__NAND_ALE     0xb0b1
++				MX6QDL_PAD_NANDF_WP_B__NAND_WP_B   0xb0b1
++				MX6QDL_PAD_NANDF_RB0__NAND_READY_B 0x8000 /* 10k PU */
++				MX6QDL_PAD_NANDF_CS0__NAND_CE0_B   0xb0b1
++				MX6QDL_PAD_NANDF_CS1__NAND_CE1_B   0xb0b1
++				MX6QDL_PAD_SD4_CMD__NAND_RE_B      0xb0b1
++				MX6QDL_PAD_SD4_CLK__NAND_WE_B      0xb0b1
++				MX6QDL_PAD_NANDF_D0__NAND_DATA00   0xb0b1
++				MX6QDL_PAD_NANDF_D1__NAND_DATA01   0xb0b1
++				MX6QDL_PAD_NANDF_D2__NAND_DATA02   0xb0b1
++				MX6QDL_PAD_NANDF_D3__NAND_DATA03   0xb0b1
++				MX6QDL_PAD_NANDF_D4__NAND_DATA04   0xb0b1
++				MX6QDL_PAD_NANDF_D5__NAND_DATA05   0xb0b1
++				MX6QDL_PAD_NANDF_D6__NAND_DATA06   0xb0b1
++				MX6QDL_PAD_NANDF_D7__NAND_DATA07   0xb0b1
++				MX6QDL_PAD_SD4_DAT0__NAND_DQS      0x00b1
++			>;
++		};
++
++		pinctrl_hog: hoggrp {
++			fsl,pins = <
++				MX6QDL_PAD_SD2_DAT3__GPIO1_IO12    0x0001b060 /* nZAR, 100k PU */
++				MX6QDL_PAD_SD2_DAT2__GPIO1_IO13    0x40010060 /* IO_X, 100k PD */
++				MX6QDL_PAD_SD2_DAT0__GPIO1_IO15    0x40010060 /* IO_Y, 100k PD */
++				MX6QDL_PAD_SD1_DAT0__GPIO1_IO16    0x40010060 /* IO_Z, 100k PD */
++				MX6QDL_PAD_SD1_CMD__GPIO1_IO18     0x00010060 /* nETR = ERT @ RJ45 pin 3 (active low) */
++				MX6QDL_PAD_EIM_D16__GPIO3_IO16     0x0001b060 /* AVP-E1: Backlight #LED_PWM (as GPIO, no i.MX6 PWM) ; AVP-E2: n.c. ; AVP-E3: #EN of LED-driver */
++				MX6QDL_PAD_SD1_DAT1__PWM3_OUT      0x00010060 /* AVP-E1: n.c. ; AVP-E2, AVP-E3: Backlight #LED_PWM (as i.MX6 PWM3 on GPIO1_17) */
++				MX6QDL_PAD_CSI0_PIXCLK__GPIO5_IO18 0x0001b060 /* SSM2305 #AUDIOV_EN, 100k PU */
++				MX6QDL_PAD_CSI0_MCLK__GPIO5_IO19      0x1b060 /* AVP-E2: #DECT_INT ; AVP-E1, E3: n.c. ; default, 100k PU, PP */
++				MX6QDL_PAD_CSI0_DATA_EN__GPIO5_IO20   0x1b060 /* AVP-E2: #DECT_RST ; AVP-E1, E3: n.c. ; default, 100k PU, PP */
++				MX6QDL_PAD_CSI0_VSYNC__GPIO5_IO21     0x1b060 /* AVP-E2: #DECT_EN  ; AVP-E1, E3: n.c. ; default, 100k PU, PP */
++				MX6QDL_PAD_CSI0_DAT12__GPIO5_IO30  0x0001b060 /* LED Sprechen, 100k PU */
++				MX6QDL_PAD_CSI0_DAT17__GPIO6_IO03  0x0001b060 /* LED TOE, 100k PU */
++				MX6QDL_PAD_SD3_RST__GPIO7_IO08     0x00018060 /* SD slot power, 20k PU */
++				MX6QDL_PAD_SD3_DAT6__GPIO6_IO18    0x00018060 /* PMIC interrupt, 100k PU */
++				MX6QDL_PAD_SD3_DAT5__GPIO7_IO00    0x00018060 /* SD card detect, 20k PU */
++				MX6QDL_PAD_SD3_DAT4__GPIO7_IO01    0x00018060 /* SD write protect, 20k PU */
++				MX6QDL_PAD_GPIO_17__GPIO7_IO12     0x0001b060 /* PHY reset, 100k PU */
++				MX6QDL_PAD_CSI0_DAT13__GPIO5_IO31  0x00018060 /* TAS_TOE, 10k PU */
++				/* Special handling of GPIO1_06 and GPIO1_07 for a period of transition:
++				 * Due to remapping of an external button, both GPIOs are used as gpio-keys.
++				 * As the one or the other is not connected depending on hardware revision,
++				 * but both are "valid" key inputs, enable internal PU (22k) of the i.MX6.
++				 * The old E3-mapping is to be removed when E3 is gone for good.
++				 */
++				MX6QDL_PAD_GPIO_6__GPIO1_IO06      0x0001f060 /* TAS_LS-, 10k PU */	/* AVP-E1/2/3: #TAS_LS- ; AVP-V2:     n.c. */
++				MX6QDL_PAD_GPIO_7__GPIO1_IO07      0x0001f060 /* TAS_LS-, 10k PU */	/* AVP-V2:     #TAS_LS- ; AVP-E1/2/3: n.c. */
++				//MX6QDL_PAD_GPIO_7__GPIO1_IO07      0x00018060 /* TAS_LS-, 10k PU */
++				MX6QDL_PAD_GPIO_2__GPIO1_IO02      0x00018060 /* TAS_SPRECHEN, 10k PU */
++				MX6QDL_PAD_GPIO_9__GPIO1_IO09      0x00018060 /* TAS_LS+, 10k PU */
++				MX6QDL_PAD_GPIO_1__WDOG2_B         0x0001b060 /* nWDOG2, 100k PU */
++			>;
++		};
++
++		pinctrl_edt_ft5406: tsgrp {
++			fsl,pins = <
++				MX6QDL_PAD_RGMII_TD3__GPIO6_IO23   0x0001b020 /* Touch reset, 100k PU */
++				MX6QDL_PAD_RGMII_RD2__GPIO6_IO28   0x0001b020 /* Touch wake, 100k PU */
++				MX6QDL_PAD_RGMII_RXC__GPIO6_IO30   0x4001b020 /* Touch interrupt, 100k PU */
++			>;
++		};
++
++		pinctrl_i2c1: i2c1grp {
++			fsl,pins = <
++				MX6QDL_PAD_CSI0_DAT8__I2C1_SDA 0x40018860
++				MX6QDL_PAD_CSI0_DAT9__I2C1_SCL 0x40018860
++			>;
++		};
++
++		pinctrl_i2c2: i2c2grp {
++			fsl,pins = <
++				MX6QDL_PAD_KEY_COL3__I2C2_SCL 0x40018860
++				MX6QDL_PAD_KEY_ROW3__I2C2_SDA 0x40018860
++			>;
++		};
++
++		pinctrl_i2c3: i2c3grp {
++			fsl,pins = <
++				MX6QDL_PAD_EIM_D17__I2C3_SCL 0x4001b860
++				MX6QDL_PAD_EIM_D18__I2C3_SDA 0x4001b860
++			>;
++		};
++
++		pinctrl_uart5: uart5grp {
++			fsl,pins = <
++				MX6QDL_PAD_CSI0_DAT14__UART5_TX_DATA 0x1b060
++				MX6QDL_PAD_CSI0_DAT15__UART5_RX_DATA 0x1b060
++			>;
++		};
++
++		pinctrl_usdhc3: usdhc3grp {
++			fsl,pins = <
++				MX6QDL_PAD_SD3_CMD__SD3_CMD    0x140b1
++				MX6QDL_PAD_SD3_CLK__SD3_CLK    0x100b1		/* 50 MHz signal, driving into 47R series resistor */
++				MX6QDL_PAD_SD3_DAT0__SD3_DATA0 0x140b1
++				MX6QDL_PAD_SD3_DAT1__SD3_DATA1 0x140b1
++				MX6QDL_PAD_SD3_DAT2__SD3_DATA2 0x140b1
++				MX6QDL_PAD_SD3_DAT3__SD3_DATA3 0x140b1
++			>;
++		};
++
++		pinctrl_usbh1: usbh1grp {
++			fsl,pins = <
++				MX6QDL_PAD_EIM_D30__USB_H1_OC 0x1b060	/* EIM_D30 = GPIO3_30 ; AVP-E1, E2, E3: n.c. ; default, 100k PU */
++			>;
++		};
++	};
++};
++
++&pwm3 {
++	status = "okay";
++};
++
++&reg_arm {
++	vin-supply = <&reg_vddarm>;
++};
++
++&reg_pu {
++	vin-supply = <&reg_vddsoc>;
++};
++
++&reg_soc {
++	vin-supply = <&reg_vddsoc>;
++};
++
++&ssi1 {
++	fsl,mode = "i2s-slave";
++	fsl,ssi-asynchronous;
++	status = "okay";
++};
++
++&uart5 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_uart5>;
++	status = "okay";
++};
++
++&usdhc3 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_usdhc3>;
++	status = "okay";
++	cd-gpios = <&gpio7 0 GPIO_ACTIVE_LOW>;	/* #SD_CD (ext. 20k PU) */
++	/* ALPS SCDAAA0100 socket: write enable = switch closed => low ; write protected = switch open => high */
++	/* So we should define #WP as GPIO_ACTIVE_LOW and set "wp-inverted" property. */
++	/* Just, it does not work, i.e. is inverted. So, set #WP as GPIO_ACTIVE_HIGH instead. */
++	wp-gpios = <&gpio7 1 GPIO_ACTIVE_HIGH>;	/* #SD_WP (ext. 20k PU) */
++	/* Siedle cards have a WP slider, but no marking => disable write protection logic */
++	disable-wp;
++	no-1-8-v;	/* fixed 3.3V supply for MMC / SD */
++};
++
++/* AVP-E2: on-board DECT module connected to USBH1 ; AVP-E1, E3: n.c. */
++/*
++&usbh1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_usbh1>;
++	disable-over-current;
++	status = "okay";
++};
++*/
++
++/* AVP-E3: use WDOG2, WDOG2_B via GPIO_1 can pull down PMIC_ON_REQ */
++&wdog1 {
++	status = "disabled";
++};
++
++&wdog2 {
++	status = "okay";
++	fsl,wdog-timeout;
++};
+diff --git a/arch/arm/dts/imx6q-siedle-bipg650-0m.dts b/arch/arm/dts/imx6q-siedle-bipg650-0m.dts
+new file mode 100644
+index 000000000000..3c2892688043
+--- /dev/null
++++ b/arch/arm/dts/imx6q-siedle-bipg650-0m.dts
+@@ -0,0 +1,62 @@
++/*
++ * Copyright 2013 Christian Hemp, Phytec Messtechnik GmbH
++ *
++ * The code contained herein is licensed under the GNU General Public
++ * License. You may obtain a copy of the GNU General Public License
++ * Version 2 or later at the following locations:
++ *
++ * http://www.opensource.org/licenses/gpl-license.html
++ * http://www.gnu.org/copyleft/gpl.html
++ */
++
++/dts-v1/;
++#include <dt-bindings/gpio/gpio.h>
++#include "imx6q-siedle-phytec-pfla02.dtsi"
++
++/ {
++	model = "Siedle BIPG650";
++	compatible = "siedle,imx6q-bipg650-0m", "siedle,dcip", "fsl,imx6q";
++
++	leds-bipg650 {
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_led_bipg650>;
++
++		dcip2_ld201-green {
++			label = "status_led:green";
++			gpios = <&gpio1 21 GPIO_ACTIVE_LOW>;
++		};
++
++		dcip2_ld201-red {
++			label = "status_led:red";
++			gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;
++		};
++
++		dcip2_ld202 {
++			label = "ih_link_led";
++			gpios = <&gpio3 20 GPIO_ACTIVE_LOW>;
++		};
++	};
++};
++
++&iomuxc {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_hog &pinctrl_hog_dcip2>;
++
++	hog-dcip2 {
++		pinctrl_hog_dcip2: hoggrp-dcip2 {
++			fsl,pins = <
++				MX6QDL_PAD_GPIO_17__GPIO7_IO12    0x80000000 /* SD slot power */
++			>;
++		};
++	};
++
++	leds {
++		pinctrl_led_bipg650: ledbipg650grp-1 {
++			fsl,pins = <
++				MX6QDL_PAD_SD1_DAT3__GPIO1_IO21 0x1b0b0 /* #STATUS_LED_GN */
++				MX6QDL_PAD_GPIO_7__GPIO1_IO07   0x1b0b0 /* #STATUS_LED_RD */
++				MX6QDL_PAD_EIM_D20__GPIO3_IO20  0x1b0b0 /* #IH_LINK_LED */
++			>;
++		};
++	};
++};
+diff --git a/arch/arm/dts/imx6q-siedle-dcip2-evalboard.dts b/arch/arm/dts/imx6q-siedle-dcip2-evalboard.dts
+new file mode 100644
+index 000000000000..91b81024bb45
+--- /dev/null
++++ b/arch/arm/dts/imx6q-siedle-dcip2-evalboard.dts
+@@ -0,0 +1,43 @@
++/*
++ * Copyright 2013 Christian Hemp, Phytec Messtechnik GmbH
++ *
++ * The code contained herein is licensed under the GNU General Public
++ * License. You may obtain a copy of the GNU General Public License
++ * Version 2 or later at the following locations:
++ *
++ * http://www.opensource.org/licenses/gpl-license.html
++ * http://www.gnu.org/copyleft/gpl.html
++ */
++
++/dts-v1/;
++#include "imx6q-siedle-phytec-pfla02.dtsi"
++
++/ {
++	model = "Siedle DCIP2 Evalboard";
++	compatible = "siedle,imx6q-dcip2", "siedle,dcip", "fsl,imx6q";
++};
++
++&i2c3 {
++	pinctrl-0 = <&pinctrl_i2c3_dcip2>;
++	status = "okay";
++};
++
++&iomuxc {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_hog &pinctrl_hog_dcip2>;
++
++	imx6q-siedle-dcip2 {
++		pinctrl_hog_dcip2: hoggrp {
++			fsl,pins = <
++				MX6QDL_PAD_GPIO_17__GPIO7_IO12    0x80000000 /* SD slot power */
++			>;
++		};
++
++		pinctrl_i2c3_dcip2: i2c3grp {
++			fsl,pins = <
++				MX6QDL_PAD_GPIO_3__I2C3_SCL 0x4001b8b1
++				MX6QDL_PAD_GPIO_6__I2C3_SDA 0x4001b8b1
++			>;
++		};
++	};
++};
+diff --git a/arch/arm/dts/imx6q-siedle-phytec-pfla02.dtsi b/arch/arm/dts/imx6q-siedle-phytec-pfla02.dtsi
+new file mode 100644
+index 000000000000..bea486a40975
+--- /dev/null
++++ b/arch/arm/dts/imx6q-siedle-phytec-pfla02.dtsi
+@@ -0,0 +1,287 @@
++/*
++ * Copyright 2013 Christian Hemp, Phytec Messtechnik GmbH
++ *
++ * The code contained herein is licensed under the GNU General Public
++ * License. You may obtain a copy of the GNU General Public License
++ * Version 2 or later at the following locations:
++ *
++ * http://www.opensource.org/licenses/gpl-license.html
++ * http://www.gnu.org/copyleft/gpl.html
++ */
++
++#include <arm/imx6q.dtsi>
++#include "imx6q.dtsi"
++#include <arm/imx6qdl-phytec-pfla02.dtsi>
++
++/ {
++	aliases {
++		/* make the 'state' tool happy */
++		state = &state;
++	};
++
++	memory {
++		/* let barebox fill the memory node */
++		reg = <0 0>;
++	};
++
++	chosen {
++		stdout-path = &uart1;
++
++		environment-spinor {
++			compatible = "barebox,environment";
++			device-path = &flash, "partname:barebox-environment";
++			status = "disabled";
++		};
++
++		environment-sd1 {
++			compatible = "barebox,environment";
++			device-path = &usdhc1, "partname:barebox-environment";
++			status = "disabled";
++		};
++
++		environment-sd2 {
++			compatible = "barebox,environment";
++			device-path = &usdhc2, "partname:barebox-environment";
++			status = "disabled";
++		};
++
++		environment-sd3 {
++			compatible = "barebox,environment";
++			device-path = &usdhc3, "partname:barebox-environment";
++			status = "disabled";
++		};
++
++		environment-sd4 {
++			compatible = "barebox,environment";
++			device-path = &usdhc4, "partname:barebox-environment";
++			status = "disabled";
++		};
++	};
++
++	leds-phyflex {
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_led_pfla02>;
++		compatible = "gpio-leds";
++
++		green {
++			label = "phyflex:green";
++			gpios = <&gpio1 30 GPIO_ACTIVE_HIGH>;
++		};
++
++		red {
++			label = "phyflex:red";
++			gpios = <&gpio2 31 GPIO_ACTIVE_HIGH>;
++		};
++	};
++
++	state: state@0 {
++		magic = <0x4d433230>;
++		compatible = "barebox,state";
++		backend-type = "raw";
++		backend = <&statedata>;
++		#address-cells = <1>;
++		#size-cells = <1>;
++
++		active_firmware_slot@0 {
++			reg = <0x0 4>;
++			type = "enum32";
++			names = "none", "slot1", "slot2";
++			default = <0>;
++		};
++
++		next_firmware_slot@4 {
++			reg = <0x4 4>;
++			type = "enum32";
++			names = "none", "slot1", "slot2";
++			default = <0>;
++		};
++
++		content_firmware_slot1@8 {
++			/* content description of slot#1 */
++			reg = <0x8 4>;
++			type = "enum32";
++			names = "empty", "deployed", "invalid", "broken";
++			default = <0>;
++		};
++
++		content_firmware_slot2@c {
++			/* content description of slot#1 */
++			reg = <0xc 4>;
++			type = "enum32";
++			names = "empty", "deployed", "invalid", "broken";
++			default = <0>;
++		};
++	};
++};
++
++&ecspi3 {
++	flash: flash@0 {
++		#address-cells = <1>;
++		#size-cells = <1>;
++
++		/* full size of this SPI NOR flash '25Q128' memory is 16 MiB */
++		partition@0 {
++		        label = "barebox";
++		        reg = <0x00000000 0x00080000>; /* 512 kiB */
++		};
++
++		partition@80000 {
++		        label = "barebox-environment";
++		        reg = <0x00080000 0x00010000>; /* 64 kiB */
++		};
++
++		partition@90000 {
++		        label = "rescue-rootfs";
++		        reg = <0x00090000 0x00f30000>; /* 15,2 MiB */
++		};
++
++		statedata: partition@fc0000 {
++		        label = "state";
++		        reg = <0x00fc0000 0x00020000>; /* 2 * 64 kiB */
++		};
++
++		/* free space: 0x00fe0000-0x00ffffff = 0x00020000 (128 kiB) */
++	};
++};
++
++&fec {
++	phy-handle = <&ethphy>;
++	status = "okay";
++
++	mdio {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		ethphy: ethernet-phy@3 {
++			compatible = "ethernet-phy-ieee802.3-c22";
++			reg = <3>;
++
++			txc-skew-ps = <1680>;
++			rxc-skew-ps = <1860>;
++			max-speed = <100>;
++		};
++	};
++};
++
++&gpmi {
++	/* 1 GiB of NAND */
++	#address-cells = <1>;
++	#size-cells = <1>;
++
++	partition@0 {
++		label = "slot1";
++		reg = <0x00000000 0x10000000>; /* 256 MiB */
++	};
++
++	partition@10000000 {
++		label = "slot2";
++		reg = <0x10000000 0x10000000>; /* 256 MiB */
++	};
++
++	partition@20000000 {
++		label = "data";
++		reg = <0x20000000 0x20000000>; /* 512 MiB */
++	};
++};
++
++&i2c1 {
++	clock-frequency = <100000>;
++
++	eeprom@50 {
++		#address-cells = <1>;
++		#size-cells = <1>;
++
++		/* full size of this EEPROM '24c32' memory is 4 kiB */
++		partition@0 {
++			label = "general";
++			reg = <0x0000 0x1000>; /* free for general purpose */
++		};
++	};
++
++	pmic@58 {
++		watchdog-priority = <200>;
++		restart-priority = <200>;
++		reset-source-priority = <200>;
++	};
++};
++
++&iomuxc {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_rev>;
++
++	imx6q-phytec-pfla02 {
++		pinctrl_led_pfla02: ledpfla02grp-1 {
++			fsl,pins = <
++				MX6QDL_PAD_ENET_TXD0__GPIO1_IO30 0x80000000 /* phyFLEX-i.MX6: Green LED */
++				MX6QDL_PAD_EIM_EB3__GPIO2_IO31   0x80000000 /* phyFLEX-i.MX6: Red LED */
++			>;
++		};
++
++		pinctrl_rev: revgrp {
++			fsl,pins = <
++				MX6QDL_PAD_SD4_DAT3__GPIO2_IO11 0x80000000
++				MX6QDL_PAD_SD4_DAT4__GPIO2_IO12	0x80000000
++				MX6QDL_PAD_SD4_DAT5__GPIO2_IO13	0x80000000
++				MX6QDL_PAD_SD4_DAT6__GPIO2_IO14	0x80000000
++				MX6QDL_PAD_SD4_DAT7__GPIO2_IO15	0x80000000
++			>;
++		};
++
++		uart {
++			pinctrl_uart1_2: uart1grp-2 {
++				fsl,pins = <
++					MX6QDL_PAD_SD3_DAT6__UART1_RX_DATA 0x1b0b1
++					MX6QDL_PAD_SD3_DAT7__UART1_TX_DATA 0x1b0b1
++				>;
++			};
++		};
++
++		usdhc1 {
++			pinctrl_usdhc1_1: usdhc1grp-1 {
++				fsl,pins = <
++					MX6QDL_PAD_SD1_CMD__SD1_CMD    0x17059
++					MX6QDL_PAD_SD1_CLK__SD1_CLK    0x10059
++					MX6QDL_PAD_SD1_DAT0__SD1_DATA0 0x17059
++					MX6QDL_PAD_SD1_DAT1__SD1_DATA1 0x17059
++					MX6QDL_PAD_SD1_DAT2__SD1_DATA2 0x17059
++					MX6QDL_PAD_SD1_DAT3__SD1_DATA3 0x17059
++				>;
++			};
++		};
++	};
++};
++
++&ocotp {
++	barebox,provide-mac-address = <&fec 0x620>;
++};
++
++&uart1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_uart1_2>;
++	status = "okay";
++};
++
++&uart4 {
++	status = "okay";
++};
++
++&usdhc1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_usdhc1_1>;
++	status = "okay";
++};
++
++&usdhc3 {
++	#address-cells = <1>;
++	#size-cells = <1>;
++
++	partition@0 {
++		label = "barebox";
++		reg = <0x0 0x80000>;
++	};
++
++	partition@80000 {
++		label = "barebox-environment";
++		reg = <0x80000 0x80000>;
++	};
++};
+diff --git a/arch/arm/mach-imx/Kconfig b/arch/arm/mach-imx/Kconfig
+index 3f6dd7743ebb..ceacac65eca3 100644
+--- a/arch/arm/mach-imx/Kconfig
++++ b/arch/arm/mach-imx/Kconfig
+@@ -278,6 +278,10 @@ config MACH_PHYTEC_SOM_IMX6
+         bool "Phytec phyCARD-i.MX6 and phyFLEX-i.MX6"
+         select ARCH_IMX6
+ 
++config MACH_SIEDLE_DCIP
++	bool "Siedle DCIP boards"
++	select ARCH_IMX6
++
+ config MACH_DFI_FS700_M60
+ 	bool "DFI i.MX6 FS700 M60 Q7 Board"
+ 	select ARCH_IMX6
+diff --git a/images/Makefile.imx b/images/Makefile.imx
+index ea9346abaa4b..6cfef7920216 100644
+--- a/images/Makefile.imx
++++ b/images/Makefile.imx
+@@ -197,6 +197,34 @@ CFG_start_phytec_phyboard_subra_512mb_1bank.pblx.imximg = $(board)/phytec-som-im
+ FILE_barebox-phytec-phyboard-subra-512mb-1bank.img = start_phytec_phyboard_subra_512mb_1bank.pblx.imximg
+ image-$(CONFIG_MACH_PHYTEC_SOM_IMX6) += barebox-phytec-phyboard-subra-512mb-1bank.img
+ 
++pblx-$(CONFIG_MACH_SIEDLE_DCIP) += start_siedle_dcip2_evalboard
++CFG_start_siedle_dcip2_evalboard.pblx.imximg = $(board)/phytec-som-imx6/flash-header-phytec-pfla02-1gib.imxcfg
++FILE_barebox-siedle-dcip2-evalboard.img = start_siedle_dcip2_evalboard.pblx.imximg
++image-$(CONFIG_MACH_SIEDLE_DCIP) += barebox-siedle-dcip2-evalboard.img
++
++pblx-$(CONFIG_MACH_SIEDLE_DCIP) += start_siedle_dcip2_evalboard_1bank
++CFG_start_siedle_dcip2_evalboard_1bank.pblx.imximg = $(board)/phytec-som-imx6/flash-header-phytec-pfla02-1gib-1bank.imxcfg
++FILE_barebox-siedle-dcip2-evalboard_1bank.img = start_siedle_dcip2_evalboard_1bank.pblx.imximg
++image-$(CONFIG_MACH_SIEDLE_DCIP) += barebox-siedle-dcip2-evalboard_1bank.img
++
++pblx-$(CONFIG_MACH_SIEDLE_DCIP) += start_siedle_bipg650_0m
++CFG_start_siedle_bipg650_0m.pblx.imximg = $(board)/phytec-som-imx6/flash-header-phytec-pfla02-1gib.imxcfg
++imximage-$(CONFIG_MACH_SIEDLE_DCIP) += start_siedle_bipg650_0m.pblx.imximg
++FILE_barebox-siedle-bipg650-0m.img = start_siedle_bipg650_0m.pblx.imximg
++image-$(CONFIG_MACH_SIEDLE_DCIP) += barebox-siedle-bipg650-0m.img
++
++pblx-$(CONFIG_MACH_SIEDLE_DCIP) += start_siedle_bipg650_0m_1bank
++CFG_start_siedle_bipg650_0m_1bank.pblx.imximg = $(board)/phytec-som-imx6/flash-header-phytec-pfla02-1gib-1bank.imxcfg
++imximage-$(CONFIG_MACH_SIEDLE_DCIP) += start_siedle_bipg650_0m_1bank.pblx.imximg
++FILE_barebox-siedle-bipg650-0m_1bank.img = start_siedle_bipg650_0m_1bank.pblx.imximg
++image-$(CONFIG_MACH_SIEDLE_DCIP) += barebox-siedle-bipg650-0m_1bank.img
++
++pblx-$(CONFIG_MACH_SIEDLE_DCIP) += start_siedle_avp
++CFG_start_siedle_avp.pblx.imximg = $(board)/siedle-dcip/flash-header-siedle-avp.imxcfg
++imximage-$(CONFIG_MACH_SIEDLE_DCIP) += start_siedle_avp.pblx.imximg
++FILE_barebox-siedle-avp.img = start_siedle_avp.pblx.imximg
++image-$(CONFIG_MACH_SIEDLE_DCIP) += barebox-siedle-avp.img
++
+ pblx-$(CONFIG_MACH_DFI_FS700_M60) += start_imx6dl_dfi_fs700_m60_6s
+ CFG_start_imx6dl_dfi_fs700_m60_6s.pblx.imximg = $(board)/dfi-fs700-m60/flash-header-fs700-m60-6s.imxcfg
+ FILE_barebox-dfi-fs700-m60-6s.img = start_imx6dl_dfi_fs700_m60_6s.pblx.imximg

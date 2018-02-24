@@ -1,0 +1,8 @@
+## SECTION=networking
+config FCGI
+	tristate
+	prompt "fast cgi"
+	select LIBC_NSL
+	select LIBC_PTHREAD
+	help
+	  Fast CGI development and runtime libraries.

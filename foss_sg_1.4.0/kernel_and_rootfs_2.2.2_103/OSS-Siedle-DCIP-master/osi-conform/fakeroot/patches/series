@@ -1,0 +1,5 @@
+0001-eglibc-fts-without-LFS.patch
+0002-glibc-xattr-types.patch
+0003-hide-dlsym-error.patch
+0100-add-FAKEROOT_SYSROOT-prefix-for-relocation.patch
+0101-fakeroot-disable-build-of-doc-and-test.patch

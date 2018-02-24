@@ -1,0 +1,4 @@
+0001-don-t-link-against-libelf.patch
+0002-remove-configure-AC_TRY_RUN-tests.patch
+0003-Fix-screenencodings-dir.patch
+0004-autoconf-cleanup.patch

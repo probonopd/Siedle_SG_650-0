@@ -1,0 +1,16 @@
+## SECTION=multimedia_xorg_driver_video
+
+# configuration for xorg-driver-video-vesa
+
+config XORG_DRIVER_VIDEO_VESA
+	tristate
+	depends on XORG_DRIVER_VIDEO
+	select XORG_SERVER
+	select XORG_SERVER_EXT_DGA
+	select XORG_PROTO_X
+	select XORG_PROTO_FONTS
+	prompt "VESA"
+	help
+	  This is the VESA video driver for the modular Xorg server.
+
+

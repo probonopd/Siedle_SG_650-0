@@ -1,0 +1,88 @@
+#!/bin/sh
+#
+# /etc/init.d/proftpd
+# Start the proftpd FTP daemon.
+#
+
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+DAEMON=/usr/sbin/proftpd
+NAME=proftpd
+
+PIDFILE=/var/run/proftpd.pid
+
+# Read config (will override defaults)
+[ -r /etc/default/proftpd ] && . /etc/default/proftpd
+
+trap "" 1
+trap "" 15
+
+start()
+{
+    start-stop-daemon --start --quiet --pidfile "$PIDFILE" --oknodo --exec $DAEMON -- $OPTIONS
+}
+
+signal()
+{
+    start-stop-daemon --stop --signal ${1} --quiet --pidfile "$PIDFILE"
+}
+
+
+case "$1" in
+    start)
+	if [ \! -d /var/run/proftpd ]; then
+	    mkdir -p /var/run/proftpd
+	fi
+	echo -n "Starting $NAME... "
+	if start; then
+	    echo "Done"
+	else
+	    echo "failed"
+	    exit 1
+	fi
+	;;
+
+    stop)
+	echo -n "Stopping $NAME... "
+	if signal TERM; then
+	    echo "Done"
+	else
+	    echo "Failed"
+	    exit 1
+	fi
+	;;
+
+    reload)
+	echo -n "Reloading $NAME configuration... "
+	if signal HUP; then
+	    echo "done"
+	else
+	    echo "Failed"
+	    exit 1
+	fi
+	;;
+
+    force-reload|restart)
+	echo -n "Restarting $NAME..."
+	if signal TERM; then
+	    echo -n "."
+	else
+	    echo "Failed"
+	    exit 1
+	fi
+
+	sleep 2
+	echo -n "."
+
+	if start; then
+	    echo " done."
+	else
+	    echo "Failed"
+	    exit 1
+	fi
+	;;
+
+    *)
+	echo "Usage: /etc/init.d/$NAME {start|stop|reload|restart|force-reload|help}"
+	exit 1
+	;;
+esac

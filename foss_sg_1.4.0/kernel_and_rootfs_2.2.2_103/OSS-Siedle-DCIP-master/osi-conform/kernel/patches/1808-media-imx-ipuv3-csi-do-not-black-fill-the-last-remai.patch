@@ -1,0 +1,25 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 8 Dec 2015 17:50:39 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: do not black fill the last remaining
+ buffer
+
+Always keep at least one capture buffer in the driver so that we can
+immediately resume capturing once the signal is reestablished.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 507bde6672a6..f882bf1534da 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -398,6 +398,7 @@ void ipucsi_pause_work(struct work_struct *work)
+ 
+ 	spin_lock_irqsave(&ipucsi->lock, flags);
+ 	if (!list_empty(&ipucsi->capture) &&
++	    !list_is_singular(&ipucsi->capture) &&
+ 	    ipucsi->vb2_vidq.start_streaming_called) {
+ 		struct ipucsi_buffer *buf;
+ 

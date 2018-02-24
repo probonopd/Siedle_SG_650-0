@@ -1,0 +1,63 @@
+From: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
+Date: Thu, 5 Nov 2015 14:21:58 +0100
+Subject: [PATCH] mfd: syscon: Add register stride to DT bindings
+
+This patch adds register stride to dt bindings so that the consumers of
+the syscon could change it to there need. One of the the use case for
+this feature is Qualcomm qfprom which needs a byte access to regmap
+returned from syscon.
+
+Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+---
+ Documentation/devicetree/bindings/mfd/syscon.txt |  2 ++
+ drivers/mfd/syscon.c                             | 16 ++++++++++++++++
+ 2 files changed, 18 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/mfd/syscon.txt b/Documentation/devicetree/bindings/mfd/syscon.txt
+index 0c6b49758e3d..ffe0253165cb 100644
+--- a/Documentation/devicetree/bindings/mfd/syscon.txt
++++ b/Documentation/devicetree/bindings/mfd/syscon.txt
+@@ -23,6 +23,8 @@ Required properties:
+ Optional properties:
+ - #address-cells: Should be 1.
+ - #size-cells: Should be 0 or 1.
++- stride : register address stride in bytes.
++- bits   : register address bits.
+ 
+ Examples:
+ gpr: iomuxc-gpr@020e0000 {
+diff --git a/drivers/mfd/syscon.c b/drivers/mfd/syscon.c
+index ea7f3e0383c8..b6642c8785bd 100644
+--- a/drivers/mfd/syscon.c
++++ b/drivers/mfd/syscon.c
+@@ -48,6 +48,7 @@ struct syscon *syscon_register(struct device *dev, struct device_node *np)
+ 	struct regmap *regmap;
+ 	void __iomem *base;
+ 	int ret;
++	u32 stride, reg_bits;
+ 	struct regmap_config syscon_config = syscon_regmap_config;
+ 	struct resource res;
+ 
+@@ -75,6 +76,21 @@ struct syscon *syscon_register(struct device *dev, struct device_node *np)
+ 	 else if (of_property_read_bool(np, "little-endian"))
+ 		syscon_config.val_format_endian = REGMAP_ENDIAN_LITTLE;
+ 
++	if (!of_property_read_u32(np, "bits", &reg_bits)) {
++		if (reg_bits > 64)
++			reg_bits = 64;
++
++		syscon_config.reg_bits = reg_bits;
++	}
++
++	if (!of_property_read_u32(np, "stride", &stride)) {
++		if (stride > 4)
++			stride = 4;
++
++		syscon_config.reg_stride = stride;
++		syscon_config.val_bits = 8 * stride;
++	}
++
+ 	syscon_config.max_register = res.end - res.start - 3;
+ 	syscon_config.name = np->name;
+ 	regmap = regmap_init_mmio(dev, base, &syscon_config);

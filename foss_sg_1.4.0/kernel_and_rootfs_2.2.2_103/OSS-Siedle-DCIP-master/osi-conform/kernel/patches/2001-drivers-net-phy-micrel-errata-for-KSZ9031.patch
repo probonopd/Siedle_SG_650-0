@@ -1,0 +1,45 @@
+From: Markus Niebel <Markus.Niebel@tqs.de>
+Date: Tue, 28 Jul 2015 16:34:47 +0200
+Subject: [PATCH] drivers: net: phy: micrel: errata for KSZ9031
+
+handle erratum #2 for KSZ9031:
+
+- force 1000Base-T master
+
+Signed-off-by: Markus Niebel <Markus.Niebel@tqs.de>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/net/phy/micrel.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index e13ad6cdcc22..fd9b7cbbf8ec 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -470,6 +470,8 @@ static int ksz9031_config_init(struct phy_device *phydev)
+ 		"txd2-skew-ps", "txd3-skew-ps"
+ 	};
+ 	static const char *control_skews[2] = {"txen-skew-ps", "rxdv-skew-ps"};
++	int rc;
++	u16 val;
+ 
+ 	if (!of_node && dev->parent->of_node)
+ 		of_node = dev->parent->of_node;
+@@ -492,6 +494,17 @@ static int ksz9031_config_init(struct phy_device *phydev)
+ 				tx_data_skews, 4);
+ 	}
+ 
++	rc = phy_read(phydev, MII_CTRL1000);
++	if (rc >= 0) {
++		val = (u16)rc;
++		/* enable master mode, config & prefer master */
++		val |= (CTL1000_ENABLE_MASTER | CTL1000_AS_MASTER);
++		rc = phy_write(phydev, MII_CTRL1000, val);
++		pr_err("%s force master (%s)\n", __func__, rc ? "NIO" : "IO");
++	}
++	if (rc < 0)
++		return rc;
++
+ 	return ksz9031_center_flp_timing(phydev);
+ }
+ 

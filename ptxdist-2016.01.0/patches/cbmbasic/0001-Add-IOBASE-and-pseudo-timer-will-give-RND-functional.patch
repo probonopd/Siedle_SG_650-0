@@ -1,0 +1,52 @@
+From: Wolfram Sang <ninja@the-dreams.de>
+Date: Sat, 29 Oct 2011 19:01:11 +0200
+Subject: [PATCH] Add IOBASE and pseudo-timer (will give RND-functionality)
+
+Signed-off-by: Wolfram Sang <ninja@the-dreams.de>
+
+# ---
+# 20091210 rsc: check if there is another upstream version
+# 20081127 wsa: already sent mainline and accepted.
+---
+ runtime.c |   14 ++++++++++++--
+ 1 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/runtime.c b/runtime.c
+index 454000e..2c3c54b 100644
+--- a/runtime.c
++++ b/runtime.c
+@@ -29,6 +29,7 @@
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <string.h>
++#include <time.h>
+ 
+ unsigned char RAM[65536];
+ 
+@@ -155,6 +156,7 @@ init_os(int argc, char **argv) {
+ 		interactive = 1;
+ 		f = NULL;
+ 	}
++	srand(time(NULL));
+ }
+ 
+ static void
+@@ -565,8 +567,16 @@ PLOT() {
+ /* IOBASE */
+ static void
+ IOBASE() {
+-		printf("UNIMPL: IOBASE\n");
+-		exit(1);
++		/*
++		 * IOBASE is just used inside RND to get a timer value.
++		 * So, let's fake this here, too.
++		 */
++		int pseudo_timer = rand();
++		RAM[0xDC04] = pseudo_timer&0xff;
++		RAM[0xDC05] = pseudo_timer>>8;
++
++		X = 0x00;
++		Y = 0xDC;
+ }
+ 
+ int

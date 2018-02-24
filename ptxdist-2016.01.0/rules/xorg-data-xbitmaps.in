@@ -1,0 +1,9 @@
+## SECTION=multimedia_xorg_data
+
+config XORG_DATA_XBITMAPS
+	tristate
+	prompt "xbitmaps"
+	help
+	  This package contains the common X11 bitmaps for direct inclusion in C.
+	  This is from the modular X.org project.
+

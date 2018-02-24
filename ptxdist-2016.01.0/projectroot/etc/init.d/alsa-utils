@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# /etc/init.d/alsa-utils
+#
+
+case "$1" in
+
+	start|restart|force-reload)
+		if [ ! -d /dev/snd ]; then
+			echo "sound not supported, skipping mixer state"
+			exit 0
+		fi
+		echo -n "restoring mixer state..."
+		if [ -f /etc/asound.state ]; then
+			/usr/sbin/alsactl restore -f /etc/asound.state
+			echo "done"
+		else
+			echo "no /etc/asound.state, aborting"
+		fi
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart|force-reload}" >&2
+		exit 1
+		;;
+esac
+
+exit 0
+

@@ -1,0 +1,137 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 7 Jan 2015 11:27:17 +0100
+Subject: [PATCH] mfd: syscon: allow to register syscon with a device
+
+Commit bdb0066df96e ("mfd: syscon: Decouple syscon interface from platform devices")
+added the possibility to register syscon devices without associated platform
+device. This also removed regmap debugfs facilities, which don't work without a
+device. Since there is no replacement, this patch allows again to register
+syscon regions with an associated device where that this device exists anyway.
+
+[fixed max_register parameter in case of device register]
+Signed-off-by: Peter Seiderer <ps.report@gmx.net>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/mfd/syscon.c       | 29 +++++++++++++++++++++--------
+ include/linux/mfd/syscon.h | 10 ++++++++++
+ 2 files changed, 31 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/mfd/syscon.c b/drivers/mfd/syscon.c
+index 176bf0fa2685..af0f899299ca 100644
+--- a/drivers/mfd/syscon.c
++++ b/drivers/mfd/syscon.c
+@@ -36,19 +36,20 @@ struct syscon {
+ 	struct list_head list;
+ };
+ 
+-static struct regmap_config syscon_regmap_config = {
++static const struct regmap_config syscon_regmap_config = {
+ 	.reg_bits = 32,
+ 	.val_bits = 32,
+ 	.reg_stride = 4,
+ };
+ 
+-static struct syscon *of_syscon_register(struct device_node *np)
++struct syscon *syscon_register(struct device *dev, struct device_node *np)
+ {
+ 	struct syscon *syscon;
+ 	struct regmap *regmap;
+ 	void __iomem *base;
+ 	int ret;
+ 	struct regmap_config syscon_config = syscon_regmap_config;
++	struct resource res;
+ 
+ 	if (!of_device_is_compatible(np, "syscon"))
+ 		return ERR_PTR(-EINVAL);
+@@ -57,7 +58,12 @@ static struct syscon *of_syscon_register(struct device_node *np)
+ 	if (!syscon)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	base = of_iomap(np, 0);
++	if (of_address_to_resource(np, 0, &res)) {
++		ret = -ENOMEM;
++		goto err_map;
++	}
++
++	base = ioremap(res.start, resource_size(&res));
+ 	if (!base) {
+ 		ret = -ENOMEM;
+ 		goto err_map;
+@@ -69,7 +75,8 @@ static struct syscon *of_syscon_register(struct device_node *np)
+ 	 else if (of_property_read_bool(np, "little-endian"))
+ 		syscon_config.val_format_endian = REGMAP_ENDIAN_LITTLE;
+ 
+-	regmap = regmap_init_mmio(NULL, base, &syscon_config);
++	syscon_config.max_register = res.end - res.start - 3;
++	regmap = regmap_init_mmio(dev, base, &syscon_config);
+ 	if (IS_ERR(regmap)) {
+ 		pr_err("regmap init failed\n");
+ 		ret = PTR_ERR(regmap);
+@@ -91,6 +98,12 @@ err_map:
+ 	kfree(syscon);
+ 	return ERR_PTR(ret);
+ }
++EXPORT_SYMBOL_GPL(syscon_register);
++
++static struct syscon *of_syscon_register(struct device_node *np)
++{
++	return syscon_register(NULL, np);
++}
+ 
+ struct regmap *syscon_node_to_regmap(struct device_node *np)
+ {
+@@ -179,6 +192,7 @@ static int syscon_probe(struct platform_device *pdev)
+ 	struct device *dev = &pdev->dev;
+ 	struct syscon_platform_data *pdata = dev_get_platdata(dev);
+ 	struct syscon *syscon;
++	struct regmap_config syscon_config = syscon_regmap_config;
+ 	struct resource *res;
+ 	void __iomem *base;
+ 
+@@ -194,11 +208,10 @@ static int syscon_probe(struct platform_device *pdev)
+ 	if (!base)
+ 		return -ENOMEM;
+ 
+-	syscon_regmap_config.max_register = res->end - res->start - 3;
++	syscon_config.max_register = res->end - res->start - 3;
+ 	if (pdata)
+-		syscon_regmap_config.name = pdata->label;
+-	syscon->regmap = devm_regmap_init_mmio(dev, base,
+-					&syscon_regmap_config);
++		syscon_config.name = pdata->label;
++	syscon->regmap = devm_regmap_init_mmio(dev, base, &syscon_config);
+ 	if (IS_ERR(syscon->regmap)) {
+ 		dev_err(dev, "regmap init failed\n");
+ 		return PTR_ERR(syscon->regmap);
+diff --git a/include/linux/mfd/syscon.h b/include/linux/mfd/syscon.h
+index 75e543b78f53..e0c4a86452c4 100644
+--- a/include/linux/mfd/syscon.h
++++ b/include/linux/mfd/syscon.h
+@@ -17,10 +17,14 @@
+ 
+ #include <linux/err.h>
+ 
++struct device;
+ struct device_node;
++struct syscon;
+ 
+ #ifdef CONFIG_MFD_SYSCON
+ extern struct regmap *syscon_node_to_regmap(struct device_node *np);
++extern struct syscon *syscon_register(struct device *dev,
++				      struct device_node *np);
+ extern struct regmap *syscon_regmap_lookup_by_compatible(const char *s);
+ extern struct regmap *syscon_regmap_lookup_by_pdevname(const char *s);
+ extern struct regmap *syscon_regmap_lookup_by_phandle(
+@@ -32,6 +36,12 @@ static inline struct regmap *syscon_node_to_regmap(struct device_node *np)
+ 	return ERR_PTR(-ENOSYS);
+ }
+ 
++static struct syscon *syscon_register(struct device *dev,
++				      struct device_node *np)
++{
++	return ERR_PTR(-ENOSYS);
++}
++
+ static inline struct regmap *syscon_regmap_lookup_by_compatible(const char *s)
+ {
+ 	return ERR_PTR(-ENOSYS);

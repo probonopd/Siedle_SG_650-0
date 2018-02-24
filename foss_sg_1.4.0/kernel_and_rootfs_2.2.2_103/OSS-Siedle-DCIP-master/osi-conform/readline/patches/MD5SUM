@@ -1,0 +1,7 @@
+2b44e0afbc017784a6c4a7f44d34125a  0001-rl-attribute.patch
+98287829a9dc34834fc16a1b96df08f7  0002-rl-header.patch
+2d85254cb925e0bf6a589b81dfb6588c  0003-rl-no-cross-check.patch
+f5b40762fe042e4afde23a610117fc5e  0004-rl-no-rpath.patch
+9208f141b352557f384290aa9fe8905e  0005-rlfe-history.patch
+9f079efd89690c3a2fae15477ef8ac2e  0006-always-link-against-our-termcap-libraries.patch
+13b6a7d661daf3381a47532b50f0a799  series

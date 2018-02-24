@@ -1,0 +1,120 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 24 Mar 2015 12:05:49 +0100
+Subject: [PATCH] [media] coda: add macroblock tiled Y/CbCr 4:2:0 (CM12) pixel
+ format support
+
+Add support for output of macroblock tiled images (CM12 format)
+that can be handled by the i.MX VDOA. Since the rotator doesn't
+work with CM12 output, it is disabled when CM12 is selected.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-bit.c    | 13 ++++++++++---
+ drivers/media/platform/coda/coda-common.c | 21 +++++++++++++++++++--
+ 2 files changed, 29 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index 8e35e5910e0d..77a4dd1e26ad 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -834,7 +834,8 @@ static void coda9_set_frame_cache(struct coda_ctx *ctx, u32 fourcc)
+ 		cache_config = cache_pagemerge << CODA9_CACHE_PAGEMERGE_OFFSET;
+ 	}
+ 	coda_write(ctx->dev, cache_size, CODA9_CMD_SET_FRAME_CACHE_SIZE);
+-	if (fourcc == V4L2_PIX_FMT_NV12) {
++	if (fourcc == V4L2_PIX_FMT_NV12 ||
++	    fourcc == V4L2_PIX_FMT_CM12) {
+ 		cache_config |= 32 << CODA9_CACHE_LUMA_BUFFER_SIZE_OFFSET |
+ 				16 << CODA9_CACHE_CR_BUFFER_SIZE_OFFSET |
+ 				0 << CODA9_CACHE_CB_BUFFER_SIZE_OFFSET;
+@@ -931,7 +932,8 @@ static int coda_start_encoding(struct coda_ctx *ctx)
+ 
+ 	ctx->frame_mem_ctrl &= ~(CODA_FRAME_CHROMA_INTERLEAVE | (0x3 << 9) |
+ 				 CODA9_FRAME_TILED2LINEAR);
+-	if (q_data_src->fourcc == V4L2_PIX_FMT_NV12)
++	if (q_data_src->fourcc == V4L2_PIX_FMT_NV12 ||
++	    q_data_src->fourcc == V4L2_PIX_FMT_CM12)
+ 		ctx->frame_mem_ctrl |= CODA_FRAME_CHROMA_INTERLEAVE;
+ 	if (ctx->tiled_map_type == GDI_TILED_FRAME_MB_RASTER_MAP)
+ 		ctx->frame_mem_ctrl |= (0x3 << 9) | CODA9_FRAME_TILED2LINEAR;
+@@ -1628,7 +1630,8 @@ static int __coda_start_decoding(struct coda_ctx *ctx)
+ 
+ 	ctx->frame_mem_ctrl &= ~(CODA_FRAME_CHROMA_INTERLEAVE | (0x3 << 9) |
+ 				 CODA9_FRAME_TILED2LINEAR);
+-	if (dst_fourcc == V4L2_PIX_FMT_NV12)
++	if (dst_fourcc == V4L2_PIX_FMT_NV12 ||
++	    dst_fourcc == V4L2_PIX_FMT_CM12)
+ 		ctx->frame_mem_ctrl |= CODA_FRAME_CHROMA_INTERLEAVE;
+ 	if (ctx->tiled_map_type == GDI_TILED_FRAME_MB_RASTER_MAP)
+ 		ctx->frame_mem_ctrl |= (0x3 << 9) | ((tiled_output ||
+@@ -2161,6 +2164,10 @@ static void coda_finish_decode(struct coda_ctx *ctx)
+ 		case V4L2_PIX_FMT_YUV422P:
+ 			payload = width * height * 2;
+ 			break;
++		case V4L2_PIX_FMT_CM12:
++			payload = width * height;
++			payload = PAGE_ALIGN(payload) + payload / 2;
++			break;
+ 		}
+ 		vb2_set_plane_payload(&dst_buf->vb2_buf, 0, payload);
+ 
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index 6b8f087f4af9..5caebefaec56 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -201,6 +201,7 @@ static const struct coda_video_device coda_bit_decoder = {
+ 		V4L2_PIX_FMT_NV12,
+ 		V4L2_PIX_FMT_YUV420,
+ 		V4L2_PIX_FMT_YVU420,
++		V4L2_PIX_FMT_CM12,
+ 	},
+ };
+ 
+@@ -246,6 +247,7 @@ static u32 coda_format_normalize_yuv(u32 fourcc)
+ 	case V4L2_PIX_FMT_YUV420:
+ 	case V4L2_PIX_FMT_YVU420:
+ 	case V4L2_PIX_FMT_YUV422P:
++	case V4L2_PIX_FMT_CM12:
+ 		return V4L2_PIX_FMT_YUV420;
+ 	default:
+ 		return fourcc;
+@@ -460,6 +462,7 @@ static int coda_try_fmt(struct coda_ctx *ctx, const struct coda_codec *codec,
+ 	case V4L2_PIX_FMT_NV12:
+ 	case V4L2_PIX_FMT_YUV420:
+ 	case V4L2_PIX_FMT_YVU420:
++	case V4L2_PIX_FMT_CM12:
+ 		/*
+ 		 * Frame stride must be at least multiple of 8,
+ 		 * but multiple of 16 for h.264 or JPEG 4:2:x
+@@ -529,8 +532,18 @@ static int coda_try_fmt_vid_cap(struct file *file, void *priv,
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	/* The h.264 decoder only returns complete 16x16 macroblocks */
+-	if (codec && codec->src_fourcc == V4L2_PIX_FMT_H264) {
++	if (f->fmt.pix.pixelformat == V4L2_PIX_FMT_CM12) {
++		unsigned int max_w, max_h;
++
++		coda_get_max_dimensions(ctx->dev, codec, &max_w, &max_h);
++		v4l_bound_align_image(&f->fmt.pix.width, MIN_W, max_w, W_ALIGN,
++				      &f->fmt.pix.height, MIN_H, max_h, H_ALIGN,
++				      12);
++		f->fmt.pix.bytesperline = f->fmt.pix.width;
++		f->fmt.pix.sizeimage = f->fmt.pix.bytesperline *
++				       f->fmt.pix.height * 3 / 2;
++	} else if (codec->src_fourcc == V4L2_PIX_FMT_H264) {
++		/* The h.264 decoder only returns complete 16x16 macroblocks */
+ 		f->fmt.pix.width = f->fmt.pix.width;
+ 		f->fmt.pix.height = round_up(f->fmt.pix.height, 16);
+ 		f->fmt.pix.bytesperline = round_up(f->fmt.pix.width, 16);
+@@ -609,6 +622,10 @@ static int coda_s_fmt(struct coda_ctx *ctx, struct v4l2_format *f)
+ 	case V4L2_PIX_FMT_YVU420:
+ 		ctx->tiled_map_type = GDI_LINEAR_FRAME_MAP;
+ 		break;
++	case V4L2_PIX_FMT_CM12:
++		ctx->tiled_map_type = GDI_TILED_FRAME_MB_RASTER_MAP;
++		ctx->use_rot = false;
++		break;
+ 	default:
+ 		break;
+ 	}

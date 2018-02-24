@@ -1,0 +1,3 @@
+Fix-undefined-MOD_NANO.patch
+ntp_minpoll_increase_to_spec_value.patch
+ntpdate_disable_server_quality_checks.patch

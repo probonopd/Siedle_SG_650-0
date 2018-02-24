@@ -1,0 +1,102 @@
+## SECTION=architecture_options
+
+menu "extra toolchain options       "
+
+choice
+	prompt "linker hash-style"
+	default TARGET_LINKER_HASH_DEFAULT
+
+	config TARGET_LINKER_HASH_DEFAULT
+		bool
+		prompt "default   "
+		help
+		  don't change the default linker hash style
+
+	config TARGET_LINKER_HASH_SYSV
+		bool
+		prompt "sysv      "
+		help
+		  add "--hash-style=sysv" to the linker options
+
+	config TARGET_LINKER_HASH_GNU
+		bool
+		prompt "gnu       "
+		help
+		  add "--hash-style=gnu" to the linker options
+
+	config TARGET_LINKER_HASH_BOTH
+		bool
+		prompt "gnu & sysv"
+		help
+		  add "--hash-style=both" to the linker options
+endchoice
+
+config TARGET_LINKER_AS_NEEDED
+	bool
+	prompt "Link only needed libraries (ld --as-needed)"
+	help
+	  tell the linker to link in the produced binary only the libraries
+	  containing symbols actually used by the binary itself.
+
+choice
+	prompt "debugging"
+	default TARGET_DEBUG_KEEP
+
+	config TARGET_DEBUG_OFF
+		bool
+		prompt "disabled (force)  "
+		help
+		  Disable by force by adding '-g0' to the compiler
+		  command-line.
+
+	config TARGET_DEBUG_KEEP
+		bool
+		prompt "unchanged         "
+		help
+		  Add no debugging options to the compiler command-line.
+
+	config TARGET_DEBUG_ENABLE
+		bool
+		prompt "enabled           "
+		help
+		  Enable debugging by adding "-g" to the compiler
+		  command-line.
+
+	config TARGET_DEBUG_FULL
+		bool
+		prompt "enabled (full)    "
+		help
+		  Enable debugging by adding "-ggdb3" to the compiler
+		  command-line.
+endchoice
+
+config TARGET_COMPILER_RECORD_SWITCHES
+	bool
+	prompt "store compiler flags (-frecord-gcc-switches)"
+	default y
+
+config TARGET_EXTRA_CPPFLAGS
+	string
+	prompt "Extra CPPFLAGS (cpp)"
+	help
+	  Extra options for the C preprocessor.
+
+config TARGET_EXTRA_CFLAGS
+	string
+	prompt "Extra CFLAGS (c)"
+	help
+	  Extra options for the C compiler.
+
+config TARGET_EXTRA_CXXFLAGS
+	string
+	prompt "Extra CXXFLAGS (c++)"
+	help
+	  Extra options for the C++ compiler.
+
+config TARGET_EXTRA_LDFLAGS
+	string
+	prompt "Extra LDFLAGS (ld)"
+	help
+	  Extra options for the linker.
+
+endmenu

@@ -1,0 +1,19 @@
+## SECTION=networking
+
+config WIRESHARK
+	tristate
+	prompt "tshark (cli of wireshark)"
+	select LIBC_M
+	select LIBNL3
+	select LIBPCAP
+	select GLIB
+	select ZLIB
+	help
+	  TShark is a network protocol analyzer.  It lets you capture packet data
+	  from a live network, or read packets from a previously saved capture
+	  file, either printing a decoded form of those packets to the standard
+	  output or writing the packets to a file.  TShark's native capture file
+	  format is libpcap format, which is also the format used by tcpdump and
+	  various other tools. TShark is able to detect, read and write the same
+	  capture files that are supported by Wireshark. The gtk frontend wireshark
+	  can open the capture file and display the content of capture.

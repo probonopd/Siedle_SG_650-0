@@ -1,0 +1,12 @@
+## SECTION=bytecode_engines
+config VICE
+	tristate
+	select READLINE
+	select ALSA_LIB
+	prompt "vice"
+	depends on BROKEN
+	help
+	  VICE emulates well the hardware of the Commodore Business
+	  Machines of the pre-Amiga era. Supported are the various Pets, the
+	  VIC-20, the  Commodore 64, the Commodore 128, the CBM-II series, and
+	  the PLUS/4.

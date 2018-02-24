@@ -1,0 +1,90 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 3 Dec 2015 12:26:51 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: add debug parameter and
+ start/stop/pause/resume messages
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 21 ++++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 2aa318498ba5..ef304d625863 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -70,6 +70,10 @@ struct ipucsi_format {
+ int v4l2_media_subdev_prepare_stream(struct media_entity *entity);
+ int v4l2_media_subdev_s_stream(struct media_entity *entity, int enable);
+ 
++static int debug;
++module_param(debug, int, 0644);
++MODULE_PARM_DESC(debug, "Debug level (0-1)");
++
+ static struct ipucsi_format ipucsi_formats[] = {
+ 	{
+ 		.fourcc = V4L2_PIX_FMT_GREY,
+@@ -287,13 +291,17 @@ int ipucsi_resume_stream(struct ipucsi *ipucsi)
+ 	unsigned long flags;
+ 	dma_addr_t eba;
+ 
+-	if (!ipucsi->paused)
++	if (!ipucsi->paused) {
++		v4l2_dbg(1, debug, ipucsi->v4l2_dev, "not paused, no need to resume\n");
+ 		return 0;
++	}
+ 
+ 	spin_lock_irqsave(&ipucsi->lock, flags);
+ 
+ 	if (list_empty(&ipucsi->capture)) {
+ 		spin_unlock_irqrestore(&ipucsi->lock, flags);
++		v4l2_dbg(1, debug, ipucsi->v4l2_dev,
++			 "failed to resume, no capture buffers available\n");
+ 		return -EAGAIN;
+ 	}
+ 
+@@ -351,6 +359,8 @@ int ipucsi_resume_stream(struct ipucsi *ipucsi)
+ 	ipucsi->active = buf;
+ 	ipucsi->paused = false;
+ 
++	v4l2_dbg(1, debug, ipucsi->v4l2_dev, "resumed\n");
++
+ 	return 0;
+ }
+ 
+@@ -483,6 +493,8 @@ int ipucsi_pause_stream(struct ipucsi *ipucsi)
+ 		spin_unlock_irqrestore(&ipucsi->lock, flags);
+ 	}
+ 
++	v4l2_dbg(1, debug, ipucsi->v4l2_dev, "paused\n");
++
+ 	schedule_delayed_work(&ipucsi->pause_work, msecs_to_jiffies(40));
+ 
+ 	return 0;
+@@ -548,6 +560,9 @@ static void ipucsi_v4l2_dev_notify(struct v4l2_subdev *sd,
+ 
+ 		lock = (std != V4L2_STD_UNKNOWN);
+ 
++		v4l2_dbg(1, debug, ipucsi->v4l2_dev, "sync lock event: %s\n",
++			 lock ? "locked to signal" : "signal lost");
++
+ 		if (lock)
+ 			ipucsi_resume_stream(ipucsi);
+ 		else
+@@ -1127,6 +1142,8 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 	if (!ipucsi->paused)
+ 		ipu_csi_enable(ipucsi->csi);
+ 
++	v4l2_dbg(1, debug, ipucsi->v4l2_dev, "streaming started\n");
++
+ 	return 0;
+ 
+ stop_pipe:
+@@ -1178,6 +1195,8 @@ static void ipucsi_videobuf_stop_streaming(struct vb2_queue *vq)
+ 		ipu_ic_disable(ipucsi->ic);
+ 	}
+ 
++	v4l2_dbg(1, debug, ipucsi->v4l2_dev, "streaming stopped\n");
++
+ 	if (ipucsi->paused) {
+ 		/* wait for pause work to finish */
+ 		ipucsi->paused = false;

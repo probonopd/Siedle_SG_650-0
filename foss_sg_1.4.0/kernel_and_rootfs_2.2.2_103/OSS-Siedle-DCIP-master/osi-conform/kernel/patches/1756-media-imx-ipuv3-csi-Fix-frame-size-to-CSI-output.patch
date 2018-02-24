@@ -1,0 +1,41 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 25 Jan 2016 12:31:02 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: Fix frame size to CSI output
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 14 ++++----------
+ 1 file changed, 4 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 82181efaa0d3..02808768e71b 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -1695,9 +1695,7 @@ static int ipucsi_enum_framesizes(struct file *file, void *fh,
+ 	if (ret)
+ 		return ret;
+ 
+-	if (((fsize->index != 0) &&
+-	     (mbus_config.type != V4L2_MBUS_BT656)) ||
+-	    (fsize->index > 1))
++	if (fsize->index != 0)
+ 		return -EINVAL;
+ 
+ 	if (ipucsifmt->rgb)
+@@ -1707,13 +1705,9 @@ static int ipucsi_enum_framesizes(struct file *file, void *fh,
+ 	if (!fmt && !ipucsifmt->raw)
+ 		return -EINVAL;
+ 
+-	fsize->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
+-	fsize->stepwise.min_width = 1;
+-	fsize->stepwise.min_height = 1;
+-	fsize->stepwise.max_width = ipucsi->format_mbus[1].width;
+-	fsize->stepwise.max_height = ipucsi->format_mbus[1].height;
+-	fsize->stepwise.step_width = 1;
+-	fsize->stepwise.step_height = 1;
++	fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
++	fsize->discrete.width = ipucsi->format_mbus[1].width;
++	fsize->discrete.height = ipucsi->format_mbus[1].height;
+ 
+ 	return 0;
+ }

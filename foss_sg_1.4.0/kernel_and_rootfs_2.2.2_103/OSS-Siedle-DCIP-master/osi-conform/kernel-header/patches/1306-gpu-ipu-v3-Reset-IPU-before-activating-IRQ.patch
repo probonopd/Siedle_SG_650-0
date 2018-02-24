@@ -1,0 +1,51 @@
+From: David Jander <david@protonic.nl>
+Date: Thu, 2 Jul 2015 16:21:57 +0200
+Subject: [PATCH] gpu: ipu-v3: Reset IPU before activating IRQ
+
+If we don't come out of a clean reset, make sure no IRQ is fired before
+everything is setup by resetting the IPU before activating the interrupt
+handlers.
+
+Signed-off-by: David Jander <david@protonic.nl>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-common.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-common.c b/drivers/gpu/ipu-v3/ipu-common.c
+index 5030cba4a581..99dcacf05b99 100644
+--- a/drivers/gpu/ipu-v3/ipu-common.c
++++ b/drivers/gpu/ipu-v3/ipu-common.c
+@@ -1298,10 +1298,6 @@ static int ipu_probe(struct platform_device *pdev)
+ 	ipu->irq_sync = irq_sync;
+ 	ipu->irq_err = irq_err;
+ 
+-	ret = ipu_irq_init(ipu);
+-	if (ret)
+-		goto out_failed_irq;
+-
+ 	ret = device_reset(&pdev->dev);
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "failed to reset: %d\n", ret);
+@@ -1311,6 +1307,10 @@ static int ipu_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto out_failed_reset;
+ 
++	ret = ipu_irq_init(ipu);
++	if (ret)
++		goto out_failed_irq;
++
+ 	/* Set MCU_T to divide MCU access window into 2 */
+ 	ipu_cm_write(ipu, 0x00400000L | (IPU_MCU_T_DEFAULT << 18),
+ 			IPU_DISP_GEN);
+@@ -1333,9 +1333,9 @@ static int ipu_probe(struct platform_device *pdev)
+ failed_add_clients:
+ 	ipu_submodules_exit(ipu);
+ failed_submodules_init:
+-out_failed_reset:
+ 	ipu_irq_exit(ipu);
+ out_failed_irq:
++out_failed_reset:
+ 	clk_disable_unprepare(ipu->clk);
+ 	return ret;
+ }

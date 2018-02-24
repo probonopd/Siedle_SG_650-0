@@ -1,0 +1,22 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 18 Sep 2014 16:15:50 +0200
+Subject: [PATCH] [media] imx-ipuv3-csi: use double write reduction for YUV
+ 4:2:0 frames
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 5b8e2a56df0b..0dae0ba7ff60 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -807,6 +807,7 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 				ipu_cpmem_set_fmt(ipucsi->ipuch, fourcc);
+ 				ipu_cpmem_set_yuv_planar(ipucsi->ipuch, fourcc, width, height);
+ 				burstsize = 16;
++				ipu_cpmem_skip_odd_chroma_rows(ipucsi->ipuch);
+ 				break;
+ 			}
+ 			/* else: fallthrough */

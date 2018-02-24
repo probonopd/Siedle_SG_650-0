@@ -1,0 +1,82 @@
+## SECTION=networking
+
+menuconfig CONNMAN
+	tristate
+	select LIBC_DL
+	select LIBC_RT
+	select LIBC_PTHREAD
+	select DBUS
+	select GLIB
+	select IPTABLES
+	select READLINE				if CONNMAN_CLIENT
+	select POLKIT				if CONNMAN_POLKIT
+	select DBUS_PYTHON			if CONNMAN_TESTS && RUNTIME
+	select WPA_SUPPLICANT			if CONNMAN_WIFI && RUNTIME
+	select WPA_SUPPLICANT_CTRL_IFACE_DBUS	if CONNMAN_WIFI
+	select BUSYBOX_START_STOP_DAEMON	if CONNMAN_STARTSCRIPT
+	prompt "connman                       "
+	help
+	  The Connection Manager project provides a daemon for
+	  managing internet connections within embedded devices
+	  running the Linux operating system. The Connection Manager
+	  is designed to be slim and to use as few resources as
+	  possible, so it can be easily integrated in other
+	  Moblin-based systems. It is a fully modular system that can
+	  be extended, through plug-ins, to support all kinds of wired
+	  or wireless technologies. Also, configuration methods, like
+	  DHCP and domain name resolving, are implemented using
+	  plug-ins. The plug-in approach allows for easy adaption and
+	  modification for various use cases.
+
+
+if CONNMAN
+
+menu "plugins"
+
+	config CONNMAN_BLUETOOTH
+		bool
+		prompt "bluetooth support"
+
+	config CONNMAN_ETHERNET
+		bool
+		prompt "ethernet support"
+
+	config CONNMAN_GADGET
+		bool
+		prompt "gadget support"
+
+	config CONNMAN_LOOPBACK
+		bool
+		prompt "loopback support"
+
+	config CONNMAN_POLKIT
+		bool
+		prompt "polkit support"
+
+	config CONNMAN_WIFI
+		bool
+		prompt "wifi support"
+
+endmenu
+
+config CONNMAN_CLIENT
+	bool
+	prompt "commandline client"
+
+config CONNMAN_TESTS
+	bool
+	prompt "install test programs"
+
+config CONNMAN_STARTSCRIPT
+	bool
+	default y
+	prompt "install /etc/init.d/connman"
+
+config CONNMAN_SYSTEMD_UNIT
+	bool
+	default y
+	depends on SYSTEMD
+	prompt "install systemd unit files for connman"
+
+endif
+

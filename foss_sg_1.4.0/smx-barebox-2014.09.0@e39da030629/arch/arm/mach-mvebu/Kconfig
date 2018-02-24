@@ -1,0 +1,103 @@
+if ARCH_MVEBU
+
+config ARCH_TEXT_BASE
+	hex
+	default 0x2000000 if ARCH_ARMADA_370
+	default 0x2000000 if ARCH_ARMADA_XP
+	default 0x2000000 if ARCH_DOVE
+	default 0x2000000 if ARCH_KIRKWOOD
+
+choice
+	prompt "Marvell EBU Processor"
+
+config ARCH_ARMADA_370
+	bool "Armada 370"
+	select CPU_V7
+	select CLOCKSOURCE_MVEBU
+	select PINCTRL_ARMADA_370
+
+config ARCH_ARMADA_XP
+	bool "Armada XP"
+	select CPU_V7
+	select CLOCKSOURCE_MVEBU
+	select PINCTRL_ARMADA_XP
+
+config ARCH_DOVE
+	bool "Dove 88AP510"
+	select CPU_V7
+	select CLOCKSOURCE_ORION
+	select PINCTRL_DOVE
+
+config ARCH_KIRKWOOD
+	bool "Kirkwood"
+	select CPU_FEROCEON
+	select CLOCKSOURCE_ORION
+	select PINCTRL_KIRKWOOD
+
+endchoice
+
+#
+# Armada 370 SoC boards
+#
+
+if ARCH_ARMADA_370
+
+config MACH_GLOBALSCALE_MIRABOX
+	bool "Globalscale Mirabox"
+
+endif # ARCH_ARMADA_370
+
+#
+# Armada XP SoC boards
+#
+
+if ARCH_ARMADA_XP
+
+config MACH_PLATHOME_OPENBLOCKS_AX3
+	bool "PlatHome OpenBlocks AX3"
+
+config MACH_MARVELL_ARMADA_XP_GP
+	bool "Marvell Armada XP GP"
+
+endif # ARCH_ARMADA_XP
+
+#
+# Dove 88AP510 SoC boards
+#
+
+if ARCH_DOVE
+
+config MACH_SOLIDRUN_CUBOX
+	bool "SolidRun CuBox"
+
+endif # ARCH_DOVE
+
+#
+# Kirkwood SoC boards
+#
+
+if ARCH_KIRKWOOD
+
+config MACH_GLOBALSCALE_GURUPLUG
+	bool "Guruplug"
+
+config MACH_USI_TOPKICK
+	bool "Topkick"
+
+endif # ARCH_KIRKWOOD
+
+#
+# Common options
+#
+
+config MVEBU_CONSOLE_UART
+	int "UART number for console"
+	default 0
+	range 0 1 if ARCH_ARMADA_370
+	range 0 1 if ARCH_ARMADA_XP
+	range 0 3 if ARCH_DOVE
+	range 0 1 if ARCH_KIRKWOOD
+	help
+	  Select the UART number the barebox console will sit on.
+
+endif # ARCH_MVEBU

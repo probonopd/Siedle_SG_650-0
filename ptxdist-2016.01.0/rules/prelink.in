@@ -1,0 +1,36 @@
+## SECTION=debug_tools
+
+menuconfig PRELINK
+	tristate
+	select GCCLIBS_GCC_S
+	select LIBELF
+	select RC_ONCE if PRELINK_RC_ONCE && RUNTIME
+	prompt "prelink                       "
+	help
+	  ELF prelinking utility to speed up dynamic linking.  The
+	  prelink package contains a utility which modifies ELF shared
+	  libraries and executables, so that far fewer relocations
+	  need to be resolved at runtime and thus programs come up
+	  faster.
+
+if PRELINK
+
+config PRELINK_RC_ONCE
+	bool
+	prompt "install rc.once.d script"
+	help
+	  install a script that will be run on the first boot to
+	  prelink all programs and libraries.
+	  warning! this can increase first boot with a few minutes!
+
+config PRELINK_SKIP_ON_NFSROOT
+	bool
+	depends on PRELINK_RC_ONCE
+	prompt "skip prelinking on nfsroot"
+	help
+	  prelinking is done for better startup performance for the
+	  final system. nfsroot is usually used during development.
+	  This option allows to skip prelinking when booting from
+	  nfsroot.
+
+endif

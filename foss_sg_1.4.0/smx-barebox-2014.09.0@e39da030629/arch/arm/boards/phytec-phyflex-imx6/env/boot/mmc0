@@ -1,0 +1,19 @@
+#!/bin/sh
+
+if [ "$1" = menu ]; then
+	boot-menu-add-entry "$0" "mmc (ext3)"
+	exit
+fi
+
+path="/mnt/mmc0/boot"
+
+detect mmc0
+
+global.bootm.image="${path}/zImage"
+
+oftree="${path}/imx6q-siedle-dcip2-evalboard.dtb"
+if [ -f "${oftree}" ]; then
+        global.bootm.oftree="$oftree"
+fi
+
+global.linux.bootargs.dyn.root="root=PARTUUID=${mmc0.nt_signature}-01 rootwait"

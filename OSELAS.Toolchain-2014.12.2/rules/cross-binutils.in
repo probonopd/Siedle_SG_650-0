@@ -1,0 +1,22 @@
+# config for cross-binutils
+
+menuconfig CROSS_BINUTILS
+	bool
+	select HOST_ZLIB
+	select HOST_FAKE_MAKEINFO
+	prompt "binutils                    "
+
+if CROSS_BINUTILS
+
+config CROSS_BINUTILS_VERSION
+	string
+	prompt "binutils version"
+	default "2.18"
+	help
+	  Specify the binutils version here.
+
+config CROSS_BINUTILS_MD5
+	string
+	prompt "binutils source md5sum"
+
+endif

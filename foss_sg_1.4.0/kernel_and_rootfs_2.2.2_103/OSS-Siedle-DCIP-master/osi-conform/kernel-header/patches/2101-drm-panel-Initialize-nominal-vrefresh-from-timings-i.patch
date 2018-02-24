@@ -1,0 +1,25 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 11 Dec 2014 13:08:33 +0100
+Subject: [PATCH] drm/panel: Initialize nominal vrefresh from timings in simple
+ panel driver
+
+Panel timing descriptions using struct videomode don't have the vrefresh
+field, so calculate it instead using drm_mode_vrefresh.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/drm/panel/panel-simple.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/panel/panel-simple.c b/drivers/gpu/drm/panel/panel-simple.c
+index f97b73ec4713..cb7dd41b5456 100644
+--- a/drivers/gpu/drm/panel/panel-simple.c
++++ b/drivers/gpu/drm/panel/panel-simple.c
+@@ -112,6 +112,7 @@ static int panel_simple_get_fixed_modes(struct panel_simple *panel)
+ 		}
+ 
+ 		drm_display_mode_from_videomode(&vm, mode);
++		mode->vrefresh = drm_mode_vrefresh(mode);
+ 		drm_mode_set_name(mode);
+ 
+ 		drm_mode_probed_add(connector, mode);

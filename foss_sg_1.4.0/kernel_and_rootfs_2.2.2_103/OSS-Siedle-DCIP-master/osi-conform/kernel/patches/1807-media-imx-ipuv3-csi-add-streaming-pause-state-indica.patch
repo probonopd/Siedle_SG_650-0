@@ -1,0 +1,29 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 3 Dec 2015 12:30:01 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: add streaming/pause state indicator to
+ debugfs file
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index a79a967c62b4..507bde6672a6 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -2279,8 +2279,13 @@ static int ipucsi_debug_show(struct seq_file *s, void *data)
+ 		   ipucsi->skip_count);
+ 	seq_printf(s, "new frame before EOF    = %u\n", ipucsi->nfb4eof_count);
+ 	seq_printf(s, "parameter update errors = %u\n", ipucsi->pupe_count);
+-	seq_printf(s, "SMFC%d frame lost        = %u\n",
++	seq_printf(s, "SMFC%d frame lost        = %u\n\n",
+ 		   ipucsi->id, ipucsi->frm_lost_count);
++	seq_printf(s, "paused                  = %d\n", ipucsi->paused);
++	seq_printf(s, "start_streaming_called  = %d\n",
++		   ipucsi->vb2_vidq.start_streaming_called);
++	seq_printf(s, "streaming               = %d\n",
++		   vb2_is_streaming(&ipucsi->vb2_vidq));
+ 
+ 	return 0;
+ }

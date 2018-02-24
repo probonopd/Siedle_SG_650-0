@@ -1,0 +1,54 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 7 Oct 2014 14:49:55 +0200
+Subject: [PATCH] [media] coda: Fix JPEG SEQ_INIT and read back results
+
+Clear DEC_SEQ_JPG_THUMB_EN and read back JPEG related return values.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-bit.c  | 12 ++++++++++++
+ drivers/media/platform/coda/coda_regs.h |  1 +
+ 2 files changed, 13 insertions(+)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index 732436ef90bd..b2e7841e8366 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -1775,6 +1775,8 @@ static int __coda_start_decoding(struct coda_ctx *ctx)
+ 			coda_write(dev, 512, CODA_CMD_DEC_SEQ_SPP_CHUNK_SIZE);
+ 		}
+ 	}
++	if (src_fourcc == V4L2_PIX_FMT_JPEG)
++		coda_write(dev, 0, CODA_CMD_DEC_SEQ_JPG_THUMB_EN);
+ 	if (dev->devtype->product != CODA_960)
+ 		coda_write(dev, 0, CODA_CMD_DEC_SEQ_SRC_SIZE);
+ 
+@@ -1842,6 +1844,16 @@ static int __coda_start_decoding(struct coda_ctx *ctx)
+ 					  (top_bottom & 0x3ff);
+ 	}
+ 
++	if (src_fourcc == V4L2_PIX_FMT_JPEG) {
++		val = coda_read(dev, CODA_RET_DEC_SEQ_JPG_THUMB_IND) & 0x1;
++		if (val)
++			v4l2_warn(&dev->v4l2_dev, "thumbnail enabled\n");
++		val = coda_read(dev, CODA_RET_DEC_SEQ_JPG_PARA) & 0x7;
++		v4l2_dbg(1, coda_debug, &dev->v4l2_dev,
++			 "JPEG source format: %d (%s)\n",
++			 val, val ? "4:2:2" : "4:2:0");
++	}
++
+ 	ret = coda_alloc_framebuffers(ctx, q_data_dst, src_fourcc);
+ 	if (ret < 0) {
+ 		v4l2_err(&dev->v4l2_dev, "failed to allocate framebuffers\n");
+diff --git a/drivers/media/platform/coda/coda_regs.h b/drivers/media/platform/coda/coda_regs.h
+index 8963f431d311..448f8a381d10 100644
+--- a/drivers/media/platform/coda/coda_regs.h
++++ b/drivers/media/platform/coda/coda_regs.h
+@@ -156,6 +156,7 @@
+ #define CODA_CMD_DEC_SEQ_START_BYTE		0x190
+ #define CODA_CMD_DEC_SEQ_PS_BB_START		0x194
+ #define CODA_CMD_DEC_SEQ_PS_BB_SIZE		0x198
++#define CODA_CMD_DEC_SEQ_JPG_THUMB_EN		0x19c
+ #define CODA_CMD_DEC_SEQ_MP4_ASP_CLASS		0x19c
+ #define CODA_CMD_DEC_SEQ_X264_MV_EN		0x19c
+ #define CODA_CMD_DEC_SEQ_SPP_CHUNK_SIZE		0x1a0

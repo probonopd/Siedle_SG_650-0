@@ -1,0 +1,34 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 22 Feb 2016 14:58:14 +0100
+Subject: [PATCH] [media] coda: add physical address to coda buffer traces
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/trace.h | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/platform/coda/trace.h b/drivers/media/platform/coda/trace.h
+index 883ace7a413b..056b766ff631 100644
+--- a/drivers/media/platform/coda/trace.h
++++ b/drivers/media/platform/coda/trace.h
+@@ -57,16 +57,18 @@ DECLARE_EVENT_CLASS(coda_buf_class,
+ 		__field(int, minor)
+ 		__field(int, index)
+ 		__field(int, ctx)
++		__field(dma_addr_t, paddr)
+ 	),
+ 
+ 	TP_fast_assign(
+ 		__entry->minor = ctx->fh.vdev->minor;
+ 		__entry->index = buf->vb2_buf.index;
+ 		__entry->ctx = ctx->idx;
++		__entry->paddr = vb2_dma_contig_plane_dma_addr(&buf->vb2_buf, 0);
+ 	),
+ 
+-	TP_printk("minor = %d, index = %d, ctx = %d",
+-		  __entry->minor, __entry->index, __entry->ctx)
++	TP_printk("minor = %d, index = %d, ctx = %d, paddr = 0x%08lx",
++		  __entry->minor, __entry->index, __entry->ctx, __entry->paddr)
+ );
+ 
+ DEFINE_EVENT(coda_buf_class, coda_enc_pic_run,

@@ -1,0 +1,184 @@
+## SECTION=networking_ntp
+
+# --- non-PARSE clocks ---
+
+if !NTP_ALL_CLOCK_DRIVERS
+
+menu "select non-PARSE clock drivers"
+
+#if NTP_NONE_PARSE_CLOCKS
+
+config NTP_ACTS
+	bool
+	prompt "ACTS modem service"
+	help
+	  NIST dialup clock
+
+config NTP_ARBITER
+	bool
+	prompt "Arbiter 1088A/B GPS receiver"
+
+config NTP_ARCRON_MSF
+	bool
+	prompt "Arcron MSF receiver"
+
+config NTP_AS2201
+	bool
+	prompt "Austron 2200A/2201A GPS receiver"
+
+config NTP_ATOM
+	bool
+	prompt "ATOM PPS interface"
+
+config NTP_CHRONOLOG
+	bool
+	prompt "Chrono-log K-series WWVB receiver"
+
+config NTP_CHU
+	bool
+	prompt "CHU modem/decoder"
+
+config NTP_AUDIO_CHU
+	bool
+	prompt "CHU audio/decoder"
+
+config NTP_DATUM
+	bool
+	prompt "Datum Programmable Time System"
+
+config NTP_DUMBCLOCK
+	bool
+	prompt "Dumb generic hh:mm:ss local clock"
+
+config NTP_FG
+	bool
+	prompt "Forum Graphic GPS"
+
+config NTP_HEATH
+	bool
+	prompt "Heath GC-1000 WWV/WWVH receiver "
+
+config NTP_HOPFSERIAL
+	bool
+	prompt "hopf serial clock device"
+
+config NTP_HOPFPCI
+	bool
+	prompt "hopf 6039 PCI board"
+
+config NTP_HPGPS
+	bool
+	prompt "HP 58503A GPS receiver"
+
+config NTP_IRIG
+	bool
+	prompt "IRIG audio decoder "
+
+config NTP_JJY
+	bool
+	prompt "JJY receiver"
+
+config NTP_JUPITER
+	bool
+	prompt "Rockwell Jupiter GPS receiver"
+
+config NTP_LEITCH
+	bool
+	prompt "Leitch CSD 5300 Master Clock System Driver"
+
+config NTP_LOCAL_CLOCK
+	bool
+	prompt "local clock reference"
+	default y
+	help
+	  Enables the driver for the internal PC CMOS clock. This clock
+	  is mostly unreliable, but suitable as a fall back time source.
+
+config NTP_MSFEES
+	bool
+	prompt "EES M201 MSF receiver"
+
+config NTP_MX4200
+	bool
+	prompt "Magnavox MX4200 GPS receiver "
+
+config NTP_NEOCLOCK4X
+	bool
+	prompt "NeoClock4X DCF77 / TDF receiver"
+
+config NTP_NMEA
+	bool
+	prompt "NMEA GPS receiver"
+
+config NTP_ONCORE
+	bool
+	prompt "Motorola VP/UT Oncore GPS receiver"
+
+config NTP_PALISADE
+	bool
+	prompt "Palisade clock"
+
+config NTP_PCF
+	bool
+	prompt "Conrad parallel port radio clock"
+
+config NTP_PST
+	bool
+	prompt "PST/Traconex 1020 WWV/WWVH receiver"
+
+config NTP_PTBACTS
+	bool
+	prompt "PTB modem service"
+
+config NTP_RIPENCC
+	bool
+	prompt "RIPENCC specific Trimble driver"
+
+config NTP_SHM
+	bool
+	prompt "SHM clock attached thru shared memory"
+	help
+	  Clock attached through shared memory (runs in a
+	  separate program).
+
+config NTP_SPECTRACOM
+	bool
+	prompt "Spectracom 8170/Netclock/2 WWVB receiver"
+
+config NTP_TPRO
+	bool
+	prompt "KSI/Odetics TPRO/S GPS receiver/IRIG interface [BROKEN]"
+	depends on BROKEN
+
+config NTP_TRAK
+	bool
+	prompt "TRAK 8810 GPS receiver"
+
+config NTP_TRUETIME
+	bool
+	prompt "Kinemetrics/TrueTime receivers"
+
+config NTP_TT560
+	bool
+	prompt "TrueTime 560 IRIG-B decoder [BROKEN]"
+	depends on BROKEN
+
+config NTP_ULINK
+	bool
+	prompt "Ultralink WWVB receiver"
+
+config NTP_USNO
+	bool
+	prompt "USNO modem service"
+
+config NTP_WWV
+	bool
+	prompt "WWV Audio receiver"
+
+config NTP_ZYFER
+	bool
+	prompt "Zyfer GPStarplus receiver"
+
+endmenu
+
+endif

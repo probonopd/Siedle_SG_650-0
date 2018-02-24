@@ -1,0 +1,70 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 22 Jul 2014 11:13:46 +0200
+Subject: [PATCH] [media] coda: allow large GOP sizes and GOP size 0 on CODA960
+
+CodaDx6 only accepts GOP sizes up to 60 frames, CODA960 accepts up to 99
+frames. If we disable automatic I frame generation altogether (by setting
+GOP size to 0), we can produce arbitrarily large GOP sizes as soon as we
+can force I frames from userspace with an IDR mechanism.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-bit.c    | 5 +++--
+ drivers/media/platform/coda/coda-common.c | 4 +++-
+ drivers/media/platform/coda/coda.h        | 2 +-
+ 3 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index beb5cca14ed2..123fc65ded09 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -1059,7 +1059,7 @@ static int coda_start_encoding(struct coda_ctx *ctx)
+ 			break;
+ 		}
+ 		coda_write(dev, value, CODA_CMD_ENC_SEQ_SLICE_MODE);
+-		value = ctx->params.gop_size & CODA_GOP_SIZE_MASK;
++		value = ctx->params.gop_size;
+ 		coda_write(dev, value, CODA_CMD_ENC_SEQ_GOP_SIZE);
+ 	}
+ 
+@@ -1319,7 +1319,8 @@ static int coda_prepare_encode(struct coda_ctx *ctx)
+ 	 * frame as IDR. This is a problem for some decoders that can't
+ 	 * recover when a frame is lost.
+ 	 */
+-	if ((src_buf->sequence % ctx->params.gop_size) == 0)
++	if (ctx->params.gop_size != 0 &&
++	    (src_buf->sequence % ctx->params.gop_size) == 0)
+ 		src_buf->flags |= V4L2_BUF_FLAG_KEYFRAME;
+ 	if (src_buf->flags & V4L2_BUF_FLAG_KEYFRAME)
+ 		src_buf->flags &= ~V4L2_BUF_FLAG_PFRAME;
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index b91df97079dd..b136d3e3f8a0 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -1742,10 +1742,12 @@ static const struct v4l2_ctrl_ops coda_ctrl_ops = {
+ 
+ static void coda_encode_ctrls(struct coda_ctx *ctx)
+ {
++	int max_gop_size = (ctx->dev->devtype->product == CODA_DX6) ? 60 : 99;
++
+ 	v4l2_ctrl_new_std(&ctx->ctrls, &coda_ctrl_ops,
+ 		V4L2_CID_MPEG_VIDEO_BITRATE, 0, 32767000, 1000, 0);
+ 	v4l2_ctrl_new_std(&ctx->ctrls, &coda_ctrl_ops,
+-		V4L2_CID_MPEG_VIDEO_GOP_SIZE, 1, 60, 1, 16);
++		V4L2_CID_MPEG_VIDEO_GOP_SIZE, 0, max_gop_size, 1, 16);
+ 	v4l2_ctrl_new_std(&ctx->ctrls, &coda_ctrl_ops,
+ 		V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP, 0, 51, 1, 25);
+ 	v4l2_ctrl_new_std(&ctx->ctrls, &coda_ctrl_ops,
+diff --git a/drivers/media/platform/coda/coda.h b/drivers/media/platform/coda/coda.h
+index eb27e0210926..e7545ba62dd4 100644
+--- a/drivers/media/platform/coda/coda.h
++++ b/drivers/media/platform/coda/coda.h
+@@ -120,7 +120,7 @@ struct coda_params {
+ 	u8			h264_level_idc;
+ 	u8			mpeg4_intra_qp;
+ 	u8			mpeg4_inter_qp;
+-	u8			gop_size;
++	int			gop_size;
+ 	int			intra_refresh;
+ 	u8			jpeg_format;
+ 	u8			jpeg_quality;

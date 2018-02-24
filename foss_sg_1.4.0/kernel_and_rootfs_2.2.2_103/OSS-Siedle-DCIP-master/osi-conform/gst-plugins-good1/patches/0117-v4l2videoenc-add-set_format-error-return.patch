@@ -1,0 +1,63 @@
+From: Philipp Zabel <philipp.zabel@gmail.com>
+Date: Fri, 10 Jun 2016 13:16:55 +0200
+Subject: [PATCH] v4l2videoenc: add set_format error return
+
+---
+ sys/v4l2/gstv4l2videoenc.c | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2videoenc.c b/sys/v4l2/gstv4l2videoenc.c
+index 4a397aa114be..7deff4a1f80d 100644
+--- a/sys/v4l2/gstv4l2videoenc.c
++++ b/sys/v4l2/gstv4l2videoenc.c
+@@ -236,6 +236,7 @@ gst_v4l2_video_enc_set_format (GstVideoEncoder * encoder,
+ {
+   gboolean ret = TRUE;
+   GstV4l2VideoEnc *self = GST_V4L2_VIDEO_ENC (encoder);
++  GstV4l2Error error = GST_V4L2_ERROR_INIT;
+ 
+   GST_DEBUG_OBJECT (self, "Setting format: %" GST_PTR_FORMAT, state->caps);
+ 
+@@ -250,10 +251,12 @@ gst_v4l2_video_enc_set_format (GstVideoEncoder * encoder,
+     /* FIXME we probably need to do more work if pools are active */
+   }
+ 
+-  ret = gst_v4l2_object_set_format (self->v4l2output, state->caps);
++  ret = gst_v4l2_object_set_format (self->v4l2output, state->caps, &error);
+ 
+-  if (ret)
++  if (ret) {
++    gst_v4l2_error (self, &error);
+     self->input_state = gst_video_codec_state_ref (state);
++  }
+ 
+   GST_DEBUG_OBJECT (self, "output caps: %" GST_PTR_FORMAT, state->caps);
+ 
+@@ -443,6 +446,7 @@ gst_v4l2_video_enc_handle_frame (GstVideoEncoder * encoder,
+     GstVideoCodecFrame * frame)
+ {
+   GstV4l2VideoEnc *self = GST_V4L2_VIDEO_ENC (encoder);
++  GstV4l2Error error = GST_V4L2_ERROR_INIT;
+   GstFlowReturn ret = GST_FLOW_OK;
+   GstVideoCodecState *output_state;
+   GstCaps *tcaps, *outcaps;
+@@ -453,7 +457,9 @@ gst_v4l2_video_enc_handle_frame (GstVideoEncoder * encoder,
+   if (G_UNLIKELY (!GST_V4L2_IS_ACTIVE (self->v4l2output))) {
+     if (!self->input_state)
+       goto not_negotiated;
+-    if (!gst_v4l2_object_set_format (self->v4l2output, self->input_state->caps))
++    if (!gst_v4l2_object_set_format (self->v4l2output, self->input_state->caps,
++        &error))
++      gst_v4l2_error(self, &error);
+       goto not_negotiated;
+   }
+ 
+@@ -478,7 +484,7 @@ gst_v4l2_video_enc_handle_frame (GstVideoEncoder * encoder,
+     gst_structure_set (structure, "height", G_TYPE_INT,
+         output_state->info.height, NULL);
+ 
+-    gst_v4l2_object_set_format (self->v4l2capture, output_state->caps);
++    gst_v4l2_object_set_format (self->v4l2capture, output_state->caps, &error);
+ 
+     gst_caps_unref (outcaps);
+ 

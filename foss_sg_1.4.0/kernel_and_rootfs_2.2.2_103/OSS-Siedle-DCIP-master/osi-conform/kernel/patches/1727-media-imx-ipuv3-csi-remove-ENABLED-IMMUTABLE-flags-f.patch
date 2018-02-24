@@ -1,0 +1,28 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 15 Jan 2015 11:27:46 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: remove ENABLED/IMMUTABLE flags from
+ CSI input link
+
+To support mipi-csi2, we want to allow disabling the two direct links
+between CSI2IPU gasket and IPU1 CSI1 and between CSI2IPU gasket and
+IPU2 CSI0 on i.MX6Q.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index caa8e820368f..63a044890071 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -1781,8 +1781,7 @@ static int ipucsi_async_init(struct ipucsi *ipucsi, struct device_node *node)
+ 	if (!rp)
+ 		return 0;
+ 
+-	ipucsi->link = ipu_media_entity_create_link(&ipucsi->subdev, 0, rp,
+-			MEDIA_LNK_FL_IMMUTABLE | MEDIA_LNK_FL_ENABLED);
++	ipucsi->link = ipu_media_entity_create_link(&ipucsi->subdev, 0, rp, 0);
+ 
+ 	if (IS_ERR(ipucsi->link)) {
+ 		ipucsi->link = NULL;

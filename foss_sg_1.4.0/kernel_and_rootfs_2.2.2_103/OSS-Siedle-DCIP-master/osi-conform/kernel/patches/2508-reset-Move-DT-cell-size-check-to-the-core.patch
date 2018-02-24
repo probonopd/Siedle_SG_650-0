@@ -1,0 +1,43 @@
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Date: Thu, 14 Jan 2016 16:24:44 +0100
+Subject: [PATCH] reset: Move DT cell size check to the core
+
+The core currently doesn't check that the DT cell size matches what the
+driver declares, which means that every xlate function needs to duplicate
+that check.
+
+Make sure that of_reset_control_get checks for this to avoid duplication
+and errors.
+
+Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/reset/core.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/reset/core.c b/drivers/reset/core.c
+index 4a63b379361c..f15f150b79da 100644
+--- a/drivers/reset/core.c
++++ b/drivers/reset/core.c
+@@ -45,9 +45,6 @@ struct reset_control {
+ static int of_reset_simple_xlate(struct reset_controller_dev *rcdev,
+ 			  const struct of_phandle_args *reset_spec)
+ {
+-	if (WARN_ON(reset_spec->args_count != rcdev->of_reset_n_cells))
+-		return -EINVAL;
+-
+ 	if (reset_spec->args[0] >= rcdev->nr_resets)
+ 		return -EINVAL;
+ 
+@@ -178,6 +175,11 @@ struct reset_control *of_reset_control_get_by_index(struct device_node *node,
+ 		return ERR_PTR(-EPROBE_DEFER);
+ 	}
+ 
++	if (WARN_ON(args.args_count != rcdev->of_reset_n_cells)) {
++		mutex_unlock(&reset_controller_list_mutex);
++		return ERR_PTR(-EINVAL);
++	}
++
+ 	rstc_id = rcdev->of_xlate(rcdev, &args);
+ 	if (rstc_id < 0) {
+ 		mutex_unlock(&reset_controller_list_mutex);

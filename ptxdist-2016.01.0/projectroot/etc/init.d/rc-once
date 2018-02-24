@@ -1,0 +1,36 @@
+#!/bin/sh
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+. /lib/init/initmethod-bbinit-functions.sh
+. /lib/init/rc-once.sh
+
+do_start() {
+	test -e "$STAMP" && return
+
+	mount_root_rw || exit 1
+
+	run_rc_once && : > "$STAMP"
+
+	if ! mount_root_restore; then
+		# remounting rw/ro during the second boot will flush anything
+		# left in the filesystem journal
+		rm "$STAMP"
+		reboot
+		sleep 100
+	fi
+}
+
+case "$1" in
+
+	start)
+		do_start >&2
+		;;
+	*)
+		echo "Usage: $0 {start}" >&2
+		exit 1
+		;;
+esac
+
+exit 0
+

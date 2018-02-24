@@ -1,0 +1,24 @@
+From: Marc Kleine-Budde <m.kleine-budde@pengutronix.de>
+Date: Tue, 1 Nov 2011 18:25:08 +0100
+Subject: [PATCH] libiberty pic
+
+Taken from gentoo.
+
+Signed-off-by: Marc Kleine-Budde <m.kleine-budde@pengutronix.de>
+Signed-off-by: Robert Schwebel <r.schwebel@pengutronix.de>
+---
+ libiberty/Makefile.in | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/libiberty/Makefile.in b/libiberty/Makefile.in
+index 75ff82d984a9..a55137e5f1de 100644
+--- a/libiberty/Makefile.in
++++ b/libiberty/Makefile.in
+@@ -250,6 +250,7 @@ $(TARGETLIB): $(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS)
+ 	  $(AR) $(AR_FLAGS) $(TARGETLIB) \
+ 	    $(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS); \
+ 	  $(RANLIB) $(TARGETLIB); \
++	  cp $(TARGETLIB) ../ ; \
+ 	  cd ..; \
+ 	else true; fi
+ 

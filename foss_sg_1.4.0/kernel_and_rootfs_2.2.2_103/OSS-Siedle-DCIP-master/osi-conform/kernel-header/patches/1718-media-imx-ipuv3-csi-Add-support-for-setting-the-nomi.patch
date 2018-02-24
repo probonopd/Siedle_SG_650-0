@@ -1,0 +1,106 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 12 Sep 2014 15:21:44 +0200
+Subject: [PATCH] [media] imx-ipuv3-csi: Add support for setting the nominal
+ framerate on the CSI subdevice
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 57 ++++++++++++++++++++++++++++++
+ 1 file changed, 57 insertions(+)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 0dae0ba7ff60..aa9206bdcad2 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -165,6 +165,7 @@ struct ipucsi {
+ 	struct v4l2_subdev		subdev;
+ 	struct media_pad		subdev_pad[5];
+ 	struct v4l2_mbus_framefmt	format_mbus[2];
++	struct v4l2_fract		timeperframe;
+ 	struct ipu_media_link		*link;
+ 	struct v4l2_fh			fh;
+ 	bool				paused;
+@@ -1243,13 +1244,39 @@ static int ipucsi_subdev_set_format(struct v4l2_subdev *sd,
+ 	return 0;
+ }
+ 
++static int ipucsi_g_frame_interval(struct v4l2_subdev *subdev,
++				   struct v4l2_subdev_frame_interval *fi)
++{
++	struct ipucsi *ipucsi = container_of(subdev, struct ipucsi, subdev);
++
++	fi->interval = ipucsi->timeperframe;
++
++        return 0;
++}
++
++static int ipucsi_s_frame_interval(struct v4l2_subdev *subdev,
++				   struct v4l2_subdev_frame_interval *fi)
++{
++	struct ipucsi *ipucsi = container_of(subdev, struct ipucsi, subdev);
++
++	ipucsi->timeperframe = fi->interval;
++
++	return 0;
++}
++
+ static struct v4l2_subdev_pad_ops ipucsi_subdev_pad_ops = {
+ 	.get_fmt = ipucsi_subdev_get_format,
+ 	.set_fmt = ipucsi_subdev_set_format,
+ };
+ 
++static struct v4l2_subdev_video_ops ipucsi_subdev_video_ops = {
++	.g_frame_interval = ipucsi_g_frame_interval,
++	.s_frame_interval = ipucsi_s_frame_interval,
++};
++
+ static const struct v4l2_subdev_ops ipucsi_subdev_ops = {
+ 	.pad    = &ipucsi_subdev_pad_ops,
++	.video  = &ipucsi_subdev_video_ops,
+ };
+ 
+ struct media_entity_operations ipucsi_entity_ops = {
+@@ -1430,6 +1457,33 @@ static const struct v4l2_file_operations ipucsi_capture_fops = {
+ 	.poll		= vb2_fop_poll,
+ };
+ 
++static int ipucsi_g_parm(struct file *file, void *fh,
++			 struct v4l2_streamparm *sp)
++{
++	struct ipucsi *ipucsi = video_drvdata(file);
++
++	if (sp->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
++		return -EINVAL;
++
++	sp->parm.capture.capability = V4L2_CAP_TIMEPERFRAME;
++	sp->parm.capture.timeperframe = ipucsi->timeperframe;
++
++	return 0;
++}
++
++static int ipucsi_s_parm(struct file *file, void *fh,
++			 struct v4l2_streamparm *sp)
++{
++	struct ipucsi *ipucsi = video_drvdata(file);
++
++	if (sp->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
++		return -EINVAL;
++
++	sp->parm.capture.timeperframe = ipucsi->timeperframe;
++
++	return 0;
++}
++
+ static int ipucsi_enum_framesizes(struct file *file, void *fh,
+ 				  struct v4l2_frmsizeenum *fsize)
+ {
+@@ -1499,6 +1553,9 @@ static const struct v4l2_ioctl_ops ipucsi_capture_ioctl_ops = {
+ 	.vidioc_streamon		= vb2_ioctl_streamon,
+ 	.vidioc_streamoff		= vb2_ioctl_streamoff,
+ 
++	.vidioc_g_parm			= ipucsi_g_parm,
++	.vidioc_s_parm			= ipucsi_s_parm,
++
+ 	.vidioc_enum_framesizes		= ipucsi_enum_framesizes,
+ 
+ 	.vidioc_subscribe_event		= ipucsi_subscribe_event,

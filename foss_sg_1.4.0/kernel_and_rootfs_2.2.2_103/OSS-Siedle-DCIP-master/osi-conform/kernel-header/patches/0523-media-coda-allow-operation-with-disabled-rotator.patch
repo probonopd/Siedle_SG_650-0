@@ -1,0 +1,434 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 10 Mar 2015 12:13:41 +0100
+Subject: [PATCH] [media] coda: allow operation with disabled rotator
+
+To save bandwidth, allow to disable the rotator copying output frames from
+the internal frame buffers into the vb2 capture queue. In this mode, the
+capture queue buffers are used as internal framebuffers directly, the number
+of buffers needed on the capture queue is dictated by the compressed stream.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-bit.c    | 126 +++++++++++++++++++++++-------
+ drivers/media/platform/coda/coda-common.c |  93 +++++++++++++++++++++-
+ drivers/media/platform/coda/coda.h        |   4 +-
+ 3 files changed, 190 insertions(+), 33 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index b871187fd031..8e35e5910e0d 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -86,6 +86,9 @@ static void coda_command_async(struct coda_ctx *ctx, int cmd)
+ 
+ 	if (dev->devtype->product == CODA_960 ||
+ 	    dev->devtype->product == CODA_7541) {
++		ctx->frm_dis_flg = ctx->frm_dis_flg & ~ctx->frm_dis_clr;
++		ctx->frm_dis_clr = 0;
++
+ 		/* Restore context related registers to CODA */
+ 		coda_write(dev, ctx->bit_stream_param,
+ 				CODA_REG_BIT_BIT_STREAM_PARAM);
+@@ -400,6 +403,7 @@ static int coda_alloc_framebuffers(struct coda_ctx *ctx,
+ 				   struct coda_q_data *q_data, u32 fourcc)
+ {
+ 	struct coda_dev *dev = ctx->dev;
++	struct vb2_queue *vq;
+ 	int width, height;
+ 	int ysize;
+ 	int ret;
+@@ -415,34 +419,47 @@ static int coda_alloc_framebuffers(struct coda_ctx *ctx,
+ 	}
+ 	ysize = width * height;
+ 
+-	/* Allocate frame buffers */
+-	for (i = 0; i < ctx->num_internal_frames; i++) {
+-		size_t size;
+-		char *name;
++	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE);
+ 
+-		if (ctx->tiled_map_type == GDI_TILED_FRAME_MB_RASTER_MAP)
+-			size = round_up(ysize, 4096) + ysize / 2;
+-		else
+-			size = ysize + ysize / 2;
+-		if (ctx->codec->src_fourcc == V4L2_PIX_FMT_H264 &&
+-		    dev->devtype->product != CODA_DX6)
+-			size += ysize / 4;
+-		name = kasprintf(GFP_KERNEL, "fb%d", i);
+-		ret = coda_alloc_context_buf(ctx, &ctx->internal_frames[i],
+-					     size, name);
+-		kfree(name);
+-		if (ret < 0) {
+-			coda_free_framebuffers(ctx);
+-			return ret;
++	if (ctx->use_rot) {
++		/* Allocate frame buffers */
++		for (i = 0; i < ctx->num_internal_frames; i++) {
++			size_t size;
++			char *name;
++
++			if (ctx->tiled_map_type == GDI_TILED_FRAME_MB_RASTER_MAP)
++				size = round_up(ysize, 4096) + ysize / 2;
++			else
++				size = ysize + ysize / 2;
++			if (ctx->codec->src_fourcc == V4L2_PIX_FMT_H264 &&
++			    dev->devtype->product != CODA_DX6)
++				size += ysize / 4;
++			name = kasprintf(GFP_KERNEL, "fb%d", i);
++			ret = coda_alloc_context_buf(ctx,
++						     &ctx->internal_frames[i],
++						     size, name);
++			kfree(name);
++			if (ret < 0) {
++				coda_free_framebuffers(ctx);
++				return ret;
++			}
+ 		}
++	} else if (ctx->codec->src_fourcc == V4L2_PIX_FMT_H264) {
++		ctx->num_internal_frames = vq->num_buffers;
+ 	}
+ 
+ 	/* Register frame buffers in the parameter buffer */
+ 	for (i = 0; i < ctx->num_internal_frames; i++) {
++		dma_addr_t paddr;
+ 		u32 y, cb, cr;
+ 
+ 		/* Start addresses of Y, Cb, Cr planes */
+-		y = ctx->internal_frames[i].paddr;
++		if (ctx->use_rot || ctx->codec->src_fourcc != V4L2_PIX_FMT_H264)
++			paddr = ctx->internal_frames[i].paddr;
++		else
++			paddr = vb2_dma_contig_plane_dma_addr(vq->bufs[i], 0);
++
++		y = paddr;
+ 		cb = y + ysize;
+ 		cr = y + ysize + ysize/4;
+ 		if (ctx->tiled_map_type == GDI_TILED_FRAME_MB_RASTER_MAP) {
+@@ -461,8 +478,7 @@ static int coda_alloc_framebuffers(struct coda_ctx *ctx,
+ 		if (ctx->codec->src_fourcc == V4L2_PIX_FMT_H264 &&
+ 		    dev->devtype->product != CODA_DX6)
+ 			coda_parabuf_write(ctx, 96 + i,
+-					   ctx->internal_frames[i].paddr +
+-					   ysize + ysize/4 + ysize/4);
++					   paddr + ysize + ysize/4 + ysize/4);
+ 	}
+ 
+ 	/* mvcol buffer for mpeg4 */
+@@ -1616,12 +1632,13 @@ static int __coda_start_decoding(struct coda_ctx *ctx)
+ 		ctx->frame_mem_ctrl |= CODA_FRAME_CHROMA_INTERLEAVE;
+ 	if (ctx->tiled_map_type == GDI_TILED_FRAME_MB_RASTER_MAP)
+ 		ctx->frame_mem_ctrl |= (0x3 << 9) | ((tiled_output ||
+-				       disable_rotator) ? 0 :
++				       !ctx->use_rot) ? 0 :
+ 				       CODA9_FRAME_TILED2LINEAR);
+ 	coda_write(dev, ctx->frame_mem_ctrl, CODA_REG_BIT_FRAME_MEM_CTRL);
+ 
+ 	ctx->display_idx = -1;
+ 	ctx->frm_dis_flg = 0;
++	ctx->frm_dis_clr = 0;
+ 	coda_write(dev, 0, CODA_REG_BIT_FRM_DIS_FLG(ctx->reg_idx));
+ 
+ 	coda_write(dev, CODA_BIT_DEC_SEQ_INIT_ESCAPE,
+@@ -1860,7 +1877,8 @@ static int coda_prepare_decode(struct coda_ctx *ctx)
+ 	coda_write_base(ctx, q_data_dst, dst_buf, reg_addr);
+ 	coda_write(dev, q_data_dst->bytesperline, reg_stride);
+ 
+-	coda_write(dev, CODA_ROT_MIR_ENABLE | ctx->params.rot_mode,
++	coda_write(dev, (!ctx->use_rot) ? 0 :
++			(CODA_ROT_MIR_ENABLE | ctx->params.rot_mode),
+ 			CODA_CMD_DEC_PIC_ROT_MODE);
+ 
+ 	switch (dev->devtype->product) {
+@@ -2018,16 +2036,20 @@ static void coda_finish_decode(struct coda_ctx *ctx)
+ 
+ 	ctx->frm_dis_flg = coda_read(dev,
+ 				     CODA_REG_BIT_FRM_DIS_FLG(ctx->reg_idx));
++	ctx->frm_dis_flg &= ~ctx->frm_dis_clr;
++	ctx->frm_dis_clr = 0;
+ 
+ 	/*
+ 	 * The previous display frame was copied out by the rotator,
+ 	 * now it can be overwritten again
+ 	 */
+-	if (ctx->display_idx >= 0 &&
+-	    ctx->display_idx < ctx->num_internal_frames) {
+-		ctx->frm_dis_flg &= ~(1 << ctx->display_idx);
+-		coda_write(dev, ctx->frm_dis_flg,
+-				CODA_REG_BIT_FRM_DIS_FLG(ctx->reg_idx));
++	if (ctx->use_rot) {
++		if (ctx->display_idx >= 0 &&
++		    ctx->display_idx < ctx->num_internal_frames) {
++			ctx->frm_dis_flg &= ~(1 << ctx->display_idx);
++			coda_write(dev, ctx->frm_dis_flg,
++					CODA_REG_BIT_FRM_DIS_FLG(ctx->reg_idx));
++		}
+ 	}
+ 
+ 	/*
+@@ -2104,14 +2126,58 @@ static void coda_finish_decode(struct coda_ctx *ctx)
+ 		ctx->hold = true;
+ 	} else if (display_idx == -3) {
+ 		/* possibly prescan failure */
++		/* or no buffers free in frm_dis_flg */
+ 	} else if (display_idx < 0 || display_idx >= ctx->num_internal_frames) {
+ 		v4l2_err(&dev->v4l2_dev,
+ 			 "presentation frame index out of range: %d\n",
+ 			 display_idx);
+ 	}
+ 
++	if (!ctx->use_rot && display_idx >= 0 && display_idx < ctx->num_internal_frames) {
++		dst_buf = v4l2_m2m_dst_buf_remove_index(ctx->fh.m2m_ctx,
++							display_idx);
++		if (dst_buf == NULL)
++			return;
++
++		dst_buf->sequence = ctx->osequence++;
++
++		dst_buf->flags &= ~(V4L2_BUF_FLAG_KEYFRAME |
++				    V4L2_BUF_FLAG_PFRAME |
++				    V4L2_BUF_FLAG_BFRAME);
++		dst_buf->flags |= ctx->frame_types[display_idx];
++		meta = &ctx->frame_metas[display_idx];
++		dst_buf->timecode = meta->timecode;
++		dst_buf->timestamp = meta->timestamp;
++
++		trace_coda_dec_rot_done(ctx, dst_buf, meta);
++
++		switch (q_data_dst->fourcc) {
++		case V4L2_PIX_FMT_YUV420:
++		case V4L2_PIX_FMT_YVU420:
++		case V4L2_PIX_FMT_NV12:
++		default:
++			payload = width * height * 3 / 2;
++			break;
++		case V4L2_PIX_FMT_YUV422P:
++			payload = width * height * 2;
++			break;
++		}
++		vb2_set_plane_payload(&dst_buf->vb2_buf, 0, payload);
++
++		coda_m2m_buf_done(ctx, dst_buf, ctx->frame_errors[display_idx] ?
++				  VB2_BUF_STATE_ERROR : VB2_BUF_STATE_DONE);
++
++		v4l2_dbg(1, coda_debug, &dev->v4l2_dev,
++			"job finished: decoding frame (%d) (%s)\n",
++			dst_buf->sequence,
++			(dst_buf->flags & V4L2_BUF_FLAG_KEYFRAME) ?
++			"KEYFRAME" : "PFRAME");
++		return;
++	}
++
+ 	/* If a frame was copied out, return it */
+-	if (ctx->display_idx >= 0 &&
++	if (ctx->use_rot &&
++	    ctx->display_idx >= 0 &&
+ 	    ctx->display_idx < ctx->num_internal_frames) {
+ 		dst_buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
+ 		dst_buf->sequence = ctx->osequence++;
+@@ -2139,7 +2205,7 @@ static void coda_finish_decode(struct coda_ctx *ctx)
+ 		}
+ 		vb2_set_plane_payload(&dst_buf->vb2_buf, 0, payload);
+ 
+-		coda_m2m_buf_done(ctx, dst_buf, ctx->frame_errors[display_idx] ?
++		coda_m2m_buf_done(ctx, dst_buf, ctx->frame_errors[ctx->display_idx] ?
+ 				  VB2_BUF_STATE_ERROR : VB2_BUF_STATE_DONE);
+ 
+ 		v4l2_dbg(1, coda_debug, &dev->v4l2_dev,
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index 9d4ad7c3bec0..6b8f087f4af9 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -67,6 +67,10 @@ static int disable_tiling;
+ module_param(disable_tiling, int, 0644);
+ MODULE_PARM_DESC(disable_tiling, "Disable tiled frame buffers");
+ 
++static int disable_rotator = 0;
++module_param(disable_rotator, int, 0644);
++MODULE_PARM_DESC(disable_rotator, "Disable rotator output, decoded images will be empty");
++
+ void coda_write(struct coda_dev *dev, u32 data, u32 reg)
+ {
+ 	v4l2_dbg(2, coda_debug, &dev->v4l2_dev,
+@@ -598,7 +602,7 @@ static int coda_s_fmt(struct coda_ctx *ctx, struct v4l2_format *f)
+ 	switch (f->fmt.pix.pixelformat) {
+ 	case V4L2_PIX_FMT_NV12:
+ 		ctx->tiled_map_type = GDI_TILED_FRAME_MB_RASTER_MAP;
+-		if (tiled_output || (!disable_tiling && !disable_rotator))
++		if (tiled_output || (!disable_tiling && ctx->use_rot))
+ 			break;
+ 		/* else fall through */
+ 	case V4L2_PIX_FMT_YUV420:
+@@ -688,6 +692,19 @@ static int coda_qbuf(struct file *file, void *priv,
+ 	return v4l2_m2m_qbuf(file, ctx->fh.m2m_ctx, buf);
+ }
+ 
++static int coda_create_bufs(struct file *file, void *priv,
++			    struct v4l2_create_buffers *create)
++{
++	struct coda_ctx *ctx = fh_to_ctx(priv);
++
++	if (create->format.type == V4L2_BUF_TYPE_VIDEO_CAPTURE &&
++	    ctx->inst_type == CODA_INST_DECODER &&
++	    !ctx->use_rot)
++		return -ENOTTY;
++
++	return v4l2_m2m_ioctl_create_bufs(file, priv, create);
++}
++
+ static bool coda_buf_is_end_of_stream(struct coda_ctx *ctx,
+ 				      struct vb2_v4l2_buffer *buf)
+ {
+@@ -942,7 +959,7 @@ static const struct v4l2_ioctl_ops coda_ioctl_ops = {
+ 	.vidioc_qbuf		= coda_qbuf,
+ 	.vidioc_expbuf		= v4l2_m2m_ioctl_expbuf,
+ 	.vidioc_dqbuf		= v4l2_m2m_ioctl_dqbuf,
+-	.vidioc_create_bufs	= v4l2_m2m_ioctl_create_bufs,
++	.vidioc_create_bufs	= coda_create_bufs,
+ 	.vidioc_prepare_buf	= v4l2_m2m_ioctl_prepare_buf,
+ 
+ 	.vidioc_streamon	= v4l2_m2m_ioctl_streamon,
+@@ -1042,6 +1059,8 @@ static int coda_job_ready(void *m2m_priv)
+ 		struct coda_buffer_meta *meta;
+ 		unsigned int meta_size;
+ 		unsigned int payload = coda_get_bitstream_payload(ctx);
++		unsigned int count;
++		u32 frm_dis_flg;
+ 
+ 		if (ctx->hold && !src_bufs) {
+ 			v4l2_dbg(1, coda_debug, &ctx->dev->v4l2_dev,
+@@ -1050,6 +1069,19 @@ static int coda_job_ready(void *m2m_priv)
+ 			return 0;
+ 		}
+ 
++		/*
++		 * Decoding sometimes breaks if there are not at least two free
++		 * registered frame buffers available.
++		 */
++		frm_dis_flg = ctx->frm_dis_flg & ~ctx->frm_dis_clr;
++		count = hweight32(frm_dis_flg);
++		if (!ctx->use_rot && count >= (ctx->num_internal_frames - 2)) {
++			v4l2_dbg(1, coda_debug, &ctx->dev->v4l2_dev,
++				 "%d: not ready: all buffers in use: %d/%d (0x%x)",
++				 ctx->idx, count, ctx->num_internal_frames, frm_dis_flg);
++			return 0;
++		}
++
+ 		if (ctx->hold && !src_bufs) {
+ 			trace_coda_not_ready(ctx, stream_end, src_bufs, num_metas, payload);
+ 			v4l2_dbg(1, coda_debug, &ctx->dev->v4l2_dev,
+@@ -1195,6 +1227,45 @@ static int coda_queue_setup(struct vb2_queue *vq, const void *parg,
+ 	q_data = get_q_data(ctx, vq->type);
+ 	size = q_data->sizeimage;
+ 
++	/*
++	 * FIXME
++	 *
++	 * This should use the number of needed frames reported by the SEQ_INIT
++	 * command issued to the BIT processor. As this requires userspace
++	 * support, temporarily use a sufficiently high number of buffers.
++	 */
++	if (!ctx->use_rot && vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE) {
++		unsigned int width, height, ysize;
++
++		/*
++		 * Have at least 8 buffers on the decoder capture queue,
++		 * but at most CODA_MAX_FRAMEBUFFERS.
++		 */
++		*nbuffers = clamp(*nbuffers, 8U, CODA_MAX_FRAMEBUFFERS);
++
++		if (ctx->codec && (ctx->codec->src_fourcc == V4L2_PIX_FMT_H264)) {
++			width = round_up(q_data->width, 16);
++			height = round_up(q_data->height, 16);
++		} else {
++			width = round_up(q_data->width, 8);
++			height = q_data->height;
++		}
++		ysize = width * height;
++
++		if (ctx->tiled_map_type == GDI_LINEAR_FRAME_MAP)
++			size = ysize + ysize / 2;
++		else if (ctx->tiled_map_type == GDI_TILED_FRAME_MB_RASTER_MAP)
++			size = round_up(ysize, 4096) + ysize / 2;
++
++		/* per-frame mvcol buffer for h.264 */
++		if (ctx->codec->src_fourcc == V4L2_PIX_FMT_H264 &&
++		    ctx->dev->devtype->product != CODA_DX6)
++			size += ysize / 4;
++
++		if (size < q_data->sizeimage)
++			size = q_data->sizeimage;
++	}
++
+ 	*nplanes = 1;
+ 	sizes[0] = size;
+ 
+@@ -1251,6 +1322,8 @@ static void coda_buf_queue(struct vb2_buffer *vb)
+ 			coda_fill_bitstream(ctx, true);
+ 		mutex_unlock(&ctx->bitstream_mutex);
+ 	} else {
++		if (!ctx->use_rot && vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
++			ctx->frm_dis_flg &= ~BIT(vb->index);
+ 		v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, vbuf);
+ 	}
+ }
+@@ -1609,12 +1682,27 @@ static void coda_jpeg_encode_ctrls(struct coda_ctx *ctx)
+ 
+ static int coda_ctrls_setup(struct coda_ctx *ctx)
+ {
++	struct v4l2_ctrl *ctrl;
++
+ 	v4l2_ctrl_handler_init(&ctx->ctrls, 2);
+ 
+ 	v4l2_ctrl_new_std(&ctx->ctrls, &coda_ctrl_ops,
+ 		V4L2_CID_HFLIP, 0, 1, 1, 0);
+ 	v4l2_ctrl_new_std(&ctx->ctrls, &coda_ctrl_ops,
+ 		V4L2_CID_VFLIP, 0, 1, 1, 0);
++	/*
++	 * FIXME
++	 *
++	 * This should be made a volatile control if the rotator is disabled.
++	 * It should be set to the correct value depending on the number of
++	 * needed frames reported by the SEQ_INIT command issued to the BIT
++	 * processor. As this requires userspace support, temporarily set a
++	 * sufficiently high value.
++	 */
++	ctrl = v4l2_ctrl_new_std(&ctx->ctrls, &coda_ctrl_ops,
++		V4L2_CID_MIN_BUFFERS_FOR_CAPTURE, 1, 32, 1,
++		(!ctx->use_rot) ? 8 : 2);
++
+ 	if (ctx->inst_type == CODA_INST_ENCODER) {
+ 		if (ctx->cvd->dst_formats[0] == V4L2_PIX_FMT_JPEG)
+ 			coda_jpeg_encode_ctrls(ctx);
+@@ -1738,6 +1826,7 @@ static int coda_open(struct file *file)
+ 	ctx->inst_type = ctx->cvd->type;
+ 	ctx->ops = ctx->cvd->ops;
+ 	ctx->use_bit = !ctx->cvd->direct;
++	ctx->use_rot = !disable_rotator;
+ 	init_completion(&ctx->completion);
+ 	INIT_WORK(&ctx->pic_run_work, coda_pic_run_work);
+ 	if (ctx->ops->seq_end_work)
+diff --git a/drivers/media/platform/coda/coda.h b/drivers/media/platform/coda/coda.h
+index 00626b0fa9dd..746b1bd5fd26 100644
+--- a/drivers/media/platform/coda/coda.h
++++ b/drivers/media/platform/coda/coda.h
+@@ -28,7 +28,7 @@
+ 
+ #include "coda_regs.h"
+ 
+-#define CODA_MAX_FRAMEBUFFERS	8
++#define CODA_MAX_FRAMEBUFFERS	16U
+ #define FMO_SLICE_SAVE_BUF_SIZE	(32)
+ 
+ enum {
+@@ -232,10 +232,12 @@ struct coda_ctx {
+ 	int				tiled_map_type;
+ 	u32				bit_stream_param;
+ 	u32				frm_dis_flg;
++	u32				frm_dis_clr;
+ 	u32				frame_mem_ctrl;
+ 	int				display_idx;
+ 	struct dentry			*debugfs_entry;
+ 	bool				use_bit;
++	bool				use_rot;
+ };
+ 
+ extern int coda_debug;

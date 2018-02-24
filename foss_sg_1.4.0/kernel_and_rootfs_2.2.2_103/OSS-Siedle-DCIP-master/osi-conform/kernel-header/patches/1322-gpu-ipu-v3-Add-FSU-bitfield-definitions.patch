@@ -1,0 +1,232 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 11 Aug 2014 11:29:07 +0200
+Subject: [PATCH] gpu: ipu-v3: Add FSU bitfield definitions
+
+This patch adds the bitfield definitions for channel linking via
+the IPU's Frame Synchronization Unit (FSU).
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-prv.h | 209 +++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 209 insertions(+)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-prv.h b/drivers/gpu/ipu-v3/ipu-prv.h
+index bfb1e8a4483f..859c3f2138de 100644
+--- a/drivers/gpu/ipu-v3/ipu-prv.h
++++ b/drivers/gpu/ipu-v3/ipu-prv.h
+@@ -78,6 +78,215 @@ struct ipu_soc;
+ #define IPU_DI0_COUNTER_RELEASE			(1 << 24)
+ #define IPU_DI1_COUNTER_RELEASE			(1 << 25)
+ 
++#define FS_PRPENC_ROT_SRC_SEL_MASK     (0xf << 0)
++#define FS_PRPENC_ROT_SRC_SEL_OFFSET   0
++#define FS_PRPVF_ROT_SRC_SEL_MASK      (0xf << 8)
++#define FS_PRPVF_ROT_SRC_SEL_OFFSET    8
++#define FS_PP_ROT_SRC_SEL_MASK         (0xf << 16)
++#define FS_PP_ROT_SRC_SEL_OFFSET       16
++#define FS_PP_SRC_SEL_MASK             (0xf << 12)
++#define FS_PP_SRC_SEL_OFFSET           12
++#define FS_VDI1_SRC_SEL_MASK           (0x3 << 20)
++#define FS_VDI1_SRC_SEL_OFFSET         20
++#define FS_VDI3_SRC_SEL_MASK           (0x3 << 22)
++#define FS_VDI3_SRC_SEL_OFFSET         22
++#define FS_PRP_SRC_SEL_MASK            (0xf << 24)
++#define FS_PRP_SRC_SEL_OFFSET          24
++#define FS_VF_IN_VALID                 (1 << 31)
++#define FS_ENC_IN_VALID                (1 << 30)
++#define FS_VDI_SRC_SEL_MASK            (0x3 << 28)
++
++/* The same for most SRC/DEST_SEL fields */
++#define FS_SEL_ARM				0
++
++#define FS_PP_SRC_SEL_SMFC0			0x1
++#define FS_PP_SRC_SEL_SMFC2			0x3
++#define FS_PP_SRC_SEL_IRT_PP			0x6	/* Rotation for post-processing */
++#define FS_PP_SRC_SEL_VDOA			0x8
++
++#define FS_PRP_SRC_SEL_SMFC0			0x1
++#define FS_PRP_SRC_SEL_SMFC2			0x3
++#define FS_PRP_SRC_SEL_IC_DIRECT		0x5
++#define FS_PRP_SRC_SEL_IRT_ENC			0x6
++#define FS_PRP_SRC_SEL_IRT_VF			0x7
++
++#define FS_PP_ROT_SRC_SEL_SMFC0			0x1
++#define FS_PP_ROT_SRC_SEL_SMFC2			0x3
++#define FS_PP_ROT_SRC_SEL_POST_PROCESSING	0x5
++
++#define FS_PRPVF_ROT_SRC_SEL_SMFC0		0x1
++#define FS_PRPVF_ROT_SRC_SEL_SMFC1		0x2
++#define FS_PRPVF_ROT_SRC_SEL_SMFC2		0x3
++#define FS_PRPVF_ROT_SRC_SEL_SMFC3		0x4
++#define FS_PRPVF_ROT_SRC_SEL_IC_DIRECT		0x5	/* cb7 */
++#define FS_PRPVF_ROT_SRC_SEL_VIEWFINDER		0x8
++
++#define FS_PRPENC_ROT_SRC_SEL_SMFC0		0x1
++#define FS_PRPENC_ROT_SRC_SEL_SMFC1		0x2
++#define FS_PRPENC_ROT_SRC_SEL_SMFC2		0x3
++#define FS_PRPENC_ROT_SRC_SEL_SMFC3		0x4
++#define FS_PRPENC_ROT_SRC_SEL_IC_DIRECT		0x5	/* cb7 */
++#define FS_PRPENC_ROT_SRC_SEL_ENCODING		0x7	/* ch20 */
++
++#define FS_VDI1_SRC_SEL_IRT_VIEWFINDER	0x1	/* ch49 */
++#define FS_VDI1_SRC_SEL_IRT_PLAYBACK	0x2	/* ch50 */
++#define FS_VDI1_SRC_SEL_POST_PROCESSING	0x3	/* ch22 */
++
++#define FS_VDI3_SRC_SEL_IRT_VIEWFINDER	0x1	/* ch49 */
++#define FS_VDI3_SRC_SEL_IRT_PLAYBACK	0x2	/* ch50 */
++#define FS_VDI3_SRC_SEL_POST_PROCESSING	0x3	/* ch22 */
++
++#define FS_VDI_SRC_SEL_CSI_DIRECT	0x1	/* CB7 */
++#define FS_VDI_SRC_SEL_VDOA		0x2
++
++#define FS_VDOA_DEST_SEL_MASK          (0x3 << 16)
++#define FS_VDOA_DEST_SEL_VDI           (0x2 << 16)
++#define FS_VDOA_DEST_SEL_IC            (0x1 << 16)
++#define FS_VDI_SRC_SEL_OFFSET          28
++
++#define FS_PRPENC_DEST_SEL_MASK        (0xf << 0)
++#define FS_PRPENC_DEST_SEL_OFFSET      0
++#define FS_PRPVF_DEST_SEL_MASK         (0xf << 4)
++#define FS_PRPVF_DEST_SEL_OFFSET       4
++#define FS_PRPVF_ROT_DEST_SEL_MASK     (0xf << 8)
++#define FS_PRPVF_ROT_DEST_SEL_OFFSET   8
++#define FS_PP_DEST_SEL_MASK            (0xf << 12)
++#define FS_PP_DEST_SEL_OFFSET          12
++#define FS_PP_ROT_DEST_SEL_MASK        (0xf << 16)
++#define FS_PP_ROT_DEST_SEL_OFFSET      16
++#define FS_PRPENC_ROT_DEST_SEL_MASK    (0xf << 20)
++#define FS_PRPENC_ROT_DEST_SEL_OFFSET  20
++#define FS_PRP_DEST_SEL_MASK           (0x0f << 24)
++#define FS_PRP_DEST_SEL_OFFSET         24
++
++#define FS_PRPENC_DEST_SEL_IRT_ENCODING		0x1
++#define FS_PRPENC_DEST_SEL_DC1			0x7	/* ch28 */
++#define FS_PRPENC_DEST_SEL_DC2			0x8	/* ch41 */
++#define FS_PRPENC_DEST_SEL_DP_SYNC0		0x9	/* ch23 */
++#define FS_PRPENC_DEST_SEL_DP_SYNC1		0xa	/* ch27 */
++#define FS_PRPENC_DEST_SEL_DP_ASYNC1		0xb	/* ch24 */
++#define FS_PRPENC_DEST_SEL_DP_ASYNC0		0xc	/* ch29 */
++#define FS_PRPENC_DEST_SEL_ALT_DC2		0xd	/* ch41 */
++#define FS_PRPENC_DEST_SEL_ALT_DP_ASYNC1	0xe	/* ch24 */
++#define FS_PRPENC_DEST_SEL_ALT_DP_ASYNC0	0xf	/* ch29 */
++
++#define FS_PRPVF_DEST_SEL_IRT_VIEWFINDER	0x1
++#define FS_PRPVF_DEST_SEL_DC1			0x7	/* ch28 */
++#define FS_PRPVF_DEST_SEL_DC2			0x8	/* ch41 */
++#define FS_PRPVF_DEST_SEL_DP_SYNC0		0x9	/* ch27 */
++#define FS_PRPVF_DEST_SEL_DP_SYNC1		0xa	/* ch23 */
++#define FS_PRPVF_DEST_SEL_DP_ASYNC1		0xb	/* ch24 */
++#define FS_PRPVF_DEST_SEL_DP_ASYNC0		0xc	/* ch29 */
++#define FS_PRPVF_DEST_SEL_ALT_DC2		0xd	/* ch41 */
++#define FS_PRPVF_DEST_SEL_ALT_DP_ASYNC1		0xe	/* ch24 */
++#define FS_PRPVF_DEST_SEL_ALT_DP_ASYNC0		0xf	/* ch29 */
++
++#define FS_PRPVF_ROT_DEST_SEL_VDI_PLANE3	0x3	/* ch25 */
++#define FS_PRPVF_ROT_DEST_SEL_VDI_PLANE1	0x4	/* ch26 */
++#define FS_PRPVF_ROT_DEST_SEL_IC_PRP		0x5
++#define FS_PRPVF_ROT_DEST_SEL_DC1		0x7	/* ch28 */
++#define FS_PRPVF_ROT_DEST_SEL_DC2		0x8	/* ch41 */
++#define FS_PRPVF_ROT_DEST_SEL_DP_SYNC0		0x9	/* ch23 */
++#define FS_PRPVF_ROT_DEST_SEL_DP_SYNC1		0xa	/* ch27 */
++#define FS_PRPVF_ROT_DEST_SEL_DP_ASYNC1		0xb	/* ch24 */
++#define FS_PRPVF_ROT_DEST_SEL_DP_ASYNC0		0xc	/* ch29 */
++#define FS_PRPVF_ROT_DEST_SEL_ALT_DC2		0xd	/* ch41 */
++#define FS_PRPVF_ROT_DEST_SEL_ALT_DP_ASYNC1	0xe	/* ch24 */
++#define FS_PRPVF_ROT_DEST_SEL_ALT_DP_ASYNC0	0xf	/* ch29 */
++
++#define FS_PP_DEST_SEL_IRT_PLAYBACK		0x3	/* IRT playback */
++#define FS_PP_DEST_SEL_VDI_PLANE3		0x4	/* ch25 */
++#define FS_PP_DEST_SEL_VDI_PLANE1		0x5	/* ch26 */
++#define FS_PP_DEST_SEL_DC1			0x7	/* ch28 */
++#define FS_PP_DEST_SEL_DC2			0x8	/* ch41 */
++#define FS_PP_DEST_SEL_DP_SYNC0			0x9	/* ch23 */
++#define FS_PP_DEST_SEL_DP_SYNC1			0xa	/* ch27 */
++#define FS_PP_DEST_SEL_DP_ASYNC1		0xb	/* ch24 */
++#define FS_PP_DEST_SEL_DP_ASYNC0		0xc	/* ch29 */
++#define FS_PP_DEST_SEL_ALT_DC2			0xd	/* ch41 */
++#define FS_PP_DEST_SEL_ALT_DP_ASYNC1		0xe	/* ch24 */
++#define FS_PP_DEST_SEL_ALT_DP_ASYNC0		0xf	/* ch29 */
++
++#define FS_PP_ROT_DEST_SEL_IC_PLAYBACK		0x4	/* Post Processing */
++#define FS_PP_ROT_DEST_SEL_VDI_PLANE3		0x5	/* ch25 */
++#define FS_PP_ROT_DEST_SEL_VDI_PLANE1		0x6	/* ch26 */
++#define FS_PP_ROT_DEST_SEL_DC1			0x7	/* ch28 */
++#define FS_PP_ROT_DEST_SEL_DC2			0x8	/* ch41 */
++#define FS_PP_ROT_DEST_SEL_DP_SYNC0		0x9	/* ch23 */
++#define FS_PP_ROT_DEST_SEL_DP_SYNC1		0xa	/* ch27 */
++#define FS_PP_ROT_DEST_SEL_DP_ASYNC1		0xb	/* ch24 */
++#define FS_PP_ROT_DEST_SEL_DP_ASYNC0		0xc	/* ch29 */
++#define FS_PP_ROT_DEST_SEL_ALT_DC2		0xd	/* ch41 */
++#define FS_PP_ROT_DEST_SEL_ALT_DP_ASYNC1	0xe	/* ch24 */
++#define FS_PP_ROT_DEST_SEL_ALT_DP_ASYNC0	0xf	/* ch29 */
++
++#define FS_PRPENC_ROT_DEST_SEL_IC_PRP		0x5
++#define FS_PRPENC_ROT_DEST_SEL_DC1		0x7	/* ch28 */
++#define FS_PRPENC_ROT_DEST_SEL_DC2		0x8	/* ch41 */
++#define FS_PRPENC_ROT_DEST_SEL_DP_SYNC0		0x9	/* ch23 */
++#define FS_PRPENC_ROT_DEST_SEL_DP_SYNC1		0xa	/* ch27 */
++#define FS_PRPENC_ROT_DEST_SEL_DP_ASYNC1	0xb	/* ch24 */
++#define FS_PRPENC_ROT_DEST_SEL_DP_ASYNC0	0xc	/* ch29 */
++#define FS_PRPENC_ROT_DEST_SEL_ALT_DC2		0xd	/* ch41 */
++#define FS_PRPENC_ROT_DEST_SEL_ALT_DP_ASYNC1	0xe	/* ch24 */
++#define FS_PRPENC_ROT_DEST_SEL_ALT_DP_ASYNC0	0xf	/* ch29 */
++
++#define FS_PRP_DEST_SEL_IC_INPUT		0x1	/* ch12 */
++#define FS_PRP_DEST_SEL_PP			0x2	/* ch11 */
++#define FS_PRP_DEST_SEL_PP_ROT			0x3	/* ch47 */
++#define FS_PRP_DEST_SEL_DC1			0x4	/* ch28 */
++#define FS_PRP_DEST_SEL_DC2			0x5	/* ch41 */
++#define FS_PRP_DEST_SEL_DP_ASYNC1		0x6	/* ch24 */
++#define FS_PRP_DEST_SEL_DP_ASYNC0		0x7	/* ch29 */
++#define FS_PRP_DEST_SEL_DP_SYNC1		0x8	/* ch27 */
++#define FS_PRP_DEST_SEL_DP_SYNC0		0x9	/* ch23 */
++#define FS_PRP_DEST_SEL_ALT_DC2			0xa	/* ch41 */
++#define FS_PRP_DEST_SEL_ALT_DP_ASYNC1		0xb	/* ch24 */
++#define FS_PRP_DEST_SEL_ALT_DP_ASYNC0		0xc	/* ch29 */
++
++#define FS_SMFC0_DEST_SEL_MASK         (0xf << 0)
++#define FS_SMFC0_DEST_SEL_OFFSET       0
++#define FS_SMFC1_DEST_SEL_MASK         (0x7 << 4)
++#define FS_SMFC1_DEST_SEL_OFFSET       4
++#define FS_SMFC2_DEST_SEL_MASK         (0xf << 7)
++#define FS_SMFC2_DEST_SEL_OFFSET       7
++#define FS_SMFC3_DEST_SEL_MASK         (0x7 << 11)
++#define FS_SMFC3_DEST_SEL_OFFSET       11
++
++/* SMFC0 to SMFC3 */
++#define FS_SMFC_DEST_SEL_IRT_ENC		0x1
++#define FS_SMFC_DEST_SEL_IRT_VF			0x2
++#define FS_SMFC_DEST_SEL_IRT_PP			0x3
++#define FS_SMFC_DEST_SEL_IC_PP			0x4
++#define FS_SMFC_DEST_SEL_IC_PRP			0x5
++
++/* SMFC0 and SMFC2 only */
++#define FS_SMFC_DEST_SEL_DC1			0x7	/* ch28 */
++#define FS_SMFC_DEST_SEL_DC2			0x8	/* ch41 */
++#define FS_SMFC_DEST_SEL_DP_SYNC0		0x9	/* ch23 */
++#define FS_SMFC_DEST_SEL_DP_SYNC1		0xa	/* ch27 */
++#define FS_SMFC_DEST_SEL_DP_ASYNC1		0xb	/* ch24 */
++#define FS_SMFC_DEST_SEL_DP_ASYNC0		0xc	/* ch29 */
++#define FS_SMFC_DEST_SEL_ALT_DC2		0xd	/* ch41 */
++#define FS_SMFC_DEST_SEL_ALT_DP_ASYNC1		0xe	/* ch24 */
++#define FS_SMFC_DEST_SEL_ALT_DP_ASYNC0		0xf	/* ch29 */
++
++#define FS_DC1_SRC_SEL_MASK            (0xf << 20)
++#define FS_DC1_SRC_SEL_OFFSET          20
++#define FS_DC2_SRC_SEL_MASK            (0xf << 16)
++#define FS_DC2_SRC_SEL_OFFSET          16
++#define FS_DP_SYNC0_SRC_SEL_MASK       (0xf << 0)
++#define FS_DP_SYNC0_SRC_SEL_OFFSET     0
++#define FS_DP_SYNC1_SRC_SEL_MASK       (0xf << 4)
++#define FS_DP_SYNC1_SRC_SEL_OFFSET     4
++#define FS_DP_ASYNC0_SRC_SEL_MASK      (0xf << 8)
++#define FS_DP_ASYNC0_SRC_SEL_OFFSET    8
++#define FS_DP_ASYNC1_SRC_SEL_MASK      (0xf << 12)
++#define FS_DP_ASYNC1_SRC_SEL_OFFSET    12
++
++#define FS_AUTO_REF_PER_MASK           0
++#define FS_AUTO_REF_PER_OFFSET         16
++
+ #define IPU_IDMAC_REG(offset)	(offset)
+ 
+ #define IDMAC_CONF			IPU_IDMAC_REG(0x0000)

@@ -1,0 +1,53 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 16 Sep 2014 13:16:18 +0200
+Subject: [PATCH] [media] imx: video-switch: Add frame interval passthrough
+ support
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-video-switch.c | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/drivers/media/platform/imx/imx-video-switch.c b/drivers/media/platform/imx/imx-video-switch.c
+index 1455838e0629..90283097af16 100644
+--- a/drivers/media/platform/imx/imx-video-switch.c
++++ b/drivers/media/platform/imx/imx-video-switch.c
+@@ -33,6 +33,7 @@ struct vidsw {
+ 	unsigned int num_pads;
+ 	struct media_pad *pads;
+ 	struct v4l2_mbus_framefmt *format_mbus;
++	struct v4l2_fract timeperframe;
+ 	struct v4l2_of_endpoint *endpoint;
+ 	struct regmap_field *field;
+ 	unsigned int gpio;
+@@ -142,8 +143,30 @@ int vidsw_g_mbus_config(struct v4l2_subdev *sd, struct v4l2_mbus_config *cfg)
+ 	return 0;
+ }
+ 
++static int vidsw_g_frame_interval(struct v4l2_subdev *sd,
++                                  struct v4l2_subdev_frame_interval *fi)
++{
++	struct vidsw *vidsw = container_of(sd, struct vidsw, subdev);
++
++	fi->interval = vidsw->timeperframe;
++
++	return 0;
++}
++
++static int vidsw_s_frame_interval(struct v4l2_subdev *sd,
++                                  struct v4l2_subdev_frame_interval *fi)
++{
++	struct vidsw *vidsw = container_of(sd, struct vidsw, subdev);
++
++	vidsw->timeperframe = fi->interval;
++
++	return 0;
++}
++
+ static const struct v4l2_subdev_video_ops vidsw_subdev_video_ops = {
+ 	.g_mbus_config = vidsw_g_mbus_config,
++	.g_frame_interval = vidsw_g_frame_interval,
++	.s_frame_interval = vidsw_s_frame_interval,
+ };
+ 
+ static struct v4l2_mbus_framefmt *

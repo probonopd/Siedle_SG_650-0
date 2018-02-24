@@ -1,0 +1,21 @@
+config USB
+	bool
+
+menuconfig USB_HOST
+	select USB
+	bool "USB Host support"
+
+if USB_HOST
+
+source drivers/usb/imx/Kconfig
+
+source drivers/usb/host/Kconfig
+
+source drivers/usb/otg/Kconfig
+
+source drivers/usb/storage/Kconfig
+
+endif
+
+source drivers/usb/gadget/Kconfig
+

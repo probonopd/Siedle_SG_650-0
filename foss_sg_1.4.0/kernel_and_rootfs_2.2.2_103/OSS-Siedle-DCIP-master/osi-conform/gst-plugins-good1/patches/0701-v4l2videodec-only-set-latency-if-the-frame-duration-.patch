@@ -1,0 +1,29 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 16 Mar 2016 16:24:55 +0100
+Subject: [PATCH] v4l2videodec: only set latency if the frame duration is valid
+
+---
+ sys/v4l2/gstv4l2videodec.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2videodec.c b/sys/v4l2/gstv4l2videodec.c
+index aad97a2b7a31..f5967b7f873a 100644
+--- a/sys/v4l2/gstv4l2videodec.c
++++ b/sys/v4l2/gstv4l2videodec.c
+@@ -756,8 +756,14 @@ gst_v4l2_video_dec_decide_allocation (GstVideoDecoder * decoder,
+     ret = GST_VIDEO_DECODER_CLASS (parent_class)->decide_allocation (decoder,
+         query);
+ 
+-  latency = self->v4l2capture->min_buffers * self->v4l2capture->duration;
+-  gst_video_decoder_set_latency (decoder, latency, latency);
++  if (GST_CLOCK_TIME_IS_VALID (self->v4l2capture->duration)) {
++    GST_DEBUG_OBJECT (self, "Setting latency: %u * %llu",
++      self->v4l2capture->min_buffers, self->v4l2capture->duration);
++    latency = self->v4l2capture->min_buffers * self->v4l2capture->duration;
++    gst_video_decoder_set_latency (decoder, latency, latency);
++  } else {
++    GST_DEBUG_OBJECT (self, "Duration invalid, not setting latency");
++  }
+ 
+   return ret;
+ }

@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# change network settings in /env/network/eth0
+# change mtd partition settings and automountpoints in /env/init/*
+
+# set to false if you do not want to have colors
+#global.allow_color=true
+
+# user (used for network filenames)
+#global.user=none
+
+# timeout in seconds before the default boot entry is started
+#global.autoboot_timeout=3
+
+# timeout in seconds to enter a password (if set) when aborting autoboot
+global.login.timeout=10
+
+# timeout in seconds before the watchdog reboots the system
+global.wd_timeout=60
+
+# if bootlimit exceeds global.system.bootcount boot into other partition
+global.bootlimit=2
+

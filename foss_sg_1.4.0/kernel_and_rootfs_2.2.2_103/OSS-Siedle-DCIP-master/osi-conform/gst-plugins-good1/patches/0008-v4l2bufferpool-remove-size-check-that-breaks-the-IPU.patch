@@ -1,0 +1,27 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 21 Jun 2016 15:11:27 +0200
+Subject: [PATCH] v4l2bufferpool: remove size check that breaks the IPU scaler
+
+---
+ sys/v4l2/gstv4l2bufferpool.c | 8 --------
+ 1 file changed, 8 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2bufferpool.c b/sys/v4l2/gstv4l2bufferpool.c
+index c86aec201d6c..90887a03e297 100644
+--- a/sys/v4l2/gstv4l2bufferpool.c
++++ b/sys/v4l2/gstv4l2bufferpool.c
+@@ -1735,14 +1735,6 @@ gst_v4l2_buffer_pool_process (GstV4l2BufferPool * pool, GstBuffer ** buf)
+                 goto eos;
+             }
+ 
+-            /* verify that buffer contains a full frame for raw video */
+-            if (GST_VIDEO_INFO_FORMAT (&obj->info) != GST_VIDEO_FORMAT_ENCODED
+-                && size < GST_VIDEO_INFO_SIZE (&obj->info)) {
+-              GST_WARNING_OBJECT (pool, "Invalid buffer size, this is likely "
+-                  "due to a bug in your driver, dropping");
+-              goto buffer_corrupted;
+-            }
+-
+             num_queued = g_atomic_int_get (&pool->num_queued);
+             GST_TRACE_OBJECT (pool, "Only %i buffer left in the capture queue.",
+                 num_queued);

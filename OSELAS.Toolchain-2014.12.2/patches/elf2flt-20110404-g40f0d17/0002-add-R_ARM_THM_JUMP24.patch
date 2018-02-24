@@ -1,0 +1,21 @@
+From: Michael Olbrich <m.olbrich@pengutronix.de>
+Date: Wed, 5 Dec 2012 13:20:04 +0100
+Subject: [PATCH] add R_ARM_THM_JUMP24
+
+Signed-off-by: Michael Olbrich <m.olbrich@pengutronix.de>
+---
+ elf2flt.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/elf2flt.c b/elf2flt.c
+index 1a7ef88..4d372ad 100644
+--- a/elf2flt.c
++++ b/elf2flt.c
+@@ -645,6 +645,7 @@ dump_symbols(symbols, number_of_symbols);
+ 				case R_ARM_CALL:
+ 				case R_ARM_THM_PC11:
+ 				case R_ARM_THM_PC22:
++				case R_ARM_THM_JUMP24:
+ 				case R_ARM_PC24:
+ 				case R_ARM_PLT32:
+ 				case R_ARM_GOTPC:

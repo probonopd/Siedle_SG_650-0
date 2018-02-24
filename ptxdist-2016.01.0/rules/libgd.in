@@ -1,0 +1,61 @@
+## SECTION=system_libraries
+
+menuconfig LIBGD
+	tristate
+	prompt "libgd                         "
+	select ZLIB
+	select LIBPNG		if LIBGD_PNG
+	select LIBJPEG		if LIBGD_JPEG
+	select XORG_LIB_XPM	if LIBGD_XPM
+	select FONTCONFIG	if LIBGD_FONTCONFIG
+	select FREETYPE		if LIBGD_FREETYPE
+	help
+	  GD is an open source code library for the
+	  dynamic creation of images by programmers.
+	  GD creates PNG, JPEG and GIF images, among
+	  other formats. GD is commonly used to
+	  generate charts, graphics, thumbnails, and
+	  most anything else, on the fly.
+
+if LIBGD
+
+config LIBGD_X
+	bool
+	prompt "with X libs support"
+	help
+	   compiles libgd with X libraries support
+
+config LIBGD_PNG
+	bool
+	prompt "with png support"
+	default y
+	help
+	   compiles libgd with png support
+
+config LIBGD_JPEG
+	bool
+	prompt "with jpeg support"
+	default y
+	help
+	   compiles libgd with jpeg support
+
+config LIBGD_XPM
+	bool
+	prompt "with xpm support"
+	help
+	   compiles libgd with xpm support
+
+config LIBGD_FONTCONFIG
+	bool
+	prompt "with fontconfig support"
+	default y
+	help
+	   compiles libgd with png support
+
+config LIBGD_FREETYPE
+	bool
+	prompt "with freetype support"
+	help
+	   compiles libgd with freetype support
+
+endif

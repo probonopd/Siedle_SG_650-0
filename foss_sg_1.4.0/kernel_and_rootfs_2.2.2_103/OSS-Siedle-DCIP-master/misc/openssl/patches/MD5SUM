@@ -1,0 +1,14 @@
+9ccb10c72c68415750657272564bef64  0001-debian-targets.patch
+4c13352879a273fceede2ab4f1ca56fb  0002-engines-path.patch
+2c0f6c0c068f95240eed0aa11420b628  0003-no-rpath.patch
+f93312ba98b72fd79df758209f06fc07  0004-no-symbolic.patch
+fce966e31368f9bd571b12c64ffb62ac  0005-pic.patch
+6f356b9f29d9190ff696617abf0753a1  0006-valgrind.patch
+8009764c5841b2a28788c2710e524203  0007-shared-lib-ext.patch
+43ea413fccef7206a17fde65da15f0be  0008-block_diginotar.patch
+23e2eaf71bf1e98902dcddd0978f3985  0009-block_digicert_malaysia.patch
+51a096e29ecd9d8fa97605f5971e9a6f  0010-Disable-the-freelist.patch
+be654c3365d3c34f7cebc81360cf71d1  0011-Mark-3DES-and-RC4-ciphers-as-weak.patch
+7f5ec5835717a1aeff1a92c663a8a76e  0100-Configure-don-t-ask-dpkg-buildflags-for-more-flags.patch
+43a47e0bb2c330a41b4fcc3e739666c9  0101-fix-parallel-building.patch
+cd3bb69e70b014a7801ab81b5c0ab7eb  series

@@ -1,0 +1,7 @@
+## SECTION=hosttools_noprompt
+
+config HOST_APACHE2
+	tristate
+	default ALLYES
+	select HOST_APR
+	select HOST_APR_UTIL

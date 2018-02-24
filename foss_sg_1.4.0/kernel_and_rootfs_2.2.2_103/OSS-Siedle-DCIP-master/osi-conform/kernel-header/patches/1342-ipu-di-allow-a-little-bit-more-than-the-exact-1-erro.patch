@@ -1,0 +1,26 @@
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Date: Mon, 16 Feb 2015 17:48:07 +0100
+Subject: [PATCH] ipu-di: allow a little bit more than the exact 1% error
+
+This patch solves the case, where we exactly hit the clk
+error of 1%. This happend on the mx53 with the giantplus,gpg482739qs5
+which needed 9MHz but did get only 9090909Hz which is very close.
+
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-di.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-di.c b/drivers/gpu/ipu-v3/ipu-di.c
+index 359268e3a166..9fd875758935 100644
+--- a/drivers/gpu/ipu-v3/ipu-di.c
++++ b/drivers/gpu/ipu-v3/ipu-di.c
+@@ -464,7 +464,7 @@ static void ipu_di_config_clock(struct ipu_di *di,
+ 			rate, div, (signed)(error - 1000) / 10, error % 10);
+ 
+ 		/* Allow a 1% error */
+-		if (error < 1010 && error >= 990) {
++		if (error < 1020 && error >= 980) {
+ 			clk = di->clk_ipu;
+ 
+ 			clkgen0 = div << 4;

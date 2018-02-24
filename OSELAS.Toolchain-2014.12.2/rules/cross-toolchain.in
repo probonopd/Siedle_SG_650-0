@@ -1,0 +1,5 @@
+# dummy packet to create the ptxconfig file
+
+config CROSS_TOOLCHAIN
+	bool
+	default y

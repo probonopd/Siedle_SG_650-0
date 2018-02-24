@@ -1,0 +1,9 @@
+## SECTION=multimedia_xorg_font_base
+
+config XORG_FONT_ISAS_MISC
+	tristate
+	select XORG_FONTS
+	prompt "Isas misc"
+	help
+	   Xorg ISAS fonts, contains Chinese fonts
+	  

@@ -1,0 +1,32 @@
+# config for uclibc
+
+menuconfig UCLIBC
+	bool
+	select TOOLCHAIN_ENABLE_SYSROOT
+	select TOOLCHAIN_DISABLE_MULTILIB
+
+	select CROSS_GCC_FIRST
+	select CROSS_GCC_ENABLE_CXA_ATEXIT
+	select CROSS_GCC_DISABLE_SJLJ_EXCEPTIONS
+	select CROSS_GCC_DISABLE_LIBSSP
+	select CROSS_GCC_DISABLE_SHARED
+	select CROSS_GCC_THREADS_SINGLE
+
+	prompt "uclibc                      "
+
+if UCLIBC
+
+config UCLIBC_VERSION
+	string
+	prompt "uclibc version"
+	default "0.9.29"
+
+config UCLIBC_MD5
+	string
+	prompt "uclibc source md5sum"
+
+config UCLIBC_CONFIG
+	string
+	default "uclibc-${PTXCONF_UCLIBC_VERSION}-${PTXCONF_GNU_TARGET}.config"
+
+endif

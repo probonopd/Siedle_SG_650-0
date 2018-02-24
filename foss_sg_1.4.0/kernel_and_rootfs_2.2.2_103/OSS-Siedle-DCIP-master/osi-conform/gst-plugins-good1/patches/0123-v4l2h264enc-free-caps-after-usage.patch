@@ -1,0 +1,29 @@
+From: Tobias Schneider <tobias.schneider@voiceinterconnect.de>
+Date: Wed, 2 Nov 2016 17:11:52 +0100
+Subject: [PATCH] v4l2h264enc: free caps after usage
+
+Avoid memleak due to implicit call of gst_caps_from_string without
+corresponding gst_caps_unref.
+---
+ sys/v4l2/gstv4l2h264enc.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2h264enc.c b/sys/v4l2/gstv4l2h264enc.c
+index f8ad29fd7bb7..56724ac9aa86 100644
+--- a/sys/v4l2/gstv4l2h264enc.c
++++ b/sys/v4l2/gstv4l2h264enc.c
+@@ -102,11 +102,12 @@ gboolean
+ gst_v4l2_is_h264_enc (GstCaps * sink_caps, GstCaps * src_caps)
+ {
+   gboolean ret = FALSE;
++  GstCaps *h264_caps = gst_caps_from_string ("video/x-h264");
+ 
+   if (gst_caps_is_subset (sink_caps, gst_v4l2_object_get_raw_caps ())
+-      && gst_caps_can_intersect (src_caps,
+-          gst_caps_from_string ("video/x-h264")))
++      && gst_caps_can_intersect (src_caps, h264_caps))
+     ret = TRUE;
+ 
++  gst_caps_unref (h264_caps);
+   return ret;
+ }

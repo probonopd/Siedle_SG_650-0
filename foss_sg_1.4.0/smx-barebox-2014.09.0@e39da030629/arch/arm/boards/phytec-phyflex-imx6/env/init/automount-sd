@@ -1,0 +1,15 @@
+#!/bin/sh
+
+if [ x${global.hostname} = xsabrelite ]; then
+	mkdir -p /mnt/mmc2
+	automount /mnt/mmc2 'detect mmc2; mount /dev/mmc2.0 /mnt/mmc2'
+
+	mkdir -p /mnt/mmc3
+	automount /mnt/mmc3 'detect mmc3; mount /dev/mmc3.0 /mnt/mmc3'
+elif [ x${global.hostname} = xdcip2 ]; then
+	mkdir -p /mnt/mmc0
+	automount /mnt/mmc0 'detect mmc0; mount /dev/mmc0.0 /mnt/mmc0'
+else
+	mkdir -p /mnt/mmc2
+	automount /mnt/mmc2 'detect mmc2; mount /dev/mmc2.0 /mnt/mmc2'
+fi

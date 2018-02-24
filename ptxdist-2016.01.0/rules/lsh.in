@@ -1,0 +1,66 @@
+## SECTION=networking
+# lsh configuration
+
+menuconfig LSH
+	tristate
+	prompt "lsh                           "
+	select LIBC_CRYPT if LSH_LSHD
+	select LIBGMP
+	select LIBOOP
+	select ZLIB
+	help
+	  lsh is an SSH implementation.
+if LSH
+
+config LSH_EXECUV
+	bool
+	prompt "Install lsh-execuv"
+	help
+	  lsh-execuv is a utility program for the lsh server that
+	  securely executes a program as a different user.
+
+config LSH_LSHD
+	bool
+	prompt "Install lshd"
+	help
+	  lshd is a server for the SSH-2 (secsh) protocol.
+
+config LSH_SFTPD
+	bool
+	prompt  "Install sftp-server"
+	help
+	  Server for the sftp subsystem, see the --subsystems option
+	  to lshd.
+
+config LSH_MAKESEED
+	bool
+	prompt "Install lsh-make-seed"
+	help
+	  lsh-make-seed - Creates an initial random seed file for
+	  the YARROW pseudorandomnessgenerator used by lsh.
+
+config LSH_KEYGEN
+	bool
+	prompt "Install lsh-keygen"
+	help
+	  lsh-keygen - Generates a keypair and write it on stdout.
+	  Generates a new private key for the desired algorithm
+	  and security level and write it on stdout.
+
+	  You will usually want to pipe the new key into a program
+	  like lsh-writekey, to split it into its private and public
+	  parts, and optionally encrypt the private information.
+
+config LSH_WRITEKEY
+	bool
+	prompt "Install lsh-writekey"
+	help
+	  lsh-writekey - Keypair split/store handler.
+	  Splits a keypair in one private and one public file,
+	  optionally encrypting the private file using a passphrase.
+
+	  Common usage is to pipe the output from lsh-keygen into
+	  this program.
+
+endif
+

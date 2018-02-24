@@ -1,0 +1,26 @@
+## SECTION=system_libraries
+# GNU commoncpp 2 configuration
+
+menuconfig COMMONCPP2
+	tristate
+	prompt "commonc++ 2                   "
+	select LIBC_RT
+	select LIBC_PTHREAD
+	select GCCLIBS_CXX
+	select ZLIB if COMMONCPP2_LIBZ
+	help
+	  GNU Common C++ is a portable and highly optimized class
+	  framework for writing C++ applications that need to use threads,
+	  sockets, XML parsing, serialization, config files, etc.
+
+	  For details see the project homepage:
+
+		http://www.gnu.org/software/commoncpp/
+
+if COMMONCPP2
+
+config COMMONCPP2_LIBZ
+	bool
+	prompt "enable libz compression"
+
+endif

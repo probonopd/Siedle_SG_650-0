@@ -1,0 +1,21 @@
+## SECTION=hosttools_noprompt
+
+config HOST_SYSTEM_PERL
+	tristate
+
+if HOST_SYSTEM_PERL
+
+config HOST_SYSTEM_PERL_BUILD
+	bool
+
+config HOST_SYSTEM_PERL_JSON
+	bool
+
+config HOST_SYSTEM_PERL_LOCALE_PO
+	bool
+
+config HOST_SYSTEM_PERL_XMLPARSER
+	bool
+
+endif
+

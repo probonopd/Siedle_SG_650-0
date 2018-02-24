@@ -1,0 +1,810 @@
+From: Philipp Zabel <philipp.zabel@gmail.com>
+Date: Fri, 21 Feb 2014 23:46:55 +0100
+Subject: [PATCH] [media] Add i.MX6 VDOA driver
+
+This patch adds a mem2mem driver for the i.MX6 Video Data Order Adapter (VDOA).
+The sole purpose of this IP core is to convert from a custom macroblock tiled
+format produced by the CODA960 decoder into linear formats that can be used
+for scanout.
+
+Signed-off-by: Philipp Zabel <philipp.zabel@gmail.com>
+---
+ drivers/media/platform/Kconfig    |   9 +
+ drivers/media/platform/Makefile   |   1 +
+ drivers/media/platform/imx-vdoa.c | 755 ++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 765 insertions(+)
+ create mode 100644 drivers/media/platform/imx-vdoa.c
+
+diff --git a/drivers/media/platform/Kconfig b/drivers/media/platform/Kconfig
+index c5ba7ca6d8bc..0c12fea9bfeb 100644
+--- a/drivers/media/platform/Kconfig
++++ b/drivers/media/platform/Kconfig
+@@ -150,6 +150,15 @@ config VIDEO_CODA
+ 	   Coda is a range of video codec IPs that supports
+ 	   H.264, MPEG-4, and other video formats.
+ 
++config VIDEO_IMX_VDOA
++	tristate "i.MX Video Data Order Adapter (VDOA) driver"
++	depends on VIDEO_DEV && VIDEO_V4L2 && SOC_IMX6Q
++	select VIDEOBUF2_DMA_CONTIG
++	select V4L2_MEM2MEM_DEV
++	---help---
++	  The VDOA transfers macroblock tiled buffers produced by the CODA960
++	  VPU into linear scanout buffers which can be processed by the IPU.
++
+ config VIDEO_MEM2MEM_DEINTERLACE
+ 	tristate "Deinterlace support"
+ 	depends on VIDEO_DEV && VIDEO_V4L2 && DMA_ENGINE
+diff --git a/drivers/media/platform/Makefile b/drivers/media/platform/Makefile
+index b395add5773d..b53e842e0e72 100644
+--- a/drivers/media/platform/Makefile
++++ b/drivers/media/platform/Makefile
+@@ -20,6 +20,7 @@ obj-$(CONFIG_VIDEO_TI_VPE)		+= ti-vpe/
+ 
+ obj-$(CONFIG_VIDEO_MX2_EMMAPRP)		+= mx2_emmaprp.o
+ obj-$(CONFIG_VIDEO_CODA) 		+= coda/
++obj-$(CONFIG_VIDEO_IMX_VDOA)		+= imx-vdoa.o
+ 
+ obj-$(CONFIG_VIDEO_SH_VEU)		+= sh_veu.o
+ 
+diff --git a/drivers/media/platform/imx-vdoa.c b/drivers/media/platform/imx-vdoa.c
+new file mode 100644
+index 000000000000..c7afe8aa408b
+--- /dev/null
++++ b/drivers/media/platform/imx-vdoa.c
+@@ -0,0 +1,755 @@
++/*
++ * i.MX6 Video Data Order Adapter (VDOA)
++ *
++ * Copyright (C) 2014 Philipp Zabel
++ *
++ * based on the mem2mem test driver
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
++
++#include <linux/clk.h>
++#include <linux/device.h>
++#include <linux/interrupt.h>
++#include <linux/module.h>
++#include <linux/dma-mapping.h>
++#include <linux/platform_device.h>
++#include <media/v4l2-mem2mem.h>
++#include <media/v4l2-device.h>
++#include <media/v4l2-ioctl.h>
++#include <media/videobuf2-dma-contig.h>
++
++#define VDOA_NAME "imx-vdoa"
++
++#define VDOAC		0x00
++#define VDOASRR		0x04
++#define VDOAIE		0x08
++#define VDOAIST		0x0c
++#define VDOAFP		0x10
++#define VDOAIEBA00	0x14
++#define VDOAIEBA01	0x18
++#define VDOAIEBA02	0x1c
++#define VDOAIEBA10	0x20
++#define VDOAIEBA11	0x24
++#define VDOAIEBA12	0x28
++#define VDOASL		0x2c
++#define VDOAIUBO	0x30
++#define VDOAVEBA0	0x34
++#define VDOAVEBA1	0x38
++#define VDOAVEBA2	0x3c
++#define VDOAVUBO	0x40
++#define VDOASR		0x44
++
++#define VDOAC_ISEL		BIT(6)
++#define VDOAC_PFS		BIT(5)
++#define VDOAC_SO		BIT(4)
++#define VDOAC_SYNC		BIT(3)
++#define VDOAC_NF		BIT(2)
++#define VDOAC_BNDM_MASK		0x3
++#define VDOAC_BAND_HEIGHT_8	0x0
++#define VDOAC_BAND_HEIGHT_16	0x1
++#define VDOAC_BAND_HEIGHT_32	0x2
++
++#define VDOASRR_START		BIT(1)
++#define VDOASRR_SWRST		BIT(0)
++
++#define VDOAIE_EITERR		BIT(1)
++#define VDOAIE_EIEOT		BIT(0)
++
++#define VDOAIST_TERR		BIT(1)
++#define VDOAIST_EOT		BIT(0)
++
++#define VDOAFP_FH_MASK		(0x1fff << 16)
++#define VDOAFP_FW_MASK		(0x3fff)
++
++#define VDOASL_VSLY_MASK	(0x3fff << 16)
++#define VDOASL_ISLY_MASK	(0x7fff)
++
++#define VDOASR_ERRW		BIT(4)
++#define VDOASR_EOB		BIT(3)
++#define VDOASR_CURRENT_FRAME	(0x3 << 1)
++#define VDOASR_CURRENT_BUFFER	BIT(1)
++
++enum vdoa_state {
++	VDOA_IDLE,
++	VDOA_RUNNING,
++	VDOA_QUEUED,
++};
++
++enum {
++	V4L2_M2M_SRC = 0,
++	V4L2_M2M_DST = 1,
++};
++
++struct vdoa_data {
++	struct v4l2_device	v4l2_dev;
++	struct video_device	vfd;
++	struct v4l2_m2m_dev	*m2m_dev;
++	struct device		*dev;
++	struct mutex		dev_mutex;
++	spinlock_t		irqlock;
++	struct clk		*vdoa_clk;
++	void __iomem		*regs;
++	int			irq;
++};
++
++struct vdoa_q_data {
++	unsigned int	width;
++	unsigned int	height;
++	unsigned int	bytesperline;
++	unsigned int	sizeimage;
++	u32		pixelformat;
++};
++
++#define fh_to_ctx(__fh)	container_of(__fh, struct vdoa_ctx, fh)
++
++struct vdoa_ctx {
++	struct v4l2_fh		fh;
++	struct vdoa_data	*vdoa;
++	struct vb2_alloc_ctx	*alloc_ctx;
++	struct work_struct	work;
++	struct completion	completion;
++	bool			aborting;
++	enum v4l2_colorspace	colorspace;
++	struct vdoa_q_data	q_data[2];
++};
++
++static struct vdoa_q_data *vdoa_get_q_data(struct vdoa_ctx *ctx,
++					   enum v4l2_buf_type type)
++{
++	switch (type) {
++	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
++		return &ctx->q_data[V4L2_M2M_SRC];
++	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
++		return &ctx->q_data[V4L2_M2M_DST];
++	default:
++		return NULL;
++	}
++}
++
++/*
++ * mem2mem callbacks
++ */
++
++static int vdoa_job_ready(void *priv)
++{
++	struct vdoa_ctx *ctx = priv;
++
++	if (ctx->aborting)
++		return 0;
++
++	if (v4l2_m2m_num_src_bufs_ready(ctx->fh.m2m_ctx) < 1
++	    || v4l2_m2m_num_dst_bufs_ready(ctx->fh.m2m_ctx) < 1) {
++		dev_dbg(ctx->vdoa->dev, "Not enough buffers available\n");
++		return 0;
++	}
++
++	return 1;
++}
++
++static void vdoa_job_abort(void *priv)
++{
++	struct vdoa_ctx *ctx = priv;
++	struct vdoa_data *vdoa = ctx->vdoa;
++
++	/* Disable interrupts and reset */
++	writel(0, vdoa->regs + VDOAIE);
++	writel(VDOASRR_SWRST, vdoa->regs + VDOASRR);
++
++	ctx->aborting = 1;
++	complete(&ctx->completion);
++}
++
++static irqreturn_t vdoa_irq_handler(int irq, void *data)
++{
++	struct vdoa_data *vdoa = data;
++	struct vdoa_ctx *curr_ctx;
++	u32 val;
++
++	/* Disable interrupts */
++	writel(0, vdoa->regs + VDOAIE);
++
++	curr_ctx = v4l2_m2m_get_curr_priv(vdoa->m2m_dev);
++	if (!curr_ctx) {
++		dev_dbg(vdoa->dev,
++			"Instance released before the end of transaction\n");
++		return IRQ_HANDLED;
++	}
++
++	val = readl(vdoa->regs + VDOAIST);
++	if (val & VDOAIST_TERR) {
++		val = readl(vdoa->regs + VDOASR) & VDOASR_ERRW;
++		dev_err(vdoa->dev, "AXI %s error\n", val ? "write" : "read");
++	} else if (!(val & VDOAIST_EOT)) {
++		dev_warn(vdoa->dev, "Spurious interrupt\n");
++	}
++	complete(&curr_ctx->completion);
++
++	return IRQ_HANDLED;
++}
++
++static void vdoa_device_run(void *priv)
++{
++	struct vdoa_ctx *ctx = priv;
++
++	schedule_work(&ctx->work);
++}
++
++static void vdoa_work(struct work_struct *work)
++{
++	struct vdoa_ctx *ctx = container_of(work, struct vdoa_ctx, work);
++	struct vdoa_data *vdoa = ctx->vdoa;
++	struct vdoa_q_data *src_q_data, *dst_q_data;
++	struct vb2_v4l2_buffer *src_buf, *dst_buf;
++	unsigned long flags;
++	int state;
++	u32 val;
++
++	src_q_data = &ctx->q_data[V4L2_M2M_SRC];
++	dst_q_data = &ctx->q_data[V4L2_M2M_DST];
++
++	src_buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
++	dst_buf = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
++
++	/* Progressive, no sync, 1 frame per run */
++	if (dst_q_data->pixelformat == V4L2_PIX_FMT_YUYV)
++		val = VDOAC_PFS;
++	else
++		val = 0;
++	writel(val, vdoa->regs + VDOAC);
++
++	writel(dst_q_data->height << 16 | dst_q_data->width,
++	       vdoa->regs + VDOAFP);
++
++	val = vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 0);
++	writel(val, vdoa->regs + VDOAIEBA00);
++
++	writel(src_q_data->bytesperline << 16 | dst_q_data->bytesperline,
++	       vdoa->regs + VDOASL);
++
++	if (dst_q_data->pixelformat == V4L2_PIX_FMT_NV12 ||
++	    dst_q_data->pixelformat == V4L2_PIX_FMT_NV21)
++		val = dst_q_data->bytesperline * dst_q_data->height;
++	else
++		val = 0;
++	writel(val, vdoa->regs + VDOAIUBO);
++
++	val = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
++	writel(val, vdoa->regs + VDOAVEBA0);
++	val = src_q_data->bytesperline * src_q_data->height;
++	writel(val, vdoa->regs + VDOAVUBO);
++
++	/* Enable interrupts and start transfer */
++	writel(VDOAIE_EITERR | VDOAIE_EIEOT, vdoa->regs + VDOAIE);
++	writel(VDOASRR_START, vdoa->regs + VDOASRR);
++
++	if (!wait_for_completion_timeout(&ctx->completion,
++					 msecs_to_jiffies(300))) {
++		dev_err(vdoa->dev,
++			"Timeout waiting for transfer result\n");
++		state = VB2_BUF_STATE_ERROR;
++	} else {
++		state = VB2_BUF_STATE_DONE;
++	}
++
++	src_buf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
++	dst_buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
++
++	dst_buf->timestamp = src_buf->timestamp;
++	dst_buf->timecode = src_buf->timecode;
++
++	spin_lock_irqsave(&vdoa->irqlock, flags);
++	v4l2_m2m_buf_done(src_buf, state);
++	v4l2_m2m_buf_done(dst_buf, state);
++	spin_unlock_irqrestore(&vdoa->irqlock, flags);
++
++	v4l2_m2m_job_finish(vdoa->m2m_dev, ctx->fh.m2m_ctx);
++}
++
++/*
++ * video ioctls
++ */
++static int vdoa_querycap(struct file *file, void *priv,
++			 struct v4l2_capability *cap)
++{
++	strncpy(cap->driver, VDOA_NAME, sizeof(cap->driver) - 1);
++	strncpy(cap->card, VDOA_NAME, sizeof(cap->card) - 1);
++	snprintf(cap->bus_info, sizeof(cap->bus_info),
++			"platform:%s", VDOA_NAME);
++	cap->device_caps = V4L2_CAP_VIDEO_M2M | V4L2_CAP_STREAMING;
++	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
++	return 0;
++}
++
++static int vdoa_enum_fmt_vid_cap(struct file *file, void *priv,
++				 struct v4l2_fmtdesc *f)
++{
++	if (f->index > 1)
++		return -EINVAL;
++
++	if (f->index == 0)
++		f->pixelformat = V4L2_PIX_FMT_YUYV;
++	else
++		f->pixelformat = V4L2_PIX_FMT_NV12;
++
++	return 0;
++}
++
++static int vdoa_enum_fmt_vid_out(struct file *file, void *priv,
++				 struct v4l2_fmtdesc *f)
++{
++	if (f->index > 0)
++		return -EINVAL;
++
++	f->pixelformat = V4L2_PIX_FMT_CM12;
++
++	return 0;
++}
++
++static int vdoa_g_fmt(struct file *file, void *priv,
++		      struct v4l2_format *f)
++{
++	struct vdoa_ctx *ctx = fh_to_ctx(file->private_data);
++	struct vdoa_q_data *q_data;
++	struct vb2_queue *vq;
++
++	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, f->type);
++	if (!vq)
++		return -EINVAL;
++
++	q_data = vdoa_get_q_data(ctx, f->type);
++
++	f->fmt.pix.width = q_data->width;
++	f->fmt.pix.height = q_data->height;
++	f->fmt.pix.field = V4L2_FIELD_NONE;
++	f->fmt.pix.pixelformat = q_data->pixelformat;
++	f->fmt.pix.bytesperline = q_data->bytesperline;
++	f->fmt.pix.sizeimage = q_data->sizeimage;
++	f->fmt.pix.colorspace = ctx->colorspace;
++
++	return 0;
++}
++
++static int vdoa_try_fmt(struct file *file, void *priv,
++			struct v4l2_format *f)
++{
++	if (f->fmt.pix.field == V4L2_FIELD_ANY)
++		f->fmt.pix.field = V4L2_FIELD_NONE;
++	else if (f->fmt.pix.field != V4L2_FIELD_NONE)
++		return -EINVAL;
++
++	v4l_bound_align_image(&f->fmt.pix.width, 16, 8192, 4,
++			      &f->fmt.pix.height, 16, 4096, 4, 0);
++
++	if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT) {
++		switch (f->fmt.pix.pixelformat) {
++		case V4L2_PIX_FMT_CM12:
++			break;
++		default:
++			f->fmt.pix.pixelformat = V4L2_PIX_FMT_CM12;
++			break;
++		}
++		f->fmt.pix.bytesperline = f->fmt.pix.width;
++		f->fmt.pix.sizeimage = f->fmt.pix.bytesperline *
++				       f->fmt.pix.height * 3 / 2;
++	} else if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE) {
++		switch (f->fmt.pix.pixelformat) {
++		case V4L2_PIX_FMT_NV12:
++			f->fmt.pix.bytesperline = f->fmt.pix.width;
++			f->fmt.pix.sizeimage = f->fmt.pix.bytesperline *
++					       f->fmt.pix.height * 3 / 2;
++			break;
++		default:
++			f->fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
++			/* fallthrough */
++		case V4L2_PIX_FMT_YUYV:
++			f->fmt.pix.bytesperline = f->fmt.pix.width * 2;
++			f->fmt.pix.sizeimage = f->fmt.pix.bytesperline *
++					       f->fmt.pix.height;
++			break;
++		}
++	} else {
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int vdoa_s_fmt(struct file *file, void *priv,
++		      struct v4l2_format *f)
++{
++	struct vdoa_ctx *ctx = fh_to_ctx(file->private_data);
++	struct vdoa_q_data *q_data;
++	struct vb2_queue *vq;
++	int ret;
++
++	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, f->type);
++	if (!vq)
++		return -EINVAL;
++
++	if (vb2_is_busy(vq)) {
++		v4l2_err(&ctx->vdoa->v4l2_dev, "%s queue busy\n", __func__);
++		return -EBUSY;
++	}
++
++	ret = vdoa_try_fmt(file, priv, f);
++	if (ret)
++		return ret;
++
++	q_data = vdoa_get_q_data(ctx, f->type);
++	q_data->width = f->fmt.pix.width;
++	q_data->height = f->fmt.pix.height;
++	q_data->bytesperline = f->fmt.pix.bytesperline;
++	q_data->sizeimage = f->fmt.pix.sizeimage;
++	q_data->pixelformat = f->fmt.pix.pixelformat;
++	ctx->colorspace = f->fmt.pix.colorspace;
++
++	return 0;
++}
++
++static const struct v4l2_ioctl_ops vdoa_ioctl_ops = {
++	.vidioc_querycap	= vdoa_querycap,
++
++	.vidioc_enum_fmt_vid_cap = vdoa_enum_fmt_vid_cap,
++	.vidioc_g_fmt_vid_cap	= vdoa_g_fmt,
++	.vidioc_try_fmt_vid_cap	= vdoa_try_fmt,
++	.vidioc_s_fmt_vid_cap	= vdoa_s_fmt,
++
++	.vidioc_enum_fmt_vid_out = vdoa_enum_fmt_vid_out,
++	.vidioc_g_fmt_vid_out	= vdoa_g_fmt,
++	.vidioc_try_fmt_vid_out	= vdoa_try_fmt,
++	.vidioc_s_fmt_vid_out	= vdoa_s_fmt,
++
++	.vidioc_reqbufs		= v4l2_m2m_ioctl_reqbufs,
++	.vidioc_querybuf	= v4l2_m2m_ioctl_querybuf,
++	.vidioc_qbuf		= v4l2_m2m_ioctl_qbuf,
++	.vidioc_expbuf		= v4l2_m2m_ioctl_expbuf,
++	.vidioc_dqbuf		= v4l2_m2m_ioctl_dqbuf,
++	.vidioc_create_bufs	= v4l2_m2m_ioctl_create_bufs,
++
++	.vidioc_streamon	= v4l2_m2m_ioctl_streamon,
++	.vidioc_streamoff	= v4l2_m2m_ioctl_streamoff,
++};
++
++/*
++ * Queue operations
++ */
++
++static int vdoa_queue_setup(struct vb2_queue *vq, const void *parg,
++			    unsigned int *nbuffers, unsigned int *nplanes,
++			    unsigned int sizes[], void *alloc_ctxs[])
++{
++	struct vdoa_ctx *ctx = vb2_get_drv_priv(vq);
++	struct vdoa_q_data *q_data;
++
++	q_data = vdoa_get_q_data(ctx, vq->type);
++
++	*nplanes = 1;
++	sizes[0] = q_data->sizeimage;
++
++	ctx->alloc_ctx = vb2_dma_contig_init_ctx(ctx->vdoa->dev);
++	if (IS_ERR(ctx->alloc_ctx))
++		return PTR_ERR(ctx->alloc_ctx);
++
++	alloc_ctxs[0] = ctx->alloc_ctx;
++
++	dev_dbg(ctx->vdoa->dev, "get %d buffer(s) of size %d each.\n",
++		*nbuffers, sizes[0]);
++
++	return 0;
++}
++
++static int vdoa_buf_prepare(struct vb2_buffer *vb)
++{
++	struct vdoa_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
++	struct vdoa_q_data *q_data;
++
++	q_data = vdoa_get_q_data(ctx, vb->vb2_queue->type);
++
++	if (vb2_plane_size(vb, 0) < q_data->sizeimage) {
++		dev_dbg(ctx->vdoa->dev,
++			"%s data will not fit into plane (%lu < %u)\n",
++			__func__, vb2_plane_size(vb, 0), q_data->sizeimage);
++		return -EINVAL;
++	}
++
++	vb2_set_plane_payload(vb, 0, q_data->sizeimage);
++
++	return 0;
++}
++
++static void vdoa_buf_queue(struct vb2_buffer *vb)
++{
++	struct vdoa_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
++
++	v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, to_vb2_v4l2_buffer(vb));
++}
++
++static void vdoa_stop_streaming(struct vb2_queue *q)
++{
++	struct vdoa_ctx *ctx = vb2_get_drv_priv(q);
++	struct vb2_v4l2_buffer *buf;
++
++	if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT) {
++		while ((buf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx)))
++			v4l2_m2m_buf_done(buf, VB2_BUF_STATE_ERROR);
++	} else {
++		while ((buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx)))
++			v4l2_m2m_buf_done(buf, VB2_BUF_STATE_ERROR);
++	}
++}
++
++static struct vb2_ops vdoa_qops = {
++	.queue_setup	= vdoa_queue_setup,
++	.buf_prepare	= vdoa_buf_prepare,
++	.buf_queue	= vdoa_buf_queue,
++	.stop_streaming	= vdoa_stop_streaming,
++	.wait_prepare	= vb2_ops_wait_prepare,
++	.wait_finish	= vb2_ops_wait_finish,
++};
++
++static int vdoa_queue_init(void *priv, struct vb2_queue *src_vq,
++			   struct vb2_queue *dst_vq)
++{
++	struct vdoa_ctx *ctx = priv;
++	int ret;
++
++	src_vq->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
++	src_vq->io_modes = VB2_MMAP | VB2_DMABUF;
++	src_vq->drv_priv = ctx;
++	src_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
++	src_vq->ops = &vdoa_qops;
++	src_vq->mem_ops = &vb2_dma_contig_memops;
++	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
++	src_vq->lock = &ctx->vdoa->dev_mutex;
++
++	ret = vb2_queue_init(src_vq);
++	if (ret)
++		return ret;
++
++	dst_vq->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
++	dst_vq->io_modes = VB2_MMAP | VB2_DMABUF;
++	dst_vq->drv_priv = ctx;
++	dst_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
++	dst_vq->ops = &vdoa_qops;
++	dst_vq->mem_ops = &vb2_dma_contig_memops;
++	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
++	dst_vq->lock = &ctx->vdoa->dev_mutex;
++
++	return vb2_queue_init(dst_vq);
++}
++
++/*
++ * File operations
++ */
++
++static int vdoa_open(struct file *file)
++{
++	struct vdoa_data *vdoa = video_drvdata(file);
++	struct vdoa_ctx *ctx;
++	int ret = 0;
++
++	if (mutex_lock_interruptible(&vdoa->dev_mutex))
++		return -ERESTARTSYS;
++
++	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
++	if (!ctx) {
++		ret = -ENOMEM;
++		goto open_unlock;
++	}
++
++	INIT_WORK(&ctx->work, vdoa_work);
++	init_completion(&ctx->completion);
++	v4l2_fh_init(&ctx->fh, video_devdata(file));
++	file->private_data = &ctx->fh;
++	ctx->vdoa = vdoa;
++	ctx->q_data[V4L2_M2M_SRC].width = 1280;
++	ctx->q_data[V4L2_M2M_SRC].height = 720;
++	ctx->q_data[V4L2_M2M_SRC].bytesperline =
++		ctx->q_data[V4L2_M2M_SRC].width;
++	ctx->q_data[V4L2_M2M_SRC].sizeimage =
++		ctx->q_data[V4L2_M2M_SRC].bytesperline *
++		ctx->q_data[V4L2_M2M_SRC].height * 3 / 2;
++	ctx->q_data[V4L2_M2M_DST] = ctx->q_data[V4L2_M2M_SRC];
++	ctx->q_data[V4L2_M2M_SRC].pixelformat = V4L2_PIX_FMT_CM12;
++	ctx->q_data[V4L2_M2M_DST].pixelformat = V4L2_PIX_FMT_NV12;
++	ctx->colorspace = V4L2_COLORSPACE_REC709;
++
++	ctx->fh.m2m_ctx = v4l2_m2m_ctx_init(vdoa->m2m_dev, ctx,
++					    &vdoa_queue_init);
++	if (IS_ERR(ctx->fh.m2m_ctx)) {
++		ret = PTR_ERR(ctx->fh.m2m_ctx);
++		kfree(ctx);
++		goto open_unlock;
++	}
++
++	v4l2_fh_add(&ctx->fh);
++
++	dev_dbg(vdoa->dev, "Created instance: %p, m2m_ctx: %p\n",
++		ctx, ctx->fh.m2m_ctx);
++
++	clk_prepare_enable(vdoa->vdoa_clk);
++
++open_unlock:
++	mutex_unlock(&vdoa->dev_mutex);
++	return ret;
++}
++
++static int vdoa_release(struct file *file)
++{
++	struct vdoa_data *vdoa = video_drvdata(file);
++	struct vdoa_ctx *ctx = fh_to_ctx(file->private_data);
++
++	dev_dbg(vdoa->dev, "Releasing instance %p\n", ctx);
++
++	v4l2_fh_del(&ctx->fh);
++	v4l2_fh_exit(&ctx->fh);
++	mutex_lock(&vdoa->dev_mutex);
++	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
++	mutex_unlock(&vdoa->dev_mutex);
++	clk_disable_unprepare(vdoa->vdoa_clk);
++	kfree(ctx);
++
++	return 0;
++}
++
++static const struct v4l2_file_operations vdoa_fops = {
++	.owner		= THIS_MODULE,
++	.open		= vdoa_open,
++	.release	= vdoa_release,
++	.poll		= v4l2_m2m_fop_poll,
++	.unlocked_ioctl	= video_ioctl2,
++	.mmap		= v4l2_m2m_fop_mmap,
++};
++
++static struct video_device vdoa_videodev = {
++	.name		= VDOA_NAME,
++	.vfl_dir	= VFL_DIR_M2M,
++	.fops		= &vdoa_fops,
++	.ioctl_ops	= &vdoa_ioctl_ops,
++	.minor		= -1,
++	.release	= video_device_release_empty,
++};
++
++static const struct v4l2_m2m_ops vdoa_m2m_ops = {
++	.device_run	= vdoa_device_run,
++	.job_ready	= vdoa_job_ready,
++	.job_abort	= vdoa_job_abort,
++};
++
++static int vdoa_probe(struct platform_device *pdev)
++{
++	struct vdoa_data *vdoa;
++	struct resource *res;
++	struct video_device *vfd;
++	int ret;
++
++	dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
++
++	vdoa = devm_kzalloc(&pdev->dev, sizeof(*vdoa), GFP_KERNEL);
++	if (!vdoa)
++		return -ENOMEM;
++
++	vdoa->dev = &pdev->dev;
++
++	vdoa->vdoa_clk = devm_clk_get(vdoa->dev, NULL);
++	if (IS_ERR(vdoa->vdoa_clk)) {
++		dev_err(vdoa->dev, "Failed to get clock\n");
++		return PTR_ERR(vdoa->vdoa_clk);
++	}
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	vdoa->regs = devm_ioremap_resource(vdoa->dev, res);
++	if (IS_ERR(vdoa->regs))
++		return PTR_ERR(vdoa->regs);
++
++	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
++	vdoa->irq = devm_request_threaded_irq(&pdev->dev, res->start, NULL,
++					vdoa_irq_handler, IRQF_ONESHOT,
++					"vdoa", vdoa);
++	if (vdoa->irq < 0) {
++		dev_err(vdoa->dev, "Failed to get irq\n");
++		return vdoa->irq;
++	}
++
++	mutex_init(&vdoa->dev_mutex);
++	spin_lock_init(&vdoa->irqlock);
++
++	ret = v4l2_device_register(vdoa->dev, &vdoa->v4l2_dev);
++	if (ret)
++		return ret;
++
++	vdoa->vfd = vdoa_videodev;
++	vfd = &vdoa->vfd;
++	vfd->lock = &vdoa->dev_mutex;
++	vfd->v4l2_dev = &vdoa->v4l2_dev;
++
++	ret = video_register_device(vfd, VFL_TYPE_GRABBER, 0);
++	if (ret) {
++		dev_err(vdoa->dev, "Failed to register video device\n");
++		goto v4l2_unreg;
++	}
++
++	video_set_drvdata(vfd, vdoa);
++	snprintf(vfd->name, sizeof(vfd->name), "%s", vfd->name);
++	dev_dbg(vdoa->dev, "Device registered as /dev/video%d\n", vfd->num);
++
++	platform_set_drvdata(pdev, vdoa);
++
++	vdoa->m2m_dev = v4l2_m2m_init(&vdoa_m2m_ops);
++	if (IS_ERR(vdoa->m2m_dev)) {
++		dev_err(vdoa->dev, "Failed to init mem2mem device\n");
++		ret = PTR_ERR(vdoa->m2m_dev);
++		goto vdev_unreg;
++	}
++
++	return 0;
++
++	v4l2_m2m_release(vdoa->m2m_dev);
++vdev_unreg:
++	video_unregister_device(&vdoa->vfd);
++v4l2_unreg:
++	v4l2_device_unregister(&vdoa->v4l2_dev);
++
++	return ret;
++}
++
++static int vdoa_remove(struct platform_device *pdev)
++{
++	struct vdoa_data *vdoa = platform_get_drvdata(pdev);
++
++	v4l2_m2m_release(vdoa->m2m_dev);
++	video_unregister_device(&vdoa->vfd);
++	v4l2_device_unregister(&vdoa->v4l2_dev);
++
++	return 0;
++}
++
++static struct of_device_id vdoa_dt_ids[] = {
++	{ .compatible = "fsl,imx6q-vdoa" },
++	{}
++};
++MODULE_DEVICE_TABLE(of, vdoa_dt_ids);
++
++static struct platform_driver vdoa_driver = {
++	.probe		= vdoa_probe,
++	.remove		= vdoa_remove,
++	.driver		= {
++		.name	= VDOA_NAME,
++		.of_match_table = vdoa_dt_ids,
++	},
++};
++
++module_platform_driver(vdoa_driver);
++
++MODULE_DESCRIPTION("Video Data Order Adapter");
++MODULE_AUTHOR("Philipp Zabel <philipp.zabel@gmail.com>");
++MODULE_ALIAS("platform:imx-vdoa");
++MODULE_LICENSE("GPL");

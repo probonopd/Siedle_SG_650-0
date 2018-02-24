@@ -1,0 +1,25 @@
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Date: Wed, 13 May 2015 13:29:03 +0200
+Subject: [PATCH] gstv4l2transform: remove interlace-mode
+
+With this patch we can transform from interlace video
+to non interlace.
+
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+---
+ sys/v4l2/gstv4l2transform.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/sys/v4l2/gstv4l2transform.c b/sys/v4l2/gstv4l2transform.c
+index 4df8e65635a1..55d3fc679c79 100644
+--- a/sys/v4l2/gstv4l2transform.c
++++ b/sys/v4l2/gstv4l2transform.c
+@@ -399,7 +399,7 @@ gst_v4l2_transform_caps_remove_format_info (GstCaps * caps)
+         && gst_caps_features_is_equal (f,
+             GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY))
+       gst_structure_remove_fields (st, "format", "colorimetry", "chroma-site",
+-          "width", "height", "pixel-aspect-ratio", NULL);
++          "width", "height", "pixel-aspect-ratio", "interlace-mode", NULL);
+ 
+     gst_caps_append_structure_full (res, st, gst_caps_features_copy (f));
+   }

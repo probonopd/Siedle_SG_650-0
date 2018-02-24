@@ -1,0 +1,74 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 7 Mar 2016 17:30:51 +0100
+Subject: [PATCH] gpu: ipu-v3: ipu-ic: always copy the context
+
+This allows to call ipu_image_convert_prepare() once to create a context
+template and then call ipu_image_convert_run() multiple times without
+having to wait for the conversion to finish.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-ic.c | 14 ++++++++++----
+ include/video/imx-ipu-v3.h  |  4 ++--
+ 2 files changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-ic.c b/drivers/gpu/ipu-v3/ipu-ic.c
+index 7e2d3d4cb1a6..a9f28f665d64 100644
+--- a/drivers/gpu/ipu-v3/ipu-ic.c
++++ b/drivers/gpu/ipu-v3/ipu-ic.c
+@@ -1775,23 +1775,29 @@ struct image_convert_ctx *ipu_image_convert_prepare(struct ipu_soc *ipu,
+ EXPORT_SYMBOL_GPL(ipu_image_convert_prepare);
+ 
+ int ipu_image_convert_run(struct ipu_soc *ipu, struct ipu_image *in,
+-			  struct ipu_image *out, struct image_convert_ctx *ctx,
++			  struct ipu_image *out, struct image_convert_ctx *ctmp,
+ 			  int num_tiles, void (*complete)(void *ctx, int err),
+-			  void *complete_context, bool free_ctx)
++			  void *complete_context)
+ {
+ 	struct ipu_ic_priv *priv = ipu->ic_priv;
+ 	struct ipu_ic *ic = &priv->task[IC_TASK_POST_PROCESSOR];
++	struct image_convert_ctx *ctx;
+ 	unsigned long flags;
+ 	int i;
+ 
++	ctx = kzalloc(sizeof(*ctx) * num_tiles, GFP_KERNEL);
++	if (!ctx)
++		return -ENOMEM;
++
++	memcpy(ctx, ctmp, sizeof(*ctx) * num_tiles);
++
+ 	for (i = 0; i < num_tiles; i++) {
+ 		ctx[i].in.phys0 = in->phys0;
+ 		ctx[i].out.phys0 = out->phys0;
+ 	}
+ 	ctx[num_tiles - 1].complete = complete;
+ 	ctx[num_tiles - 1].complete_context = complete_context;
+-	if (free_ctx)
+-		ctx[num_tiles - 1].freep = ctx;
++	ctx[num_tiles - 1].freep = ctx;
+ 
+ 	spin_lock_irqsave(&priv->lock, flags);
+ 
+diff --git a/include/video/imx-ipu-v3.h b/include/video/imx-ipu-v3.h
+index 7a8c1c85ca98..3681cb121797 100644
+--- a/include/video/imx-ipu-v3.h
++++ b/include/video/imx-ipu-v3.h
+@@ -448,7 +448,7 @@ struct image_convert_ctx *ipu_image_convert_prepare(struct ipu_soc *ipu,
+ int ipu_image_convert_run(struct ipu_soc *ipu, struct ipu_image *in,
+ 		struct ipu_image *out, struct image_convert_ctx *ctx,
+ 		int num_tiles, void (*complete)(void *ctx, int err),
+-		void *complete_context, bool free_ctx);
++		void *complete_context);
+ 
+ static inline int ipu_image_convert(struct ipu_soc *ipu, struct ipu_image *in,
+ 		struct ipu_image *out, void (*complete)(void *ctx, int err),
+@@ -462,7 +462,7 @@ static inline int ipu_image_convert(struct ipu_soc *ipu, struct ipu_image *in,
+ 		return PTR_ERR(ctx);
+ 
+ 	return ipu_image_convert_run(ipu, in, out, ctx, num_tiles, complete,
+-				     complete_context, true);
++				     complete_context);
+ }
+ int ipu_image_deinterlace_convert(struct ipu_soc *ipu, struct ipu_image *in_p,
+ 		struct ipu_image *in, struct ipu_image *in_n, struct ipu_image *out,

@@ -1,0 +1,23 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 25 Jan 2016 14:36:59 +0100
+Subject: [PATCH] [media] imx-video-switch: fix vidsw_endpoint_disabled
+ function
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-video-switch.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/imx/imx-video-switch.c b/drivers/media/platform/imx/imx-video-switch.c
+index 8d441adfbce8..51e429183c67 100644
+--- a/drivers/media/platform/imx/imx-video-switch.c
++++ b/drivers/media/platform/imx/imx-video-switch.c
+@@ -123,7 +123,7 @@ static bool vidsw_endpoint_disabled(struct device_node *ep)
+ 	if (!rpp)
+ 		return true;
+ 
+-	return of_device_is_available(rpp);
++	return !of_device_is_available(rpp);
+ }
+ 
+ static int vidsw_async_init(struct vidsw *vidsw, struct device_node *node)

@@ -1,0 +1,2 @@
+0001-systemd-Decouple-the-starting-and-stopping-of-rpcbin.patch
+0002-rpcgen-don-t-link-to-libtirpc.patch

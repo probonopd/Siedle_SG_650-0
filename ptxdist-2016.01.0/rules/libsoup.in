@@ -1,0 +1,13 @@
+## SECTION=networking
+
+config LIBSOUP
+	tristate
+	select GLIB
+	select SQLITE
+	select LIBXML2
+	select LIBXML2_OUTPUT
+	select LIBXML2_SAX1
+	select HOST_INTLTOOL
+	prompt "libsoup"
+	help
+	  HTTP library implementation in C.

@@ -1,0 +1,107 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 29 Apr 2016 14:48:09 +0200
+Subject: [PATCH] [media] coda: parse first jpeg header on output streamon
+
+This allows to properly limit the capture formats to either 4:2:0 or 4:2:2
+chroma subsampled formats.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-common.c | 70 ++++++++++++++++---------------
+ 1 file changed, 37 insertions(+), 33 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index 9d64e7e417b8..1fbfe47ecf36 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -423,8 +423,10 @@ static int coda_enum_fmt(struct file *file, void *priv,
+ 		    vb2_is_streaming(src_vq)) {
+ 			if (ctx->params.jpeg_format == 0)
+ 				formats = coda_formats_420;
+-			else if (ctx->params.jpeg_format == 1)
+-				return f->index ? -EINVAL : V4L2_PIX_FMT_YUV422P;
++			else if (ctx->params.jpeg_format == 1) {
++				f->pixelformat = V4L2_PIX_FMT_YUV422P;
++				return f->index ? -EINVAL : 0;
++			}
+ 		}
+ 	} else
+ 		return -EINVAL;
+@@ -1436,37 +1438,6 @@ static void coda_buf_queue(struct vb2_buffer *vb)
+ 
+ 	q_data = get_q_data(ctx, vb->vb2_queue->type);
+ 
+-	/* Check the first input JPEG buffer to determine chroma subsampling */
+-	if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT &&
+-	    q_data->fourcc == V4L2_PIX_FMT_JPEG &&
+-	    !ctx->params.jpeg_chroma_subsampling[0]) {
+-			coda_jpeg_decode_header(ctx, vb);
+-		if (ctx->params.jpeg_format == 0) {
+-			struct coda_q_data *q_data_dst;
+-
+-			q_data_dst = get_q_data(ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE);
+-			q_data_dst->width = round_up(q_data->width, 16);
+-			q_data_dst->bytesperline = q_data_dst->width;
+-			if (ctx->params.jpeg_format == 0) {
+-				q_data_dst->height = round_up(q_data->height, 16);
+-				q_data_dst->sizeimage =
+-						q_data_dst->bytesperline *
+-						q_data_dst->height * 3 / 2;
+-				q_data_dst->fourcc = V4L2_PIX_FMT_NV12;
+-			} else {
+-				q_data_dst->height = round_up(q_data->height, 8);
+-				q_data_dst->sizeimage =
+-						q_data_dst->bytesperline *
+-						q_data_dst->height * 2;
+-				q_data_dst->fourcc = V4L2_PIX_FMT_YUV422P;
+-			}
+-			q_data_dst->rect.left = 0;
+-			q_data_dst->rect.top = 0;
+-			q_data_dst->rect.width = q_data->width;
+-			q_data_dst->rect.height = q_data->height;
+-		}
+-	}
+-
+ 	/*
+ 	 * In the decoder case, immediately try to copy the buffer into the
+ 	 * bitstream ringbuffer and mark it as ready to be dequeued.
+@@ -1568,6 +1539,39 @@ static int coda_start_streaming(struct vb2_queue *q, unsigned int count)
+ 			}
+ 		}
+ 
++		/* Check the first input JPEG buffer to determine chroma subsampling */
++		if (q_data_src->fourcc == V4L2_PIX_FMT_JPEG) {
++			buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
++			ret = coda_jpeg_decode_header(ctx, &buf->vb2_buf);
++			if (ret < 0) {
++				v4l2_err(v4l2_dev,
++					 "failed to decode JPEG header: %d\n",
++					 ret);
++				goto err;
++			}
++
++			q_data_dst = get_q_data(ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE);
++			q_data_dst->width = round_up(q_data_src->width, 16);
++			q_data_dst->bytesperline = q_data_dst->width;
++			if (ctx->params.jpeg_format == 0) {
++				q_data_dst->height = round_up(q_data_src->height, 16);
++				q_data_dst->sizeimage =
++						q_data_dst->bytesperline *
++						q_data_dst->height * 3 / 2;
++				if (q_data_dst->fourcc != V4L2_PIX_FMT_YUV420)
++					q_data_dst->fourcc = V4L2_PIX_FMT_NV12;
++			} else {
++				q_data_dst->height = round_up(q_data_src->height, 8);
++				q_data_dst->sizeimage =
++						q_data_dst->bytesperline *
++						q_data_dst->height * 2;
++				q_data_dst->fourcc = V4L2_PIX_FMT_YUV422P;
++			}
++			q_data_dst->rect.left = 0;
++			q_data_dst->rect.top = 0;
++			q_data_dst->rect.width = q_data_src->width;
++			q_data_dst->rect.height = q_data_src->height;
++		}
+ 		ctx->streamon_out = 1;
+ 	} else {
+ 		ctx->streamon_cap = 1;

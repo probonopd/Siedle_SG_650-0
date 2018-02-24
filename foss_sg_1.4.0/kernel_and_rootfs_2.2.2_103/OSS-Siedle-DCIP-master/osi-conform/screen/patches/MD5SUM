@@ -1,0 +1,5 @@
+0789501824210917f85f4f5aa351b953  0001-don-t-link-against-libelf.patch
+85afd9f74641ec0c43b3a98bdeee3ed3  0002-remove-configure-AC_TRY_RUN-tests.patch
+06403db2e407090fc379f9f4ac3c1d4b  0003-Fix-screenencodings-dir.patch
+e7a0e39422d515e9b7623842b8dc679b  0004-autoconf-cleanup.patch
+541795ddf736383b5e48294c868495ca  series

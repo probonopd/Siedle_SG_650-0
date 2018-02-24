@@ -1,0 +1,40 @@
+From: Robert Schwebel <r.schwebel@pengutronix.de>
+Date: Sat, 29 Oct 2011 19:13:38 +0200
+Subject: [PATCH] fix -l option in efix
+
+This patch fixes the '-l' option in efix 0.3 which is part of efax 0.9.
+Without this patch, lines on page 2 and subsequent are missing if the
+specified number of lines per page is lower than the default (66).
+
+This patch was taken from redhat, probably first written by
+mschwendt@yahoo.com.
+
+Signed-off-by: Robert Schwebel <r.schwebel@pengutronix.de>
+---
+ efix.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/efix.c b/efix.c
+index 57f96ff..984f158 100644
+--- a/efix.c
++++ b/efix.c
+@@ -297,6 +297,9 @@ int main( int argc, char **argv)
+ 
+   if ( ! err && ! done ) {
+ 
++    if ( pfont ) ifile.font = pfont ;
++    if ( pglines ) ifile.pglines = pglines ;
++
+     if ( nxtoptind < argc ) {
+       ifnames = argv + nxtoptind ;
+       if ( argv [ argc ] ) {
+@@ -308,9 +311,6 @@ int main( int argc, char **argv)
+       err = msg ( "E3 missing input file name" ) ;
+     }
+ 
+-    if ( pfont ) ifile.font = pfont ;
+-    if ( pglines ) ifile.pglines = pglines ;
+-
+     newIFILE ( &ovfile, ovfnames ) ;
+ 
+     newOFILE ( &ofile, oformat, ofname, 0, 0, 0, 0 ) ;

@@ -1,0 +1,22 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 24 Nov 2016 14:45:35 +0100
+Subject: [PATCH] Release customers/siedle/dcip2/20161124-1
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ configure.ac | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configure.ac b/configure.ac
+index e5675d445496..1f5eedc45058 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -5,7 +5,7 @@ dnl please read gstreamer/docs/random/autotools before changing this file
+ dnl initialize autoconf
+ dnl releases only do -Wall, git and prerelease does -Werror too
+ dnl use a three digit version number for releases, and four for git/pre
+-AC_INIT([GStreamer Good Plug-ins],[1.8.3],[http://bugzilla.gnome.org/enter_bug.cgi?product=GStreamer],[gst-plugins-good])
++AC_INIT([GStreamer Good Plug-ins],[1.8.3.20161124-1],[http://bugzilla.gnome.org/enter_bug.cgi?product=GStreamer],[gst-plugins-good])
+ 
+ AG_GST_INIT
+ 

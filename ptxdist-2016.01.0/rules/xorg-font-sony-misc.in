@@ -1,0 +1,8 @@
+## SECTION=multimedia_xorg_font_base
+
+config XORG_FONT_SONY_MISC
+	tristate
+	select XORG_FONTS
+	prompt "Sony misc"
+	help
+	  This package contains miscellaneous X.Org Sony fonts.

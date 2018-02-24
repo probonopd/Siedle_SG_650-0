@@ -1,0 +1,8 @@
+## SECTION=system_libraries
+config LIBRN
+	tristate
+	prompt "librn"
+	help
+	  Add rn scalable networking readiness notification library
+	  (see http://www.kegel.com/rn)
+

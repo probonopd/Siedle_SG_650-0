@@ -1,0 +1,40 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 24 Feb 2016 10:03:36 +0100
+Subject: [PATCH] [media] imx-ipu-scaler: fix payload
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipu-scaler.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipu-scaler.c b/drivers/media/platform/imx/imx-ipu-scaler.c
+index 6de8286a53a4..f21ada990c53 100644
+--- a/drivers/media/platform/imx/imx-ipu-scaler.c
++++ b/drivers/media/platform/imx/imx-ipu-scaler.c
+@@ -424,7 +424,7 @@ static int ipu_scale_buf_prepare(struct vb2_buffer *vb)
+ 	struct ipu_scale_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
+ 	struct ipu_scale_q_data *q_data;
+ 	struct v4l2_pix_format *pix;
+-	unsigned int plane_size;
++	unsigned int plane_size, payload;
+ 
+ 	dev_dbg(ctx->ipu_scaler->dev, "type: %d\n", vb->vb2_queue->type);
+ 
+@@ -440,7 +440,16 @@ static int ipu_scale_buf_prepare(struct vb2_buffer *vb)
+ 		return -EINVAL;
+ 	}
+ 
+-	vb2_set_plane_payload(vb, 0, pix->sizeimage);
++	payload = pix->bytesperline * pix->height;
++	if (pix->pixelformat == V4L2_PIX_FMT_YUV420 ||
++	    pix->pixelformat == V4L2_PIX_FMT_YVU420 ||
++	    pix->pixelformat == V4L2_PIX_FMT_NV12)
++		payload = payload * 3 / 2;
++	else if (pix->pixelformat == V4L2_PIX_FMT_YUV422P ||
++		 pix->pixelformat == V4L2_PIX_FMT_NV16)
++		payload *= 2;
++
++	vb2_set_plane_payload(vb, 0, payload);
+ 
+ 	return 0;
+ }

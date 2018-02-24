@@ -1,0 +1,31 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 31 Jul 2014 14:49:20 +0200
+Subject: [PATCH] gpu: ipu-v3: Set DC and DP interrupt names
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-dc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-dc.c b/drivers/gpu/ipu-v3/ipu-dc.c
+index 2f29780e7c68..fd0b6a4e2ddc 100644
+--- a/drivers/gpu/ipu-v3/ipu-dc.c
++++ b/drivers/gpu/ipu-v3/ipu-dc.c
+@@ -416,7 +416,7 @@ int ipu_dc_init(struct ipu_soc *ipu, struct device *dev,
+ 	priv->dc_irq = ipu_map_irq(ipu, IPU_IRQ_DC_FC_1);
+ 	if (!priv->dc_irq)
+ 		return -EINVAL;
+-	ret = devm_request_irq(dev, priv->dc_irq, dc_irq_handler, 0, NULL,
++	ret = devm_request_irq(dev, priv->dc_irq, dc_irq_handler, 0, "DC",
+ 			       &priv->channels[1]);
+ 	if (ret < 0)
+ 		return ret;
+@@ -424,7 +424,7 @@ int ipu_dc_init(struct ipu_soc *ipu, struct device *dev,
+ 	priv->dp_irq = ipu_map_irq(ipu, IPU_IRQ_DP_SF_END);
+ 	if (!priv->dp_irq)
+ 		return -EINVAL;
+-	ret = devm_request_irq(dev, priv->dp_irq, dc_irq_handler, 0, NULL,
++	ret = devm_request_irq(dev, priv->dp_irq, dc_irq_handler, 0, "DP",
+ 			       &priv->channels[5]);
+ 	if (ret < 0)
+ 		return ret;

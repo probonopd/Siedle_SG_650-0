@@ -1,0 +1,15 @@
+## SECTION=multimedia_xorg_font_75dpi
+
+config XORG_FONT_ADOBE_75DPI
+	tristate
+	default y
+	depends on XORG_FONT_75DPI
+	select XORG_FONTS
+	prompt "Adobe 75dpi"
+	help
+	  xfonts-75dpi provides a set of bitmapped fonts
+	  at 75 dots per inch. In most cases it is desirable
+	  to have the X font server (xfs) and/or an X server
+	  installed to make the fonts available to X clients.
+	  This package contains only fonts in the ISO 10646-1,
+	  ISO 8859-1 and ISO 8859-15 encodings

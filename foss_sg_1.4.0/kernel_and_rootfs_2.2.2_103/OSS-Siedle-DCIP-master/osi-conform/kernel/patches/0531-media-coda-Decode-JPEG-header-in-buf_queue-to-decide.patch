@@ -1,0 +1,126 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 7 Oct 2014 15:06:31 +0200
+Subject: [PATCH] [media] coda: Decode JPEG header in buf_queue to decide
+ chroma subsampling format
+
+When queuing the first JPEG into the driver before STREAMON, scan the JPEG
+header and determine the chroma subsampling format. Afterwards, TRY_FMT on
+the capture side will only allow compatible raw formats while the output
+queue is streaming.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-common.c | 17 ++++++++++++++++-
+ drivers/media/platform/coda/coda-jpeg.c   | 17 ++++++++++++++---
+ drivers/media/platform/coda/coda.h        |  2 ++
+ 3 files changed, 32 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index 9f66bffbb1be..4a44d5711d4d 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -548,12 +548,21 @@ static int coda_try_fmt_vid_cap(struct file *file, void *priv,
+ 
+ 	/*
+ 	 * If the source format is already fixed, only allow the same output
+-	 * resolution
++	 * resolution. When decoding JPEG images, we also have to make sure to
++	 * use the same chroma subsampling.
+ 	 */
+ 	src_vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, V4L2_BUF_TYPE_VIDEO_OUTPUT);
+ 	if (vb2_is_streaming(src_vq)) {
+ 		f->fmt.pix.width = q_data_src->width;
+ 		f->fmt.pix.height = q_data_src->height;
++
++		if (q_data_src->fourcc == V4L2_PIX_FMT_JPEG) {
++			if (ctx->params.jpeg_format == 0 &&
++			    f->fmt.pix.pixelformat == V4L2_PIX_FMT_YUV422P)
++				f->fmt.pix.pixelformat = V4L2_PIX_FMT_YUV420;
++			else if (ctx->params.jpeg_format == 1)
++				f->fmt.pix.pixelformat = V4L2_PIX_FMT_YUV422P;
++		}
+ 	}
+ 
+ 	f->fmt.pix.colorspace = ctx->colorspace;
+@@ -1373,6 +1382,12 @@ static void coda_buf_queue(struct vb2_buffer *vb)
+ 
+ 	q_data = get_q_data(ctx, vb->vb2_queue->type);
+ 
++	/* Check the first input JPEG buffer to determine chroma subsampling */
++	if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT &&
++	    q_data->fourcc == V4L2_PIX_FMT_JPEG &&
++	    !ctx->params.jpeg_chroma_subsampling[0])
++			coda_jpeg_decode_header(ctx, vb);
++
+ 	/*
+ 	 * In the decoder case, immediately try to copy the buffer into the
+ 	 * bitstream ringbuffer and mark it as ready to be dequeued.
+diff --git a/drivers/media/platform/coda/coda-jpeg.c b/drivers/media/platform/coda/coda-jpeg.c
+index 25660f276312..7b99b93a16ef 100644
+--- a/drivers/media/platform/coda/coda-jpeg.c
++++ b/drivers/media/platform/coda/coda-jpeg.c
+@@ -508,14 +508,20 @@ static int coda9_jpeg_parse_sos_header(struct coda_ctx *ctx, u8 *buf, u8 *end)
+ 
+ static int coda9_jpeg_gen_dec_huff_tab(struct coda_ctx *ctx, int tab_num);
+ 
+-static int coda9_jpeg_decode_header(struct coda_ctx *ctx, int len, u8 *buf)
++int coda_jpeg_decode_header(struct coda_ctx *ctx, struct vb2_buffer *vb)
+ {
++	u8 *buf = vb2_plane_vaddr(vb, 0);
++	size_t len = vb2_get_plane_payload(vb, 0);
+ 	u8 *end = buf + len;
+ 	u8 *start = buf;
+ 	int marker;
+ 	int ret;
+ 	int i;
+ 
++	marker = be16_to_cpup((__be16 *)buf);
++	if (marker != SOI_MARKER)
++		return -EINVAL;
++
+ 	while (++buf < end) {
+ 		if (buf[-1] != 0xff || buf[0] == 0xff || buf[0] == 0x00)
+ 			continue;
+@@ -569,6 +575,12 @@ static int coda9_jpeg_decode_header(struct coda_ctx *ctx, int len, u8 *buf)
+ 	for (i = 0; i < 4; i++)
+ 		coda9_jpeg_gen_dec_huff_tab(ctx, i);
+ 
++	if (ctx->params.jpeg_chroma_subsampling[0] == 0x21 &&
++	    ctx->params.jpeg_chroma_subsampling[1] == 0x11 &&
++	    ctx->params.jpeg_chroma_subsampling[2] == 0x11) {
++		ctx->params.jpeg_format = 1;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -1415,8 +1427,7 @@ static int coda9_jpeg_prepare_decode(struct coda_ctx *ctx)
+ 
+ 	coda_set_gdi_regs(ctx);
+ 
+-	ret = coda9_jpeg_decode_header(ctx, vb2_get_plane_payload(&src_buf->vb2_buf, 0),
+-				       vb2_plane_vaddr(&src_buf->vb2_buf, 0));
++	ret = coda_jpeg_decode_header(ctx, &src_buf->vb2_buf);
+ 	if (ret < 0) {
+ 		v4l2_err(&dev->v4l2_dev, "failed to decode JPEG header: %d\n",
+ 			 ret);
+diff --git a/drivers/media/platform/coda/coda.h b/drivers/media/platform/coda/coda.h
+index 33b44c1e5b51..d76b2403887f 100644
+--- a/drivers/media/platform/coda/coda.h
++++ b/drivers/media/platform/coda/coda.h
+@@ -120,6 +120,7 @@ struct coda_params {
+ 	u8			mpeg4_inter_qp;
+ 	u8			gop_size;
+ 	int			intra_refresh;
++	u8			jpeg_format;
+ 	u8			jpeg_quality;
+ 	u8			jpeg_restart_interval;
+ 	u8			jpeg_comp_id[3];
+@@ -300,6 +301,7 @@ void coda_m2m_buf_done(struct coda_ctx *ctx, struct vb2_v4l2_buffer *buf,
+ int coda_h264_padding(int size, char *p);
+ 
+ bool coda_jpeg_check_buffer(struct coda_ctx *ctx, struct vb2_buffer *vb);
++int coda_jpeg_decode_header(struct coda_ctx *ctx, struct vb2_buffer *vb);
+ int coda_jpeg_write_tables(struct coda_ctx *ctx);
+ void coda_set_jpeg_compression_quality(struct coda_ctx *ctx, int quality);
+ 

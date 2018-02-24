@@ -1,0 +1,74 @@
+ntpdate checks a server against various quality criteria, even if
+only one server is given. Also, there is no "force" option.
+
+This leads to a failed sync e.g. in the case where a ntp server
+is not synchronized against a proper source and returns e.g. a
+stratum of 16.
+
+As a quick workaround, override the checks for
+  - strata value
+  - max distance
+  - leap not in sync
+  - server too long without sync
+and just emit a warning.
+Currently, this override is hardcoded, as it has to work without
+a change in the ntpdate cmdline parameters. Maybe a check for the
+amount of servers (override if only one) or similar might be better.
+---
+ ntpdate/ntpdate.c |   23 +++++++++++++++++++----
+ 1 file changed, 19 insertions(+), 4 deletions(-)
+
+Index: b/ntpdate/ntpdate.c
+===================================================================
+--- a/ntpdate/ntpdate.c
++++ b/ntpdate/ntpdate.c
+@@ -1,3 +1,6 @@
++// HACK: Override server quality checks (strata, distance, leap unsync, too long without sync)
++#define ACCEPT_POOR_SERVER	1
++
+ /*
+  * ntpdate - set the time of day by polling one or more NTP servers
+  */
+@@ -1062,18 +1065,27 @@
+ 		if (server->stratum > NTP_INFIN) {
+ 			if (debug)
+ 				printf("%s: Server dropped: strata too high\n", ntoa(&server->srcadr));
+-			continue;	/* stratum no good */
++			if (ACCEPT_POOR_SERVER)
++				printf("%s: poor server: strata too high ; acceptance forced\n", ntoa(&server->srcadr));
++			else
++				continue;	/* stratum no good */
+ 		}
+ 		if (server->delay > NTP_MAXWGT) {
+ 			if (debug)
+ 				printf("%s: Server dropped: server too far away\n", 
+ 					ntoa(&server->srcadr));
+-			continue;	/* too far away */
++			if (ACCEPT_POOR_SERVER)
++				printf("%s: poor server: server too far away ; acceptance forced\n", ntoa(&server->srcadr));
++			else
++				continue;	/* too far away */
+ 		}
+ 		if (server->leap == LEAP_NOTINSYNC) {
+ 			if (debug)
+ 				printf("%s: Server dropped: Leap not in sync\n", ntoa(&server->srcadr));
+-			continue;	/* he's in trouble */
++			if (ACCEPT_POOR_SERVER)
++				printf("%s: poor server: Leap not in sync ; acceptance forced\n", ntoa(&server->srcadr));
++			else
++				continue;	/* he's in trouble */
+ 		}
+ 		if (!L_ISHIS(&server->org, &server->reftime)) {
+ 			if (debug)
+@@ -1086,7 +1098,10 @@
+ 			if (debug)
+ 				printf("%s: Server dropped: Server has gone too long without sync\n", 
+ 				       ntoa(&server->srcadr));
+-			continue;	/* too long without sync */
++			if (ACCEPT_POOR_SERVER)
++				printf("%s: poor server: too long without sync ; acceptance forced\n", ntoa(&server->srcadr));
++			else
++				continue;	/* too long without sync */
+ 		}
+ 		if (server->trust != 0) {
+ 			if (debug)

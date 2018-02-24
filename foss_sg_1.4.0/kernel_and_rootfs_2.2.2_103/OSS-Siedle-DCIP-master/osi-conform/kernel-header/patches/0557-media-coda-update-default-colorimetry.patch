@@ -1,0 +1,66 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 4 Mar 2016 16:52:08 +0100
+Subject: [PATCH] [media] coda: update default colorimetry
+
+Set default colorimetry as expected by GStreamer.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-common.c | 25 +++++++++++++++++++++----
+ 1 file changed, 21 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index c7349d5dc859..9d64e7e417b8 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -542,8 +542,6 @@ static int coda_try_fmt(struct coda_ctx *ctx, const struct coda_codec *codec,
+ 					f->fmt.pix.height * 2;
+ 		break;
+ 	case V4L2_PIX_FMT_JPEG:
+-		f->fmt.pix.colorspace = V4L2_COLORSPACE_JPEG;
+-		/* fallthrough */
+ 	case V4L2_PIX_FMT_H264:
+ 	case V4L2_PIX_FMT_MPEG4:
+ 	case V4L2_PIX_FMT_MPEG2:
+@@ -594,7 +592,19 @@ static int coda_try_fmt_vid_cap(struct file *file, void *priv,
+ 		}
+ 	}
+ 
+-	f->fmt.pix.colorspace = ctx->colorspace;
++	if (ctx->colorspace == V4L2_COLORSPACE_JPEG) {
++		switch (f->fmt.pix.colorspace) {
++		case V4L2_COLORSPACE_SMPTE170M:
++		case V4L2_COLORSPACE_REC709:
++		case V4L2_COLORSPACE_SRGB:
++			break;
++		default:
++			f->fmt.pix.colorspace = V4L2_COLORSPACE_JPEG;
++			break;
++		}
++	} else {
++		f->fmt.pix.colorspace = ctx->colorspace;
++	}
+ 
+ 	q_data_src = get_q_data(ctx, V4L2_BUF_TYPE_VIDEO_OUTPUT);
+ 	codec = coda_find_codec(ctx->dev, q_data_src->fourcc,
+@@ -642,12 +652,19 @@ static int coda_try_fmt_vid_out(struct file *file, void *priv,
+ 		return ret;
+ 
+ 	switch (f->fmt.pix.colorspace) {
++	case V4L2_COLORSPACE_SMPTE170M:
+ 	case V4L2_COLORSPACE_REC709:
+-	case V4L2_COLORSPACE_JPEG:
++	case V4L2_COLORSPACE_SRGB:
+ 		break;
++	case V4L2_COLORSPACE_JPEG:
++		if (f->fmt.pix.pixelformat == V4L2_PIX_FMT_JPEG)
++			break;
++		/* else fall through */
+ 	default:
+ 		if (f->fmt.pix.pixelformat == V4L2_PIX_FMT_JPEG)
+ 			f->fmt.pix.colorspace = V4L2_COLORSPACE_JPEG;
++		if (f->fmt.pix.width <= 720 && f->fmt.pix.height <= 576)
++			f->fmt.pix.colorspace = V4L2_COLORSPACE_SMPTE170M;
+ 		else
+ 			f->fmt.pix.colorspace = V4L2_COLORSPACE_REC709;
+ 	}

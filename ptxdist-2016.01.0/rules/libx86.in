@@ -1,0 +1,6 @@
+## SECTION=system_libraries
+config LIBX86
+	tristate
+	prompt "libx86"
+	help
+	  A hardware-independent library for executing real-mode x86 code.

@@ -1,0 +1,40 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 26 Jan 2016 12:34:58 +0100
+Subject: [PATCH] [media] tvp5150: add querystd
+
+Add the querystd video_op and make it return V4L2_STD_UNKNOWN while the
+TVP5150 is not locked to a signal.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/i2c/tvp5150.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/media/i2c/tvp5150.c b/drivers/media/i2c/tvp5150.c
+index f43d23361012..912994b2989a 100644
+--- a/drivers/media/i2c/tvp5150.c
++++ b/drivers/media/i2c/tvp5150.c
+@@ -871,6 +871,15 @@ static v4l2_std_id tvp5150_read_std(struct v4l2_subdev *sd)
+ 	}
+ }
+ 
++static int tvp5150_querystd(struct v4l2_subdev *sd, v4l2_std_id *std_id)
++{
++	struct tvp5150 *decoder = to_tvp5150(sd);
++
++	*std_id = decoder->lock ? tvp5150_read_std(sd) : V4L2_STD_UNKNOWN;
++
++	return 0;
++}
++
+ static int tvp5150_reset(struct v4l2_subdev *sd, u32 val)
+ {
+ 	struct tvp5150 *decoder = to_tvp5150(sd);
+@@ -1483,6 +1492,7 @@ static const struct v4l2_subdev_tuner_ops tvp5150_tuner_ops = {
+ static const struct v4l2_subdev_video_ops tvp5150_video_ops = {
+ 	.s_std = tvp5150_s_std,
+ 	.g_std = tvp5150_g_std,
++	.querystd = tvp5150_querystd,
+ 	.s_routing = tvp5150_s_routing,
+ 	.s_crop = tvp5150_s_crop,
+ 	.g_crop = tvp5150_g_crop,

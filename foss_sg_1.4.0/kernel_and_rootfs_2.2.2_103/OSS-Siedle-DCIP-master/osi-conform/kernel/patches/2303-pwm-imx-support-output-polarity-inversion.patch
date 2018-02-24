@@ -1,0 +1,87 @@
+From: =?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>
+Date: Fri, 28 Mar 2014 09:49:00 +0100
+Subject: [PATCH] pwm: imx: support output polarity inversion
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The i.MX pwm unit on i.MX27 and newer SoCs provides a configurable
+output polarity. This patch adds support to utilize this feature where
+available.
+
+Signed-off-by: Lothar Waßmann <LW@KARO-electronics.de>
+---
+ drivers/pwm/pwm-imx.c | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/drivers/pwm/pwm-imx.c b/drivers/pwm/pwm-imx.c
+index 554bc58423de..0d7561957dc5 100644
+--- a/drivers/pwm/pwm-imx.c
++++ b/drivers/pwm/pwm-imx.c
+@@ -180,6 +180,8 @@ static int imx_pwm_config_v2(struct pwm_chip *chip,
+ 
+ 	if (enable)
+ 		cr |= MX3_PWMCR_EN;
++	if (pwm->polarity == PWM_POLARITY_INVERSED)
++		cr |= MX3_PWMCR_POUTC;
+ 
+ 	writel(cr, imx->mmio_base + MX3_PWMCR);
+ 
+@@ -198,6 +200,11 @@ static void imx_pwm_set_enable_v2(struct pwm_chip *chip, bool enable)
+ 	else
+ 		val &= ~MX3_PWMCR_EN;
+ 
++	if (chip->pwms[0].polarity == PWM_POLARITY_INVERSED)
++		val |= MX3_PWMCR_POUTC;
++	else
++		val &= ~MX3_PWMCR_POUTC;
++
+ 	writel(val, imx->mmio_base + MX3_PWMCR);
+ }
+ 
+@@ -241,6 +248,17 @@ static void imx_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
+ 	clk_disable_unprepare(imx->clk_per);
+ }
+ 
++static int imx_pwm_set_polarity(struct pwm_chip *chip, struct pwm_device *pwm,
++				enum pwm_polarity polarity)
++{
++	struct imx_chip *imx = to_imx_chip(chip);
++
++	dev_dbg(imx->chip.dev, "%s: polarity set to %s\n", __func__,
++		polarity == PWM_POLARITY_INVERSED ? "inverted" : "normal");
++
++	return 0;
++}
++
+ static struct pwm_ops imx_pwm_ops = {
+ 	.enable = imx_pwm_enable,
+ 	.disable = imx_pwm_disable,
+@@ -252,6 +270,7 @@ struct imx_pwm_data {
+ 	int (*config)(struct pwm_chip *chip,
+ 		struct pwm_device *pwm, int duty_ns, int period_ns);
+ 	void (*set_enable)(struct pwm_chip *chip, bool enable);
++	unsigned output_polarity:1;
+ };
+ 
+ static struct imx_pwm_data imx_pwm_data_v1 = {
+@@ -262,6 +281,7 @@ static struct imx_pwm_data imx_pwm_data_v1 = {
+ static struct imx_pwm_data imx_pwm_data_v2 = {
+ 	.config = imx_pwm_config_v2,
+ 	.set_enable = imx_pwm_set_enable_v2,
++	.output_polarity = 1,
+ };
+ 
+ static const struct of_device_id imx_pwm_dt_ids[] = {
+@@ -313,6 +333,11 @@ static int imx_pwm_probe(struct platform_device *pdev)
+ 		return PTR_ERR(imx->mmio_base);
+ 
+ 	data = of_id->data;
++	if (data->output_polarity) {
++		dev_dbg(&pdev->dev, "PWM supports output inversion\n");
++		imx_pwm_ops.set_polarity = imx_pwm_set_polarity;
++	}
++
+ 	imx->config = data->config;
+ 	imx->set_enable = data->set_enable;
+ 

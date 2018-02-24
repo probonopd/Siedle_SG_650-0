@@ -1,0 +1,21 @@
+From: Enrico Jorns <ejo@pengutronix.de>
+Date: Fri, 9 Jan 2015 13:03:54 +0100
+Subject: [PATCH] v4l2: do not display 'fixme' message for V4L2_FIELD_ANY in
+ v4l2_buffer field
+
+---
+ sys/v4l2/gstv4l2bufferpool.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/sys/v4l2/gstv4l2bufferpool.c b/sys/v4l2/gstv4l2bufferpool.c
+index 3184bd8a5e80..c86aec201d6c 100644
+--- a/sys/v4l2/gstv4l2bufferpool.c
++++ b/sys/v4l2/gstv4l2bufferpool.c
+@@ -1216,6 +1216,7 @@ gst_v4l2_buffer_pool_dqbuf (GstV4l2BufferPool * pool, GstBuffer ** buffer)
+ 
+   /* set top/bottom field first if v4l2_buffer has the information */
+   switch (group->buffer.field) {
++    case V4L2_FIELD_ANY:
+     case V4L2_FIELD_NONE:
+       GST_BUFFER_FLAG_UNSET (outbuf, GST_VIDEO_BUFFER_FLAG_INTERLACED);
+       GST_BUFFER_FLAG_UNSET (outbuf, GST_VIDEO_BUFFER_FLAG_TFF);

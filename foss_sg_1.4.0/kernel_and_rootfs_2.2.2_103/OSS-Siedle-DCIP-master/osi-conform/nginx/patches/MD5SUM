@@ -1,0 +1,10 @@
+b48e60ff57e6fd54e998b3ca32f9b5a3  0001-auto-type-sizeof-rework-autotest-to-be-cross-compila.patch
+a3f83e283a8f126660a6761d3b60d0e3  0002-auto-feature-add-mechanism-allowing-to-force-feature.patch
+798661bf1c30be070f7ebf5e167b1278  0003-auto-set-ngx_feature_run_force_result-for-each-featu.patch
+0fcb4d876d5a810700ba6d97bdaf7ff8  0004-auto-lib-libxslt-conf-use-pkg-config.patch
+0713770ed4cf0906ba63b76246439648  0005-auto-unix-make-sys_nerr-guessing-cross-friendly.patch
+117d1fe6b8ee2d0ddd1c104ae0e4051e  0006-auto-lib-openssl-conf-use-pkg-config.patch
+13a024a517ba3e26af38f4150369b471  0007-auto-lib-libgd-conf-use-pkg-config.patch
+adae181de6880ec0ad1d32a7fba9bb9c  0008-src-os-unix-ngx_linux_config.h-only-include-dlfcn.h-.patch
+20745ace40da80f4f7e27d7e8c2bd478  0100-auto-endianness-add-mechanism-allowing-to-force-resu.patch
+e21f3c8e281b5ebc8405830f64fcfc8a  series

@@ -1,0 +1,57 @@
+## SECTION=networking_ntp
+
+# --- PARSE clocks ---
+
+if !NTP_ALL_CLOCK_DRIVERS
+
+menu "select PARSE clock drivers    "
+
+config NTP_COMPUTIME
+	bool
+	prompt "Diem Computime Radio Clock"
+
+config NTP_DCF7000
+	bool
+	prompt "ELV/DCF7000 clock"
+
+config NTP_HOPF6021
+	bool
+	prompt "HOPF 6021 clock"
+
+config NTP_MEINBERG
+	bool
+	prompt "Meinberg clocks"
+
+config NTP_RAWDCF
+	bool
+	prompt "DCF77 raw time code"
+	help
+	  Enables the driver for a simple DCF77 signal forwarded to a UART port.
+
+config NTP_RCC8000
+	bool
+	prompt "RCC 8000 clock"
+
+config NTP_SCHMID
+	bool
+	prompt "Schmid DCF77 clock"
+
+config NTP_TRIMTAIP
+	bool
+	prompt "Trimble GPS receiver/TAIP protocol"
+
+config NTP_TRIMTSIP
+	bool
+	prompt "Trimble GPS receiver/TSIP protocol"
+
+config NTP_WHARTON
+	bool
+	prompt "WHARTON 400A Series clock"
+
+config NTP_VARITEXT
+	bool
+	prompt "VARITEXT clock"
+
+endmenu
+
+endif

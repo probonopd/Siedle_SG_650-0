@@ -1,0 +1,22 @@
+From 1243c49c8ec5054455c3d4a14cb983b94bcfd896 Mon Sep 17 00:00:00 2001
+From: Jan-Piet Mens <jpmens@gmail.com>
+Date: Mon, 4 Jan 2016 16:32:19 +0100
+Subject: [PATCH] use iterations arg 	closes #117
+
+---
+ np.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/np.c b/np.c
+index b0a589f..a9abf66 100644
+--- a/np.c
++++ b/np.c
+@@ -55,7 +55,7 @@ int main(int argc, char **argv)
+ 
+ 	prompt = 1;
+ 
+-	while ((c = getopt(argc, argv, "ip:")) != EOF) {
++	while ((c = getopt(argc, argv, "i:p:")) != EOF) {
+ 		switch (c) {
+ 			case 'i':
+ 				iterations = atoi(optarg);

@@ -1,0 +1,21 @@
+From: Tobias Schneider <tobias.schneider@voiceinterconnect.de>
+Date: Wed, 2 Nov 2016 17:23:41 +0100
+Subject: [PATCH] v4l2videoenc: free output_state after usage
+
+---
+ sys/v4l2/gstv4l2videoenc.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/sys/v4l2/gstv4l2videoenc.c b/sys/v4l2/gstv4l2videoenc.c
+index ef9ff9b1a7d8..02fbe8cf1b2f 100644
+--- a/sys/v4l2/gstv4l2videoenc.c
++++ b/sys/v4l2/gstv4l2videoenc.c
+@@ -525,6 +525,8 @@ gst_v4l2_video_enc_handle_frame (GstVideoEncoder * encoder,
+ 
+     gst_v4l2_object_set_format (self->v4l2capture, output_state->caps, &error);
+ 
++    gst_video_codec_state_unref (output_state);
++
+     if (!gst_buffer_pool_is_active (pool)) {
+       guint min, max;
+       GstStructure *config = gst_buffer_pool_get_config (pool);

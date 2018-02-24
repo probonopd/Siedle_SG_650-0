@@ -1,0 +1,23 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 13 Jun 2016 18:51:03 +0200
+Subject: [PATCH] v4l2videoenc: fixate outcaps before calling
+ gst_video_encoder_set_output_state
+
+---
+ sys/v4l2/gstv4l2videoenc.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/sys/v4l2/gstv4l2videoenc.c b/sys/v4l2/gstv4l2videoenc.c
+index 7deff4a1f80d..66e512da1a10 100644
+--- a/sys/v4l2/gstv4l2videoenc.c
++++ b/sys/v4l2/gstv4l2videoenc.c
+@@ -473,6 +473,9 @@ gst_v4l2_video_enc_handle_frame (GstVideoEncoder * encoder,
+     outcaps = gst_pad_peer_query_caps (encoder->srcpad, tcaps);
+     gst_caps_unref (tcaps);
+ 
++    /* TODO: determine { byte-stream, avc } from available V4L2 formats */
++    outcaps = gst_caps_fixate (outcaps);
++
+     output_state =
+         gst_video_encoder_set_output_state (encoder, outcaps,
+         self->input_state);

@@ -1,0 +1,112 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 24 Feb 2015 11:41:28 +0100
+Subject: [PATCH] drm/imx: remove imx_drm_encoder_get_mux_id
+
+It is replaced by drm_of_encoder_active_port_id.
+
+Suggested-by: Daniel Kurtz <djkurtz@chromium.org>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/drm/imx/dw_hdmi-imx.c  |  2 +-
+ drivers/gpu/drm/imx/imx-drm-core.c | 30 ------------------------------
+ drivers/gpu/drm/imx/imx-drm.h      |  2 --
+ drivers/gpu/drm/imx/imx-ldb.c      |  5 +++--
+ 4 files changed, 4 insertions(+), 35 deletions(-)
+
+diff --git a/drivers/gpu/drm/imx/dw_hdmi-imx.c b/drivers/gpu/drm/imx/dw_hdmi-imx.c
+index 98605ea2ad9d..13596e822391 100644
+--- a/drivers/gpu/drm/imx/dw_hdmi-imx.c
++++ b/drivers/gpu/drm/imx/dw_hdmi-imx.c
+@@ -125,7 +125,7 @@ static void dw_hdmi_imx_encoder_mode_set(struct drm_encoder *encoder,
+ static void dw_hdmi_imx_encoder_commit(struct drm_encoder *encoder)
+ {
+ 	struct imx_hdmi *hdmi = container_of(encoder, struct imx_hdmi, encoder);
+-	int mux = imx_drm_encoder_get_mux_id(hdmi->dev->of_node, encoder);
++	int mux = drm_of_encoder_active_port_id(hdmi->dev->of_node, encoder);
+ 
+ 	regmap_update_bits(hdmi->regmap, IOMUXC_GPR3,
+ 			   IMX6Q_GPR3_HDMI_MUX_CTL_MASK,
+diff --git a/drivers/gpu/drm/imx/imx-drm-core.c b/drivers/gpu/drm/imx/imx-drm-core.c
+index 5378bdc3bbf9..5e7fa2ee7ef4 100644
+--- a/drivers/gpu/drm/imx/imx-drm-core.c
++++ b/drivers/gpu/drm/imx/imx-drm-core.c
+@@ -431,36 +431,6 @@ int imx_drm_encoder_parse_of(struct drm_device *drm,
+ }
+ EXPORT_SYMBOL_GPL(imx_drm_encoder_parse_of);
+ 
+-/*
+- * @node: device tree node containing encoder input ports
+- * @encoder: drm_encoder
+- */
+-int imx_drm_encoder_get_mux_id(struct device_node *node,
+-			       struct drm_encoder *encoder)
+-{
+-	struct imx_drm_crtc *imx_crtc = imx_drm_find_crtc(encoder->crtc);
+-	struct device_node *ep;
+-	struct of_endpoint endpoint;
+-	struct device_node *port;
+-	int ret;
+-
+-	if (!node || !imx_crtc)
+-		return -EINVAL;
+-
+-	for_each_endpoint_of_node(node, ep) {
+-		port = of_graph_get_remote_port(ep);
+-		of_node_put(port);
+-		if (port == imx_crtc->crtc->port) {
+-			ret = of_graph_parse_endpoint(ep, &endpoint);
+-			of_node_put(ep);
+-			return ret ? ret : endpoint.port;
+-		}
+-	}
+-
+-	return -EINVAL;
+-}
+-EXPORT_SYMBOL_GPL(imx_drm_encoder_get_mux_id);
+-
+ static const struct drm_ioctl_desc imx_drm_ioctls[] = {
+ 	/* none so far */
+ };
+diff --git a/drivers/gpu/drm/imx/imx-drm.h b/drivers/gpu/drm/imx/imx-drm.h
+index 83284b4d4be1..71380b9c24e1 100644
+--- a/drivers/gpu/drm/imx/imx-drm.h
++++ b/drivers/gpu/drm/imx/imx-drm.h
+@@ -46,8 +46,6 @@ int imx_drm_set_bus_format_pins(struct drm_encoder *encoder,
+ int imx_drm_set_bus_format(struct drm_encoder *encoder,
+ 		u32 bus_format);
+ 
+-int imx_drm_encoder_get_mux_id(struct device_node *node,
+-		struct drm_encoder *encoder);
+ int imx_drm_encoder_parse_of(struct drm_device *drm,
+ 	struct drm_encoder *encoder, struct device_node *np);
+ 
+diff --git a/drivers/gpu/drm/imx/imx-ldb.c b/drivers/gpu/drm/imx/imx-ldb.c
+index abacc8f67469..9a0347efc520 100644
+--- a/drivers/gpu/drm/imx/imx-ldb.c
++++ b/drivers/gpu/drm/imx/imx-ldb.c
+@@ -19,6 +19,7 @@
+ #include <drm/drmP.h>
+ #include <drm/drm_fb_helper.h>
+ #include <drm/drm_crtc_helper.h>
++#include <drm/drm_of.h>
+ #include <drm/drm_panel.h>
+ #include <linux/mfd/syscon.h>
+ #include <linux/mfd/syscon/imx6q-iomuxc-gpr.h>
+@@ -215,7 +216,7 @@ static void imx_ldb_encoder_commit(struct drm_encoder *encoder)
+ 	struct imx_ldb_channel *imx_ldb_ch = enc_to_imx_ldb_ch(encoder);
+ 	struct imx_ldb *ldb = imx_ldb_ch->ldb;
+ 	int dual = ldb->ldb_ctrl & LDB_SPLIT_MODE_EN;
+-	int mux = imx_drm_encoder_get_mux_id(imx_ldb_ch->child, encoder);
++	int mux = drm_of_encoder_active_port_id(imx_ldb_ch->child, encoder);
+ 
+ 	drm_panel_prepare(imx_ldb_ch->panel);
+ 
+@@ -265,7 +266,7 @@ static void imx_ldb_encoder_mode_set(struct drm_encoder *encoder,
+ 	int dual = ldb->ldb_ctrl & LDB_SPLIT_MODE_EN;
+ 	unsigned long serial_clk;
+ 	unsigned long di_clk = mode->clock * 1000;
+-	int mux = imx_drm_encoder_get_mux_id(imx_ldb_ch->child, encoder);
++	int mux = drm_of_encoder_active_port_id(imx_ldb_ch->child, encoder);
+ 
+ 	if (mode->clock > 170000) {
+ 		dev_warn(ldb->dev,

@@ -1,0 +1,33 @@
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Date: Tue, 19 May 2015 12:13:33 +0200
+Subject: [PATCH] gstv4l2object: differentiate the interlace video types
+
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+---
+ sys/v4l2/gstv4l2object.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index 1aaf92e6d25e..a5d58afbf480 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -3508,10 +3508,15 @@ gst_v4l2_object_set_format_full (GstV4l2Object * v4l2object, GstCaps * caps,
+ 
+   if (GST_VIDEO_INFO_IS_INTERLACED (&info)) {
+     GST_DEBUG_OBJECT (v4l2object->element, "interlaced video");
+-    /* ideally we would differentiate between types of interlaced video
+-     * but there is not sufficient information in the caps..
+-     */
+-    field = V4L2_FIELD_INTERLACED;
++    switch (GST_VIDEO_INFO_INTERLACE_MODE (&info)) {
++      default:
++      case GST_VIDEO_INTERLACE_MODE_PROGRESSIVE:
++        field = V4L2_FIELD_INTERLACED;
++        break;
++      case GST_VIDEO_INTERLACE_MODE_FIELDS:
++        field = V4L2_FIELD_SEQ_TB;
++        break;
++    }
+   } else {
+     GST_DEBUG_OBJECT (v4l2object->element, "progressive video");
+     field = V4L2_FIELD_NONE;

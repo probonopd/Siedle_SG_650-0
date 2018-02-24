@@ -1,0 +1,11 @@
+## SECTION=multimedia_xorg_driver_video
+
+config XORG_DRIVER_VIDEO_DUMMY
+	tristate
+	depends on XORG_DRIVER_VIDEO
+	select XORG_SERVER
+	select XORG_SERVER_XORG
+	select XORG_PROTO_FONTS
+	prompt "Dummy"
+	help
+	  This package contains the X.Org xf86-video-dummy driver.

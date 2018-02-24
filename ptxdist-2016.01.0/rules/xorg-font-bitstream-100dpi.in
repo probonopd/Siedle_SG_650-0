@@ -1,0 +1,10 @@
+## SECTION=multimedia_xorg_font_100dpi
+
+config XORG_FONT_BITSTREAM_100DPI
+	tristate
+	select XORG_FONTS
+	depends on XORG_FONT_100DPI
+	prompt "Bitstream 100dpi"
+	help
+	  This package contains Bitstream fonts in the ISO 10646-1,
+	  ISO 8859-1 and ISO 8859-15 encodings

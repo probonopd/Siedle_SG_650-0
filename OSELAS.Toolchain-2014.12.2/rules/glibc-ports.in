@@ -1,0 +1,24 @@
+menuconfig GLIBC_PORTS
+	prompt "glibc-ports                 "
+	bool
+
+if GLIBC_PORTS
+
+config GLIBC_PORTS_VERSION
+	string
+	default "${PTXCONF_GLIBC_VERSION}"
+
+config GLIBC_PORTS_MD5
+	string
+	prompt "glibc-ports source md5sum"
+
+config GLIBC_PORTS_TIMESTAMP
+	string
+	default "${PTXCONF_GLIBC_TIMESTAMP}"
+
+config GLIBC_PORTS_SERIES
+	string
+	prompt "glibc-ports patch series file"
+	default "series"
+
+endif

@@ -1,0 +1,11 @@
+## SECTION=multimedia_directfb
+
+config DIRECTFB_EXAMPLES
+	tristate
+	prompt "directfb examples"
+	select DIRECTFB_IMAGE_GIF
+	select DIRECTFB_IMAGE_PNG
+	select DIRECTFB_IMAGE_JPEG
+	select DIRECTFB_FONT_FREETYPE
+	select DIRECTFB
+	select LIBC_PTHREAD

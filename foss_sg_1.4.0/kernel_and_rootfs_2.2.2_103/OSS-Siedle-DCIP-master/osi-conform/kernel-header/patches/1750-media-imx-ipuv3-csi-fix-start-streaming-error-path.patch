@@ -1,0 +1,49 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 1 Oct 2015 17:00:37 +0200
+Subject: [PATCH] [media] imx-ipuv3-csi: fix start streaming error path
+
+If a connected decoder fails to start streaming, don't forget to put
+resources. If getting the IDMAC channel fails, don't keep the error
+value in the pointer variable.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index fdef92c52cf1..3fd3e3a66b7e 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -581,8 +581,11 @@ static int ipucsi_get_resources(struct ipucsi *ipucsi)
+ 		 entity->name, channel);
+ 
+ 	ipucsi->ipuch = ipu_idmac_get(ipu, channel);
+-	if (IS_ERR(ipucsi->ipuch))
+-		return PTR_ERR(ipucsi->ipuch);
++	if (IS_ERR(ipucsi->ipuch)) {
++		ret = PTR_ERR(ipucsi->ipuch);
++		ipucsi->ipuch = NULL;
++		return ret;
++	}
+ 
+ 	switch (channel) {
+ 	case IPUV3_CHANNEL_CSI0 ... IPUV3_CHANNEL_CSI3:
+@@ -768,7 +771,7 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 			IRQF_ONESHOT, irq_name[ipucsi->id], ipucsi);
+ 	if (ret) {
+ 		dev_err(dev, "Failed to request NFACK interrupt: %d\n", nfack_irq);
+-		return ret;
++		goto put_resources;
+ 	}
+ 
+ 	dev_dbg(dev, "width: %d height: %d, %c%c%c%c (%c%c%c%c)\n",
+@@ -963,6 +966,8 @@ stop_pipe:
+ 	media_entity_pipeline_stop(ipucsi->csi_entity);
+ free_irq:
+ 	free_irq(nfack_irq, ipucsi);
++put_resources:
++	ipucsi_put_resources(ipucsi);
+ err_dequeue:
+ 	while (!list_empty(&vq->queued_list)) {
+ 		struct vb2_v4l2_buffer *buf;

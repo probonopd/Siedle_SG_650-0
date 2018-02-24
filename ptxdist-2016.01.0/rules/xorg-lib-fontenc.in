@@ -1,0 +1,11 @@
+## SECTION=multimedia_xorg_lib
+
+config XORG_LIB_FONTENC
+	tristate
+	select ZLIB
+	select XORG_PROTO_X
+	prompt "libfontenc"
+	help
+	  libfontenc is a library which helps font libraries
+	  portably determine and deal with different encodings
+	  of fonts.

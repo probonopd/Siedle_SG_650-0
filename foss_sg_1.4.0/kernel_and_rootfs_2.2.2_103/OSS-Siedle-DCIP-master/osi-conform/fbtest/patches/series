@@ -1,0 +1,5 @@
+0001-provide-a-pre-generated-penguin.c-to-get-rid-of-this.patch
+0002-Don-t-use-Werror.patch
+0003-Workaround-for-a-gcc-compiler-bug.patch
+0004-remove-asm-page.h-use-sysconf.patch
+0005-add-install-target.patch

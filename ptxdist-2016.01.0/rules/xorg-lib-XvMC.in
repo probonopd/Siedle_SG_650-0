@@ -1,0 +1,14 @@
+## SECTION=multimedia_xorg_lib
+
+config XORG_LIB_XVMC
+	tristate
+	prompt "libXvMC"
+	select XORG_LIB_X11
+	select XORG_LIB_XEXT
+	select XORG_LIB_XV
+	select XORG_PROTO_XEXT
+	select XORG_PROTO_VIDEO
+	help
+	  libXvMC provides an X Window System client
+	  interface to the XVideo-MotionCompensation
+	  extension to the X protocol.

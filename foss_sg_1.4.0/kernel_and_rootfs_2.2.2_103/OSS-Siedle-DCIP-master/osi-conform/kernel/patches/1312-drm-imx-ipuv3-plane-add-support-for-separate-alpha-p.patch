@@ -1,0 +1,194 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 20 May 2015 15:40:26 +0200
+Subject: [PATCH] drm/imx: ipuv3-plane: add support for separate alpha planes
+
+The IPUv3 can read 8-bit alpha values from a separate plane buffer using a
+companion IDMAC channel driven by the Alpha Transparency Controller (ATC)
+for the graphics channels. The conditional read mechanism allows to reduce
+memory bandwidth by skipping reads of color data for completely transparent
+bursts.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/drm/imx/ipuv3-plane.c | 69 +++++++++++++++++++++++++++++++++++++++
+ drivers/gpu/drm/imx/ipuv3-plane.h |  2 ++
+ 2 files changed, 71 insertions(+)
+
+diff --git a/drivers/gpu/drm/imx/ipuv3-plane.c b/drivers/gpu/drm/imx/ipuv3-plane.c
+index 3831fa1cf0eb..3fb604ae608e 100644
+--- a/drivers/gpu/drm/imx/ipuv3-plane.c
++++ b/drivers/gpu/drm/imx/ipuv3-plane.c
+@@ -43,6 +43,12 @@ static const uint32_t ipu_plane_formats[] = {
+ 	DRM_FORMAT_YUV420,
+ 	DRM_FORMAT_YVU420,
+ 	DRM_FORMAT_RGB565,
++	DRM_FORMAT_RGB565_A8,
++	DRM_FORMAT_BGR565_A8,
++	DRM_FORMAT_RGB888_A8,
++	DRM_FORMAT_BGR888_A8,
++	DRM_FORMAT_RGBX8888_A8,
++	DRM_FORMAT_BGRX8888_A8,
+ };
+ 
+ int ipu_plane_irq(struct ipu_plane *ipu_plane)
+@@ -73,6 +79,7 @@ int ipu_plane_set_base(struct ipu_plane *ipu_plane, struct drm_framebuffer *fb,
+ 		       int x, int y)
+ {
+ 	struct drm_gem_cma_object *cma_obj[3];
++	unsigned long alpha_eba = 0;
+ 	unsigned long eba;
+ 	int active, i;
+ 
+@@ -91,6 +98,15 @@ int ipu_plane_set_base(struct ipu_plane *ipu_plane, struct drm_framebuffer *fb,
+ 	      fb->pitches[0] * y + (fb->bits_per_pixel >> 3) * x;
+ 
+ 	switch (fb->pixel_format) {
++	case DRM_FORMAT_RGB565_A8:
++	case DRM_FORMAT_BGR565_A8:
++	case DRM_FORMAT_RGB888_A8:
++	case DRM_FORMAT_BGR888_A8:
++	case DRM_FORMAT_RGBX8888_A8:
++	case DRM_FORMAT_BGRX8888_A8:
++		alpha_eba = cma_obj[1]->paddr + fb->offsets[1] +
++			    fb->pitches[1] * y + x;
++		break;
+ 	case DRM_FORMAT_YUV420:
+ 	case DRM_FORMAT_YVU420:
+ 		/*
+@@ -115,9 +131,20 @@ int ipu_plane_set_base(struct ipu_plane *ipu_plane, struct drm_framebuffer *fb,
+ 		active = ipu_idmac_get_current_buffer(ipu_plane->ipu_ch);
+ 		ipu_cpmem_set_buffer(ipu_plane->ipu_ch, !active, eba);
+ 		ipu_idmac_select_buffer(ipu_plane->ipu_ch, !active);
++		if (alpha_eba) {
++			active = ipu_idmac_get_current_buffer(
++						ipu_plane->alpha_ch);
++			ipu_cpmem_set_buffer(ipu_plane->alpha_ch, !active,
++					     alpha_eba);
++			ipu_idmac_select_buffer(ipu_plane->alpha_ch, !active);
++		}
+ 	} else {
+ 		ipu_cpmem_set_buffer(ipu_plane->ipu_ch, 0, eba);
+ 		ipu_cpmem_set_buffer(ipu_plane->ipu_ch, 1, eba);
++		if (alpha_eba) {
++			ipu_cpmem_set_buffer(ipu_plane->alpha_ch, 0, alpha_eba);
++			ipu_cpmem_set_buffer(ipu_plane->alpha_ch, 1, alpha_eba);
++		}
+ 	}
+ 
+ 	/* cache offsets for subsequent pageflips */
+@@ -188,6 +215,7 @@ int ipu_plane_mode_set(struct ipu_plane *ipu_plane, struct drm_crtc *crtc,
+ 		return ipu_plane_set_base(ipu_plane, fb, src_x, src_y);
+ 	}
+ 
++	ipu_plane->separate_alpha = false;
+ 	switch (ipu_plane->dp_flow) {
+ 	case IPU_DP_FLOW_SYNC_BG:
+ 		ret = ipu_dp_setup_channel(ipu_plane->dp,
+@@ -208,6 +236,16 @@ int ipu_plane_mode_set(struct ipu_plane *ipu_plane, struct drm_crtc *crtc,
+ 		ipu_dp_set_window_pos(ipu_plane->dp, crtc_x, crtc_y);
+ 		/* Enable local alpha on partial plane */
+ 		switch (fb->pixel_format) {
++		case DRM_FORMAT_RGB565_A8:
++		case DRM_FORMAT_BGR565_A8:
++		case DRM_FORMAT_RGB888_A8:
++		case DRM_FORMAT_BGR888_A8:
++		case DRM_FORMAT_RGBX8888_A8:
++		case DRM_FORMAT_BGRX8888_A8:
++			if (!ipu_plane->alpha_ch)
++				return -EINVAL;
++			ipu_plane->separate_alpha = true;
++			/* fallthrough */
+ 		case DRM_FORMAT_ARGB1555:
+ 		case DRM_FORMAT_ABGR1555:
+ 		case DRM_FORMAT_RGBA5551:
+@@ -250,6 +288,18 @@ int ipu_plane_mode_set(struct ipu_plane *ipu_plane, struct drm_crtc *crtc,
+ 	ipu_idmac_set_double_buffer(ipu_plane->ipu_ch, 1);
+ 	ipu_cpmem_set_stride(ipu_plane->ipu_ch, fb->pitches[0]);
+ 
++	if (ipu_plane->separate_alpha) {
++		ipu_cpmem_set_burstsize(ipu_plane->ipu_ch, 16);
++
++		ipu_cpmem_zero(ipu_plane->alpha_ch);
++		ipu_cpmem_set_resolution(ipu_plane->alpha_ch, src_w, src_h);
++		ipu_cpmem_set_format_passthrough(ipu_plane->alpha_ch, 8);
++		ipu_cpmem_set_high_priority(ipu_plane->alpha_ch);
++		ipu_idmac_set_double_buffer(ipu_plane->alpha_ch, 1);
++		ipu_cpmem_set_stride(ipu_plane->alpha_ch, fb->pitches[1]);
++		ipu_cpmem_set_burstsize(ipu_plane->alpha_ch, 16);
++	}
++
+ 	ret = ipu_plane_set_base(ipu_plane, fb, src_x, src_y);
+ 	if (ret < 0)
+ 		return ret;
+@@ -270,11 +320,14 @@ void ipu_plane_put_resources(struct ipu_plane *ipu_plane)
+ 		ipu_dmfc_put(ipu_plane->dmfc);
+ 	if (!IS_ERR_OR_NULL(ipu_plane->ipu_ch))
+ 		ipu_idmac_put(ipu_plane->ipu_ch);
++	if (!IS_ERR_OR_NULL(ipu_plane->alpha_ch))
++		ipu_idmac_put(ipu_plane->alpha_ch);
+ }
+ 
+ int ipu_plane_get_resources(struct ipu_plane *ipu_plane)
+ {
+ 	int ret;
++	int alpha_ch;
+ 
+ 	ipu_plane->ipu_ch = ipu_idmac_get(ipu_plane->ipu, ipu_plane->dma);
+ 	if (IS_ERR(ipu_plane->ipu_ch)) {
+@@ -283,6 +336,18 @@ int ipu_plane_get_resources(struct ipu_plane *ipu_plane)
+ 		return ret;
+ 	}
+ 
++	alpha_ch = ipu_channel_alpha_channel(ipu_plane->dma);
++	if (alpha_ch >= 0) {
++		ipu_plane->alpha_ch = ipu_idmac_get(ipu_plane->ipu, alpha_ch);
++		if (IS_ERR(ipu_plane->alpha_ch)) {
++			ipu_idmac_put(ipu_plane->ipu_ch);
++			ret = PTR_ERR(ipu_plane->alpha_ch);
++			DRM_ERROR("failed to get alpha idmac channel %d: %d\n",
++				  alpha_ch, ret);
++			return ret;
++		}
++	}
++
+ 	ipu_plane->dmfc = ipu_dmfc_get(ipu_plane->ipu, ipu_plane->dma);
+ 	if (IS_ERR(ipu_plane->dmfc)) {
+ 		ret = PTR_ERR(ipu_plane->dmfc);
+@@ -312,6 +377,8 @@ void ipu_plane_enable(struct ipu_plane *ipu_plane)
+ 		ipu_dp_enable(ipu_plane->ipu);
+ 	ipu_dmfc_enable_channel(ipu_plane->dmfc);
+ 	ipu_idmac_enable_channel(ipu_plane->ipu_ch);
++	if (ipu_plane->separate_alpha)
++		ipu_idmac_enable_channel(ipu_plane->alpha_ch);
+ 	if (ipu_plane->dp)
+ 		ipu_dp_enable_channel(ipu_plane->dp);
+ 
+@@ -326,6 +393,8 @@ void ipu_plane_disable(struct ipu_plane *ipu_plane)
+ 
+ 	if (ipu_plane->dp)
+ 		ipu_dp_disable_channel(ipu_plane->dp);
++	if (ipu_plane->separate_alpha)
++		ipu_idmac_disable_channel(ipu_plane->alpha_ch);
+ 	ipu_idmac_disable_channel(ipu_plane->ipu_ch);
+ 	ipu_dmfc_disable_channel(ipu_plane->dmfc);
+ 	if (ipu_plane->dp)
+diff --git a/drivers/gpu/drm/imx/ipuv3-plane.h b/drivers/gpu/drm/imx/ipuv3-plane.h
+index 3a443b413c60..d02558f2028a 100644
+--- a/drivers/gpu/drm/imx/ipuv3-plane.h
++++ b/drivers/gpu/drm/imx/ipuv3-plane.h
+@@ -18,6 +18,7 @@ struct ipu_plane {
+ 
+ 	struct ipu_soc		*ipu;
+ 	struct ipuv3_channel	*ipu_ch;
++	struct ipuv3_channel	*alpha_ch;
+ 	struct dmfc_channel	*dmfc;
+ 	struct ipu_dp		*dp;
+ 
+@@ -30,6 +31,7 @@ struct ipu_plane {
+ 	int			h;
+ 
+ 	bool			enabled;
++	bool			separate_alpha;
+ };
+ 
+ struct ipu_plane *ipu_plane_init(struct drm_device *dev, struct ipu_soc *ipu,

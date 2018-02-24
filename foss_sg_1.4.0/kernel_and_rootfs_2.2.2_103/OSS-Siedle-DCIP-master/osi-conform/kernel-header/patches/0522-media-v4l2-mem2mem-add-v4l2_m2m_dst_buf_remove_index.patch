@@ -1,0 +1,85 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 11 Mar 2015 12:54:30 +0100
+Subject: [PATCH] [media] v4l2-mem2mem: add v4l2_m2m_dst_buf_remove_index
+
+Allow drivers to choose which m2m destination buffer to hand back to
+userspace next, in case this is a decision made by hardware.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/v4l2-core/v4l2-mem2mem.c | 30 ++++++++++++++++++++++++++++++
+ include/media/v4l2-mem2mem.h           | 13 +++++++++++++
+ 2 files changed, 43 insertions(+)
+
+diff --git a/drivers/media/v4l2-core/v4l2-mem2mem.c b/drivers/media/v4l2-core/v4l2-mem2mem.c
+index 61d56c940f80..37f0a3a3c745 100644
+--- a/drivers/media/v4l2-core/v4l2-mem2mem.c
++++ b/drivers/media/v4l2-core/v4l2-mem2mem.c
+@@ -136,6 +136,36 @@ void *v4l2_m2m_buf_remove(struct v4l2_m2m_queue_ctx *q_ctx)
+ }
+ EXPORT_SYMBOL_GPL(v4l2_m2m_buf_remove);
+ 
++/**
++ * v4l2_m2m_buf_remove_index() - take off a buffer from the list of ready
++ * buffers by its index and return it
++ */
++void *v4l2_m2m_buf_remove_index(struct v4l2_m2m_queue_ctx *q_ctx,
++				unsigned int index)
++{
++	struct v4l2_m2m_buffer *b;
++	struct vb2_v4l2_buffer *vb = NULL;
++	unsigned long flags;
++
++	spin_lock_irqsave(&q_ctx->rdy_spinlock, flags);
++	if (list_empty(&q_ctx->rdy_queue))
++		goto out;
++
++	list_for_each_entry(b, &q_ctx->rdy_queue, list) {
++		if (b->vb.vb2_buf.index == index) {
++			list_del(&b->list);
++			q_ctx->num_rdy--;
++			vb = &b->vb;
++			goto out;
++		}
++	}
++
++out:
++	spin_unlock_irqrestore(&q_ctx->rdy_spinlock, flags);
++	return vb;
++}
++EXPORT_SYMBOL_GPL(v4l2_m2m_buf_remove_index);
++
+ /*
+  * Scheduling handlers
+  */
+diff --git a/include/media/v4l2-mem2mem.h b/include/media/v4l2-mem2mem.h
+index 5a9597dd1ee0..3ecaceb74cb9 100644
+--- a/include/media/v4l2-mem2mem.h
++++ b/include/media/v4l2-mem2mem.h
+@@ -235,6 +235,9 @@ struct vb2_queue *v4l2_m2m_get_dst_vq(struct v4l2_m2m_ctx *m2m_ctx)
+ 
+ void *v4l2_m2m_buf_remove(struct v4l2_m2m_queue_ctx *q_ctx);
+ 
++void *v4l2_m2m_buf_remove_index(struct v4l2_m2m_queue_ctx *q_ctx,
++				unsigned int index);
++
+ /**
+  * v4l2_m2m_src_buf_remove() - take off a source buffer from the list of ready
+  * buffers and return it
+@@ -257,6 +260,16 @@ static inline void *v4l2_m2m_dst_buf_remove(struct v4l2_m2m_ctx *m2m_ctx)
+ 	return v4l2_m2m_buf_remove(&m2m_ctx->cap_q_ctx);
+ }
+ 
++/**
++ * v4l2_m2m_dst_buf_remove_index() - take off a destination buffer from the list
++ * of ready buffers by its index and return it
++ */
++static inline void *v4l2_m2m_dst_buf_remove_index(struct v4l2_m2m_ctx *m2m_ctx,
++						  unsigned int index)
++{
++	return v4l2_m2m_buf_remove_index(&m2m_ctx->cap_q_ctx, index);
++}
++
+ /* v4l2 ioctl helpers */
+ 
+ int v4l2_m2m_ioctl_reqbufs(struct file *file, void *priv,

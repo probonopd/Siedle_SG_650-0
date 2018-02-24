@@ -1,0 +1,64 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 13 May 2016 14:45:02 +0200
+Subject: [PATCH] v4l2object: use G_SELECTION instead of G_CROP in
+ gst_v4l2_object_acquire_format
+
+The gst_v4l2_object_acquire_format() function is used by v4l2videodec to obtain
+the currently set capture format. Since G_FMT returns the coded size, the
+visible size needs to be obtained from the compose rectangle in order to
+negotiate it with downstream elements. The G_CROP call hasn't worked on mem2mem
+capture queues for a long time. Instead use the G_SELECTION call to obtain the
+compose rectangle and only fall back to G_CROP for ancient kernels.
+---
+ sys/v4l2/gstv4l2object.c | 31 ++++++++++++++++++++++---------
+ 1 file changed, 22 insertions(+), 9 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index 462d00b9fc52..39ae9459d582 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -3942,6 +3942,8 @@ gst_v4l2_object_acquire_format (GstV4l2Object * v4l2object, GstVideoInfo * info)
+   struct v4l2_fmtdesc *fmtdesc;
+   struct v4l2_format fmt;
+   struct v4l2_crop crop;
++  struct v4l2_selection sel;
++  struct v4l2_rect *r = NULL;
+   GstVideoFormat format;
+   guint width, height;
+   GstVideoAlignment align;
+@@ -3972,15 +3974,26 @@ gst_v4l2_object_acquire_format (GstV4l2Object * v4l2object, GstVideoInfo * info)
+   width = fmt.fmt.pix.width;
+   height = fmt.fmt.pix.height;
+ 
+-  memset (&crop, 0, sizeof (struct v4l2_crop));
+-  crop.type = v4l2object->type;
+-  if (v4l2_ioctl (v4l2object->video_fd, VIDIOC_G_CROP, &crop) >= 0) {
+-    align.padding_left = crop.c.left;
+-    align.padding_top = crop.c.top;
+-    align.padding_right = width - crop.c.width - crop.c.left;
+-    align.padding_bottom = height - crop.c.height - crop.c.top;
+-    width = crop.c.width;
+-    height = crop.c.height;
++  /* Use the default compose rectangle */
++  memset (&sel, 0, sizeof (struct v4l2_selection));
++  sel.type = v4l2object->type;
++  sel.target = V4L2_SEL_TGT_COMPOSE_DEFAULT;
++  if (v4l2_ioctl (v4l2object->video_fd, VIDIOC_G_SELECTION, &sel) >= 0) {
++    r = &sel.r;
++  } else {
++    /* For ancient kernels, fall back to G_CROP */
++    memset (&crop, 0, sizeof (struct v4l2_crop));
++    crop.type = v4l2object->type;
++    if (v4l2_ioctl (v4l2object->video_fd, VIDIOC_G_CROP, &crop) >= 0)
++      r = &crop.c;
++  }
++  if (r) {
++    align.padding_left = r->left;
++    align.padding_top = r->top;
++    align.padding_right = width - r->width - r->left;
++    align.padding_bottom = height - r->height - r->top;
++    width = r->width;
++    height = r->height;
+   }
+ 
+   gst_video_info_set_format (info, format, width, height);

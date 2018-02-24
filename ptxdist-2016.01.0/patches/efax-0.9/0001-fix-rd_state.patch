@@ -1,0 +1,24 @@
+From: Robert Schwebel <r.schwebel@pengutronix.de>
+Date: Sat, 29 Oct 2011 19:13:38 +0200
+Subject: [PATCH] fix rd_state
+
+Patch taken from redhat.
+
+Signed-off-by: Robert Schwebel <r.schwebel@pengutronix.de>
+---
+ efax.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/efax.c b/efax.c
+index 42880d2..bdcd462 100644
+--- a/efax.c
++++ b/efax.c
+@@ -759,7 +759,7 @@ int readfaxruns ( TFILE *f, DECODER *d, short *runs, int *pels )
+ 	c = tgetd ( f, TO_CHAR ) ;
+ 
+ 	rd_state = ( rd_state & rd_allowed[c] ) ?
+-	  ( ( rd_state & rd_nexts[c] ) ? rd_state <<= 1 : rd_state ) : 
++	  ( ( rd_state & rd_nexts[c] ) ? rd_state << 1 : rd_state ) : 
+ 	  RD_BEGIN ;
+ 
+ 	if ( rd_state == RD_END )

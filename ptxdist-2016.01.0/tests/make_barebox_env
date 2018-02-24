@@ -1,0 +1,40 @@
+#!/bin/bash
+
+ptxd_source_kconfig "${PTXDIST_BOARDSETUP}" ||
+ptxd_bailout "Please run 'ptxdist boardsetup' first!"
+
+BAREBOX_ENV="${1}"
+ENVTMPDIR="$(mktemp -d "${PTXDIST_TEMPDIR}/barebox_env.XXXXXX")" ||
+ptxd_bailout "mktemp failed."
+
+# IMAGEDIR is not set if we use this script with "ptxdist test" directly
+# since it comes from kwraper.
+[ -z "${IMAGEDIR}" ] && export IMAGEDIR=${PTXDIST_PLATFORMDIR}/images
+
+ptxd_get_path \
+	"${PTXDIST_PLATFORMCONFIGDIR}/barebox-env{${PTXDIST_PLATFORMSUFFIX},}/config.in{${PTXDIST_PLATFORMSUFFIX},}" \
+	"${PTXDIST_PLATFORMCONFIGDIR}/barebox-env{${PTXDIST_PLATFORMSUFFIX},}/config{${PTXDIST_PLATFORMSUFFIX},}" ||
+ptxd_bailout "Could not find Barebox environment."
+
+CONFFILE_IN="${ptxd_reply}"
+ENVDIR="$(dirname "${CONFFILE_IN}")"
+CONFFILE="${ENVDIR}/config"
+
+ptxd_replace_magic "${CONFFILE_IN}" > "${CONFFILE}"
+
+tar -C "${ENVDIR}" -c . \
+	--exclude .svn \
+	--exclude .pc \
+	--exclude .git \
+	--exclude "config.in" \
+	--exclude "config.in${PTXDIST_PLATFORMSUFFIX}" \
+	--exclude "*/*~" \
+	| tar -C "${ENVTMPDIR}" -x
+
+bareboxenv -s "${ENVTMPDIR}" "${IMAGEDIR}/barebox-environment" ||
+ptxd_bailout "bareboxenv failed."
+
+# only copy the image if we are called by "test setenv"
+[ -n "${BAREBOX_ENV}" ] && cp "${IMAGEDIR}/barebox-environment" "${BAREBOX_ENV}"
+
+rm -rf "${ENVTMPDIR}"

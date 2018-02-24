@@ -1,0 +1,31 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 3 Feb 2014 14:59:09 +0100
+Subject: [PATCH] regulator: da9063: Add set_voltage_time_sel function
+
+This allows to set the regulator-ramp-delay in the device tree.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/regulator/da9063-regulator.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/regulator/da9063-regulator.c b/drivers/regulator/da9063-regulator.c
+index 536e931eb921..b0234041d1de 100644
+--- a/drivers/regulator/da9063-regulator.c
++++ b/drivers/regulator/da9063-regulator.c
+@@ -433,6 +433,7 @@ static struct regulator_ops da9063_buck_ops = {
+ 	.is_enabled		= regulator_is_enabled_regmap,
+ 	.get_voltage_sel	= regulator_get_voltage_sel_regmap,
+ 	.set_voltage_sel	= regulator_set_voltage_sel_regmap,
++	.set_voltage_time_sel	= regulator_set_voltage_time_sel,
+ 	.list_voltage		= regulator_list_voltage_linear,
+ 	.set_current_limit	= da9063_set_current_limit,
+ 	.get_current_limit	= da9063_get_current_limit,
+@@ -451,6 +452,7 @@ static struct regulator_ops da9063_ldo_ops = {
+ 	.is_enabled		= regulator_is_enabled_regmap,
+ 	.get_voltage_sel	= regulator_get_voltage_sel_regmap,
+ 	.set_voltage_sel	= regulator_set_voltage_sel_regmap,
++	.set_voltage_time_sel	= regulator_set_voltage_time_sel,
+ 	.list_voltage		= regulator_list_voltage_linear,
+ 	.set_mode		= da9063_ldo_set_mode,
+ 	.get_mode		= da9063_ldo_get_mode,

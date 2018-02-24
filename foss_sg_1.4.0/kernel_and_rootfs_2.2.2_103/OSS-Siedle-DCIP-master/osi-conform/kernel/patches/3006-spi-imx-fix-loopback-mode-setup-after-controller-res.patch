@@ -1,0 +1,36 @@
+From: Anton Bondarenko <anton.bondarenko.sama@gmail.com>
+Date: Tue, 8 Dec 2015 07:43:43 +0100
+Subject: [PATCH] spi: imx: fix loopback mode setup after controller reset
+
+If controller hold in reset it's not possible to write any
+register except CTRL. So all other registers must be updated
+only after controller bring out from reset.
+
+Signed-off-by: Anton Bondarenko <anton.bondarenko.sama@gmail.com>
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ drivers/spi/spi-imx.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/spi/spi-imx.c b/drivers/spi/spi-imx.c
+index 410522fdd4c9..3aa33c8c819f 100644
+--- a/drivers/spi/spi-imx.c
++++ b/drivers/spi/spi-imx.c
+@@ -356,6 +356,9 @@ static int __maybe_unused mx51_ecspi_config(struct spi_imx_data *spi_imx,
+ 	else
+ 		cfg &= ~MX51_ECSPI_CONFIG_SSBPOL(config->cs);
+ 
++	/* CTRL register always go first to bring out controller from reset */
++	writel(ctrl, spi_imx->base + MX51_ECSPI_CTRL);
++
+ 	reg = readl(spi_imx->base + MX51_ECSPI_TESTREG);
+ 	if (config->mode & SPI_LOOP)
+ 		reg |= MX51_ECSPI_TESTREG_LBC;
+@@ -363,7 +366,6 @@ static int __maybe_unused mx51_ecspi_config(struct spi_imx_data *spi_imx,
+ 		reg &= ~MX51_ECSPI_TESTREG_LBC;
+ 	writel(reg, spi_imx->base + MX51_ECSPI_TESTREG);
+ 
+-	writel(ctrl, spi_imx->base + MX51_ECSPI_CTRL);
+ 	writel(cfg, spi_imx->base + MX51_ECSPI_CONFIG);
+ 
+ 	/*

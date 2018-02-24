@@ -1,0 +1,78 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 18 Mar 2014 18:00:50 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: Export sync lock event to userspace
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 1315fdb7070a..678d89fab7b7 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -43,12 +43,19 @@
+ #include <media/v4l2-common.h>
+ #include <media/v4l2-device.h>
+ #include <media/v4l2-ctrls.h>
++#include <media/v4l2-event.h>
+ #include <media/v4l2-ioctl.h>
+ #include <media/v4l2-dev.h>
+ #include <media/v4l2-of.h>
+ 
+ #define DRIVER_NAME "imx-ipuv3-camera"
+ 
++#define V4L2_EVENT_SYNC_LOCK	(V4L2_EVENT_PRIVATE_START | 0x200)
++
++struct v4l2_event_sync_lock {
++	__u8 lock;
++} __attribute__ ((packed));
++
+ /* CMOS Sensor Interface Registers */
+ #define CSI_SENS_CONF		0x0000
+ #define CSI_SENS_FRM_SIZE	0x0004
+@@ -576,6 +583,7 @@ static void ipucsi_v4l2_dev_notify(struct v4l2_subdev *sd,
+ 	if (notification == V4L2_SUBDEV_SYNC_LOCK_NOTIFY) {
+ 		struct media_entity_graph graph;
+ 		struct media_entity *entity;
++		struct v4l2_event event;
+ 		struct ipucsi *ipucsi;
+ 		bool lock = *(bool *)arg;
+ 
+@@ -592,6 +600,11 @@ static void ipucsi_v4l2_dev_notify(struct v4l2_subdev *sd,
+ 			ipucsi_resume_stream(ipucsi);
+ 		else
+ 			ipucsi_pause_stream(ipucsi);
++
++		memset(&event, 0, sizeof(event));
++		event.type = V4L2_EVENT_SYNC_LOCK;
++		((struct v4l2_event_sync_lock *)event.u.data)->lock = lock;
++		v4l2_event_queue(&ipucsi->vdev, &event);
+ 	}
+ }
+ 
+@@ -1371,6 +1384,14 @@ static int ipucsi_enum_framesizes(struct file *file, void *fh,
+ 	return 0;
+ }
+ 
++static int ipucsi_subscribe_event(struct v4l2_fh *fh,
++				  const struct v4l2_event_subscription *sub)
++{
++	if (sub->type == V4L2_EVENT_SYNC_LOCK)
++		return v4l2_event_subscribe(fh, sub, 0, NULL);
++	return -EINVAL;
++}
++
+ static const struct v4l2_ioctl_ops ipucsi_capture_ioctl_ops = {
+ 	.vidioc_querycap		= ipucsi_querycap,
+ 
+@@ -1390,6 +1411,9 @@ static const struct v4l2_ioctl_ops ipucsi_capture_ioctl_ops = {
+ 	.vidioc_streamoff		= vb2_ioctl_streamoff,
+ 
+ 	.vidioc_enum_framesizes		= ipucsi_enum_framesizes,
++
++	.vidioc_subscribe_event		= ipucsi_subscribe_event,
++	.vidioc_unsubscribe_event	= v4l2_event_unsubscribe,
+ };
+ 
+ static int ipucsi_subdev_s_ctrl(struct v4l2_ctrl *ctrl)

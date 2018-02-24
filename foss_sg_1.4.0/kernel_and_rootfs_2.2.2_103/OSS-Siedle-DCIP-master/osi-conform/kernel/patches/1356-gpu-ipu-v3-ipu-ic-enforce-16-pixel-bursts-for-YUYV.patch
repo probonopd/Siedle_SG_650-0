@@ -1,0 +1,22 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 8 Mar 2016 15:31:10 +0100
+Subject: [PATCH] gpu: ipu-v3: ipu-ic: enforce 16 pixel bursts for YUYV
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-ic.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-ic.c b/drivers/gpu/ipu-v3/ipu-ic.c
+index a9f28f665d64..7c065847555e 100644
+--- a/drivers/gpu/ipu-v3/ipu-ic.c
++++ b/drivers/gpu/ipu-v3/ipu-ic.c
+@@ -1141,7 +1141,7 @@ static int ipu_image_halign(u32 pixfmt)
+ 	case V4L2_PIX_FMT_RGB565:
+ 	case V4L2_PIX_FMT_UYVY:
+ 	case V4L2_PIX_FMT_YUYV:
+-		return 4;
++		return 16;
+ 	/*
+ 	 * 8 RGB24 pixels correspond to 24 bytes,
+ 	 * 8 NV12 pixels correspond to 8 bytes, both in luma and chroma

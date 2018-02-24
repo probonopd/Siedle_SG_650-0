@@ -1,0 +1,43 @@
+From f9bbdb0bc70d8092f680287e54a4d7c9e0253837 Mon Sep 17 00:00:00 2001
+From: Andreas Pretzsch <apr@cn-eng.de>
+Date: Sat, 19 Mar 2016 20:58:21 +0100
+Subject: [PATCH] barebox-state: only report 'load successful' in verbose mode
+
+Even if not called with verbose (-v), barebox-state prints 'load successful'
+to stderr. Reason for this is the use of dev_info, which is mapped to pr_err
+in common.h.
+All regular output, like with "--dump-shell", is printed to stdout.
+
+While the above behaviour seems to cause no immediate trouble, still it
+is a change from the previous version used. Beside this, it violates the
+unix tradition of staying silent when everything went ok.
+
+Therefore encapsulate the above calls with an "if (verbose)".
+
+Signed-off-by: Andreas Pretzsch <apr@cn-eng.de>
+---
+ src/barebox-state.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/barebox-state.c b/src/barebox-state.c
+index d501d32..1373c34 100644
+--- a/src/barebox-state.c
++++ b/src/barebox-state.c
+@@ -1265,7 +1265,7 @@ int state_backend_dtb_file(struct state *state, const char *of_path, const char
+ 	if (ret) {
+ 		dev_warn(&state->dev, "load failed - using defaults\n");
+ 	} else {
+-		dev_info(&state->dev, "load successful\n");
++		if (verbose) dev_info(&state->dev, "load successful\n");
+ 		state->dirty = 0;
+ 	}
+ 
+@@ -1708,7 +1708,7 @@ int state_backend_raw_file(struct state *state, const char *of_path,
+ 	if (ret) {
+ 		dev_warn(&state->dev, "load failed - using defaults\n");
+ 	} else {
+-		dev_info(&state->dev, "load successful\n");
++		if (verbose) dev_info(&state->dev, "load successful\n");
+ 		state->dirty = 0;
+ 	}
+ 

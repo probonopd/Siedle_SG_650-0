@@ -1,0 +1,1045 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 11 Aug 2014 11:23:58 +0200
+Subject: [PATCH] gpu: ipu-v3: Add media entities in V4L2 subdevices
+
+This patch adds V4L2 subdevices and media entities for each of the IPU's
+blocks that can be linked together directly, via internal FIFO, or via
+IDMAC channel linking.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/Makefile     |   4 +
+ drivers/gpu/ipu-v3/ipu-common.c |  11 +-
+ drivers/gpu/ipu-v3/ipu-csi.c    |   1 -
+ drivers/gpu/ipu-v3/ipu-media.c  | 845 ++++++++++++++++++++++++++++++++++++++++
+ drivers/gpu/ipu-v3/ipu-prv.h    |  18 +
+ include/video/imx-ipu-v3.h      |  36 +-
+ 6 files changed, 911 insertions(+), 4 deletions(-)
+ create mode 100644 drivers/gpu/ipu-v3/ipu-media.c
+
+diff --git a/drivers/gpu/ipu-v3/Makefile b/drivers/gpu/ipu-v3/Makefile
+index 107ec236a4a6..ddb814ce23a8 100644
+--- a/drivers/gpu/ipu-v3/Makefile
++++ b/drivers/gpu/ipu-v3/Makefile
+@@ -2,3 +2,7 @@ obj-$(CONFIG_IMX_IPUV3_CORE) += imx-ipu-v3.o
+ 
+ imx-ipu-v3-objs := ipu-common.o ipu-cpmem.o ipu-csi.o ipu-dc.o ipu-di.o \
+ 		ipu-dp.o ipu-dmfc.o ipu-ic.o ipu-smfc.o
++
++ifdef CONFIG_MEDIA_IMX
++imx-ipu-v3-objs += ipu-media.o
++endif
+diff --git a/drivers/gpu/ipu-v3/ipu-common.c b/drivers/gpu/ipu-v3/ipu-common.c
+index 53bd75eb67b5..c426daaa2f36 100644
+--- a/drivers/gpu/ipu-v3/ipu-common.c
++++ b/drivers/gpu/ipu-v3/ipu-common.c
+@@ -45,8 +45,8 @@ static inline void ipu_cm_write(struct ipu_soc *ipu, u32 value, unsigned offset)
+ 	writel(value, ipu->cm_reg + offset);
+ }
+ 
+-static void ipu_cm_update_bits(struct ipu_soc *ipu, unsigned int reg,
+-			       unsigned int mask, unsigned int val)
++void ipu_cm_update_bits(struct ipu_soc *ipu, unsigned int reg,
++			unsigned int mask, unsigned int val)
+ {
+ 	unsigned long flags;
+ 	u32 tmp;
+@@ -1365,10 +1365,16 @@ static int ipu_probe(struct platform_device *pdev)
+ 		goto failed_add_clients;
+ 	}
+ 
++	ret = ipu_media_init(ipu);
++	if (ret)
++		goto failed_media_init;
++
+ 	dev_info(&pdev->dev, "%s probed\n", devtype->name);
+ 
+ 	return 0;
+ 
++failed_media_init:
++	platform_device_unregister_children(pdev);
+ failed_add_clients:
+ 	ipu_submodules_exit(ipu);
+ failed_submodules_init:
+@@ -1384,6 +1390,7 @@ static int ipu_remove(struct platform_device *pdev)
+ 	struct ipu_soc *ipu = platform_get_drvdata(pdev);
+ 
+ 	platform_device_unregister_children(pdev);
++	ipu_media_exit(ipu);
+ 	ipu_submodules_exit(ipu);
+ 	ipu_irq_exit(ipu);
+ 
+diff --git a/drivers/gpu/ipu-v3/ipu-csi.c b/drivers/gpu/ipu-v3/ipu-csi.c
+index 2cfec860eea4..becacaba6a32 100644
+--- a/drivers/gpu/ipu-v3/ipu-csi.c
++++ b/drivers/gpu/ipu-v3/ipu-csi.c
+@@ -635,7 +635,6 @@ int ipu_csi_set_dest(struct ipu_csi *csi, enum ipu_csi_dest csi_dest)
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL_GPL(ipu_csi_set_dest);
+ 
+ int ipu_csi_enable(struct ipu_csi *csi)
+ {
+diff --git a/drivers/gpu/ipu-v3/ipu-media.c b/drivers/gpu/ipu-v3/ipu-media.c
+new file mode 100644
+index 000000000000..920806c7b79c
+--- /dev/null
++++ b/drivers/gpu/ipu-v3/ipu-media.c
+@@ -0,0 +1,845 @@
++/*
++ * Copyright (c) 2014 Philipp Zabel, Pengutronix
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ */
++#include <linux/kernel.h>
++#include <linux/export.h>
++#include <linux/types.h>
++#include <linux/err.h>
++#include <media/imx.h>
++#include <media/media-entity.h>
++#include <media/v4l2-device.h>
++#include <media/v4l2-subdev.h>
++#include <video/imx-ipu-v3.h>
++#include "ipu-prv.h"
++
++struct ipu_pad {
++	u8 flags;	/* MEDIA_PAD_FL_SOURCE/SINK */
++	u8 channel;	/* IDMAC channel number plus one, 0 = no channel */
++	u8 mask;	/* bitfield mask in FS_PROC_FLOW1/2 */
++	u8 offset;	/* bitfield offset in FS_PROC_FLOW1/2 */
++};
++
++struct ipu_entity_template {
++	const char *name;
++	const struct media_entity_operations *ops;
++	struct ipu_pad pads[5];
++};
++
++struct ipu_link {
++	u8 src_entity;
++	u8 src_pad;
++	u8 dst_entity;
++	u8 dst_pad;
++	u8 dest_sel;
++	u8 src_sel;
++};
++
++static const struct ipu_entity_template ipu_entities[IPU_NUM_ENTITIES];
++
++/*
++ * Links between IPU entities set up IDMAC channel linking. Each entry consists
++ * of source and sink entity and pad and optionally DEST_SEL/SRC_SEL values to
++ * be written to the FSU registers. In special cases (CSI -> SMFC / IC, IC ->
++ * DMFC) there is a direct connection that does not go through system RAM.
++ */
++static const struct ipu_link ipu_links[] = {
++	/* CSI -> SMFC links */
++	{ IPU_CSI0, 1, IPU_SMFC0, 0 },
++	{ IPU_CSI0, 2, IPU_SMFC0, 0 },
++	{ IPU_CSI0, 3, IPU_SMFC0, 0 },
++	{ IPU_CSI0, 4, IPU_SMFC0, 0 },
++	{ IPU_CSI0, 1, IPU_SMFC1, 0 },
++	{ IPU_CSI0, 1, IPU_SMFC2, 0 },
++	{ IPU_CSI0, 1, IPU_SMFC3, 0 },
++	{ IPU_CSI1, 1, IPU_SMFC0, 0 },
++	{ IPU_CSI1, 2, IPU_SMFC0, 0 },
++	{ IPU_CSI1, 3, IPU_SMFC0, 0 },
++	{ IPU_CSI1, 4, IPU_SMFC0, 0 },
++	{ IPU_CSI1, 1, IPU_SMFC1, 0 },
++	{ IPU_CSI1, 1, IPU_SMFC2, 0 },
++	{ IPU_CSI1, 1, IPU_SMFC3, 0 },
++
++	/* CSI -> IC direct */
++	{ IPU_CSI0, 1, IPU_IC_PRP, 0,	0, FS_PRP_SRC_SEL_IC_DIRECT },
++	{ IPU_CSI1, 1, IPU_IC_PRP, 0,	0, FS_PRP_SRC_SEL_IC_DIRECT },
++
++	/* SMFC -> IC/IRT links */
++	{ IPU_SMFC0, 1, IPU_IC_PRP, 0,	FS_SMFC_DEST_SEL_IC_PRP,
++					FS_PRP_SRC_SEL_SMFC0 },
++	{ IPU_SMFC2, 1, IPU_IC_PRP, 0,	FS_SMFC_DEST_SEL_IC_PRP,
++					FS_PRP_SRC_SEL_SMFC2 },
++	{ IPU_SMFC0, 1, IPU_IC_PP, 0,	FS_SMFC_DEST_SEL_IC_PP,
++					FS_PP_SRC_SEL_SMFC0 },
++	{ IPU_SMFC2, 1, IPU_IC_PP, 0,	FS_SMFC_DEST_SEL_IC_PP,
++					FS_PP_SRC_SEL_SMFC2 },
++	{ IPU_SMFC0, 1, IPU_IRT_ENC, 0,	FS_SMFC_DEST_SEL_IRT_ENC,
++					FS_PRPENC_ROT_SRC_SEL_SMFC0 },
++	{ IPU_SMFC1, 1, IPU_IRT_ENC, 0,	FS_SMFC_DEST_SEL_IRT_ENC,
++					FS_PRPENC_ROT_SRC_SEL_SMFC1 },
++	{ IPU_SMFC2, 1, IPU_IRT_ENC, 0,	FS_SMFC_DEST_SEL_IRT_ENC,
++					FS_PRPENC_ROT_SRC_SEL_SMFC2 },
++	{ IPU_SMFC3, 1, IPU_IRT_ENC, 0,	FS_SMFC_DEST_SEL_IRT_ENC,
++					FS_PRPENC_ROT_SRC_SEL_SMFC3 },
++	{ IPU_SMFC0, 1, IPU_IRT_VF, 0,	FS_SMFC_DEST_SEL_IRT_VF,
++					FS_PRPVF_ROT_SRC_SEL_SMFC0 },
++	{ IPU_SMFC1, 1, IPU_IRT_VF, 0,	FS_SMFC_DEST_SEL_IRT_VF,
++					FS_PRPVF_ROT_SRC_SEL_SMFC1 },
++	{ IPU_SMFC2, 1, IPU_IRT_VF, 0,	FS_SMFC_DEST_SEL_IRT_VF,
++					FS_PRPVF_ROT_SRC_SEL_SMFC2 },
++	{ IPU_SMFC3, 1, IPU_IRT_VF, 0,	FS_SMFC_DEST_SEL_IRT_VF,
++					FS_PRPVF_ROT_SRC_SEL_SMFC3 },
++	{ IPU_SMFC0, 1, IPU_IRT_PP, 0,	FS_SMFC_DEST_SEL_IRT_PP,
++					FS_PP_ROT_SRC_SEL_SMFC0 },
++	{ IPU_SMFC2, 1, IPU_IRT_PP, 0,	FS_SMFC_DEST_SEL_IRT_PP,
++					FS_PP_ROT_SRC_SEL_SMFC2 },
++
++	/*
++	 * These two links are fixed. Maybe IC PRP, PRP VF, and PRP ENC should
++	 * be combined into a single IC PRP entity with one sink pad (CB6) and
++	 * three source pads (CB7, CB0, CB1)? Question is how to individually
++	 * enable/disable the ENC and VF tasks, then.
++	 */
++	{ IPU_IC_PRP, 1, IPU_IC_PRP_ENC, 0 },
++	{ IPU_IC_PRP, 1, IPU_IC_PRP_VF, 0 },
++
++	/* VDI_MEM_IC_VF (CB7) -> IRT links */
++	{ IPU_IC_PRP, 0, IPU_IRT_VF, 0,  0, FS_PRPVF_ROT_SRC_SEL_IC_DIRECT },
++	{ IPU_IC_PRP, 0, IPU_IRT_VF, 0,  0, FS_PRPVF_ROT_SRC_SEL_IC_DIRECT },
++	{ IPU_IC_PRP, 0, IPU_IRT_ENC, 0, 0, FS_PRPENC_ROT_SRC_SEL_IC_DIRECT },
++	{ IPU_IC_PRP, 0, IPU_IRT_ENC, 0, 0, FS_PRPENC_ROT_SRC_SEL_IC_DIRECT },
++
++	/* IC_PRP_ENC_MEM (CB0) -> MEM_ROT_ENC (CB10) */
++	{ IPU_IC_PRP_ENC, 1, IPU_IRT_ENC, 0, FS_PRPENC_DEST_SEL_IRT_ENCODING,
++					     FS_PRPENC_ROT_SRC_SEL_ENCODING },
++	/* IC_PRP_VF_MEM (CB1) -> MEM_ROT_VF (CB11) */
++	{ IPU_IC_PRP_VF,  1, IPU_IRT_VF, 0,  FS_PRPVF_DEST_SEL_IRT_VIEWFINDER,
++					     FS_PRPVF_ROT_SRC_SEL_VIEWFINDER },
++
++	/* IC_PP_MEM (CB2) -> MEM_ROT_PP (CB13) */
++	{ IPU_IC_PP, 1, IPU_IRT_PP, 0,	FS_PP_DEST_SEL_IRT_PLAYBACK,
++					FS_PP_ROT_SRC_SEL_POST_PROCESSING },
++
++	{ IPU_IRT_PP, 1,  IPU_IC_PP, 0,	FS_PP_ROT_DEST_SEL_IC_PLAYBACK,
++					FS_PP_SRC_SEL_IRT_PP },
++
++	{ IPU_IRT_ENC, 1, IPU_IC_PRP, 0, FS_PRPENC_ROT_DEST_SEL_IC_PRP,
++					 FS_PRP_SRC_SEL_IRT_ENC },
++	{ IPU_IRT_VF,  1, IPU_IC_PRP, 0, FS_PRPVF_ROT_DEST_SEL_IC_PRP,
++					 FS_PRP_SRC_SEL_IRT_VF },
++
++	/* VDI_SRC_SEL is used in VDIC deinterlacing mode */
++	{ IPU_CSI0, 1, IPU_VDIC, 0,	0, FS_VDI_SRC_SEL_CSI_DIRECT },
++	{ IPU_CSI1, 1, IPU_VDIC, 0,	0, FS_VDI_SRC_SEL_CSI_DIRECT },
++
++	/* VDI1_SRC_SEL and VDI3_SRC_SEL are used in VDIC combining mode */
++	/* ROT_VF_MEM (CB9) -> MEM_VDI_PLANE1_COMB */
++	{ IPU_IRT_VF, 1, IPU_VDIC, 1,	FS_PRPVF_ROT_DEST_SEL_VDI_PLANE1,
++					FS_VDI1_SRC_SEL_IRT_VIEWFINDER },
++	/* ROT_PP_MEM (CB12) -> MEM_VDI_PLANE1_COMB */
++	{ IPU_IRT_PP, 1, IPU_VDIC, 1,	FS_PP_ROT_DEST_SEL_VDI_PLANE1,
++					FS_VDI1_SRC_SEL_IRT_PLAYBACK },
++	/* IC_PP_MEM (CB2) -> MEM_VDI_PLANE1_COMB */
++	{ IPU_IC_PP,  1, IPU_VDIC, 1,	FS_PP_DEST_SEL_VDI_PLANE1,
++					FS_VDI1_SRC_SEL_POST_PROCESSING },
++	/* ROT_VF_MEM (CB9) -> MEM_VDI_PLANE3_COMB */
++	{ IPU_IRT_VF, 1, IPU_VDIC, 2,	FS_PRPVF_ROT_DEST_SEL_VDI_PLANE3,
++					FS_VDI3_SRC_SEL_IRT_VIEWFINDER },
++	/* ROT_PP_MEM (CB12) -> MEM_VDI_PLANE3_COMB */
++	{ IPU_IRT_PP, 1, IPU_VDIC, 2,	FS_PP_ROT_DEST_SEL_VDI_PLANE3,
++					FS_VDI3_SRC_SEL_IRT_PLAYBACK },
++	/* IC_PP_MEM (CB2) -> MEM_VDI_PLANE3_COMB */
++	{ IPU_IC_PP,  1, IPU_VDIC, 2,	FS_PP_DEST_SEL_VDI_PLANE3,
++					FS_VDI3_SRC_SEL_POST_PROCESSING },
++
++	/*
++	 * TODO:
++	 * - IRT, IC -> DC, DP links
++	 * - VDOA and VPU links
++	 */
++};
++
++struct media_entity *ipu_get_entity(struct ipu_soc *ipu,
++				    enum ipu_entities entity)
++{
++	struct v4l2_subdev *sd;
++
++	if (entity >= IPU_NUM_ENTITIES)
++		return NULL;
++
++	sd = ipu->subdevs[entity];
++
++	return sd ? &sd->entity : NULL;
++}
++EXPORT_SYMBOL_GPL(ipu_get_entity);
++
++static inline int ipu_entity(struct ipu_soc *ipu, struct media_entity *entity)
++{
++	int i;
++
++	for (i = 0; i < IPU_NUM_ENTITIES; i++) {
++		if (&ipu->subdevs[i]->entity == entity)
++			return i;
++	}
++
++	return -EINVAL;
++}
++
++struct media_pad *ipu_get_media_pad(struct ipu_soc *ipu, int channel)
++{
++	int i, p;
++
++	for (i = 0; i < ARRAY_SIZE(ipu_entities); i++) {
++		for (p = 0; p < 4; p++) {
++			if (ipu_entities[i].pads[p].channel == channel + 1)
++				break;
++		}
++	}
++
++	if (i == ARRAY_SIZE(ipu_entities))
++		return NULL;
++
++	return &ipu->subdevs[i]->entity.pads[p];
++}
++
++static const struct ipu_link *ipu_find_link(struct ipu_soc *ipu,
++					    const struct media_pad *local,
++					    const struct media_pad *remote)
++{
++	struct ipu_link link;
++	int i;
++
++	if (local->flags & MEDIA_PAD_FL_SOURCE) {
++		link.src_entity = ipu_entity(ipu, local->entity);
++		link.src_pad = local->index;
++		link.dst_entity = ipu_entity(ipu, remote->entity);
++		link.dst_pad = remote->index;
++	} else {
++		link.src_entity = ipu_entity(ipu, remote->entity);
++		link.src_pad = remote->index;
++		link.dst_entity = ipu_entity(ipu, local->entity);
++		link.dst_pad = local->index;
++	}
++
++	for (i = 0; i < ARRAY_SIZE(ipu_links); i++) {
++		if (memcmp(&link, &ipu_links[i], 4) == 0)
++			return &ipu_links[i];
++	}
++
++	return NULL;
++}
++
++static inline struct ipu_soc *to_ipu(struct media_entity *entity)
++{
++	return v4l2_get_subdevdata(media_entity_to_v4l2_subdev(entity));
++}
++
++struct media_pad *ipu_channel_to_media_pad(struct ipu_soc *ipu, int channel)
++{
++	int i, p;
++
++	for (i = 0; i < IPU_NUM_ENTITIES; i++) {
++		for (p = 0; p < ARRAY_SIZE(ipu_entities[0].pads); p++) {
++			/* IDMAC channel number plus one, 0 = no channel */
++			if (ipu_entities[i].pads[p].channel == channel + 1) {
++				if (!ipu->subdevs[i])
++					return NULL;
++				return &ipu->subdevs[i]->entity.pads[p];
++			}
++		}
++	}
++
++	return NULL;
++}
++
++int ipu_media_pad_to_channel(struct ipu_soc *ipu, struct media_pad *pad)
++{
++	int ch;
++
++	if (ipu != to_ipu(pad->entity))
++		return -EINVAL;
++
++	/* IDMAC channel number plus one, 0 = no channel */
++	ch = ipu_entities[ipu_entity(ipu, pad->entity)].pads[pad->index].channel;
++
++	return ch ? (ch - 1) : -ENOENT;
++}
++EXPORT_SYMBOL_GPL(ipu_media_pad_to_channel);
++
++static int ipu_invalid_link(struct ipu_soc *ipu, const struct media_pad *local,
++			    const struct media_pad *remote)
++{
++	dev_err(ipu->dev, "invalid link '%s'(%d):%d %s '%s'(%d):%d\n",
++		local->entity->name, local->entity->id, local->index,
++		(local->flags & MEDIA_PAD_FL_SOURCE) ? "->" : "<-",
++		remote->entity->name, remote->entity->id, remote->index);
++
++	return -EINVAL;
++}
++
++int ipu_csi_link_setup(struct media_entity *entity,
++		       const struct media_pad *local,
++		       const struct media_pad *remote, u32 flags)
++{
++	struct ipu_soc *ipu = to_ipu(entity);
++	const struct ipu_link *link;
++	struct ipu_csi *csi;
++	bool ic;
++
++	/* No limitation on external links */
++	if (local->index == 0)
++		return 0;
++
++	link = ipu_find_link(ipu, local, remote);
++	if (!link)
++		return ipu_invalid_link(ipu, local, remote);
++
++	switch (ipu_entity(ipu, entity)) {
++	case IPU_CSI0:
++		csi = ipu->csi_priv[0];
++		break;
++	case IPU_CSI1:
++		csi = ipu->csi_priv[1];
++		break;
++	default:
++		return ipu_invalid_link(ipu, local, remote);
++	}
++
++	switch (ipu_entity(ipu, remote->entity)) {
++	case IPU_SMFC0:
++	case IPU_SMFC1:
++	case IPU_SMFC2:
++	case IPU_SMFC3:
++		ic = false;
++		break;
++	case IPU_IC_PRP:
++		ic = (flags & MEDIA_LNK_FL_ENABLED) ? true : false;
++		break;
++	default:
++		return ipu_invalid_link(ipu, local, remote);
++	}
++
++	/* CSIx_DATA_DEST */
++	return ipu_csi_set_dest(csi, ic);
++}
++EXPORT_SYMBOL_GPL(ipu_csi_link_setup);
++
++const struct media_entity_operations csi_ops = {
++	.link_setup = ipu_csi_link_setup,
++};
++
++static int ipu_smfc_link_setup(struct media_entity *entity,
++			       const struct media_pad *local,
++			       const struct media_pad *remote, u32 flags)
++{
++	struct ipu_soc *ipu = to_ipu(entity);
++	const struct ipu_link *link = NULL;
++	const struct ipu_pad *pad;
++	u32 mask, sel = FS_SEL_ARM;
++	int csi, smfc;
++
++	if (remote->entity->type != MEDIA_ENT_T_DEVNODE_V4L) {
++		link = ipu_find_link(ipu, local, remote);
++		if (!link)
++			return ipu_invalid_link(ipu, local, remote);
++	}
++
++	if (local->flags & MEDIA_PAD_FL_SINK) {
++		/* SMFC_MAP_CHx */
++		switch (ipu_entity(ipu, local->entity)) {
++		case IPU_SMFC0 ... IPU_SMFC3:
++			smfc = ipu_entity(ipu, local->entity) - IPU_SMFC0;
++			break;
++		default:
++			return ipu_invalid_link(ipu, local, remote);
++		}
++		switch (ipu_entity(ipu, remote->entity)) {
++		case IPU_CSI0 ... IPU_CSI1:
++			csi = ipu_entity(ipu, remote->entity) - IPU_CSI0;
++			break;
++		default:
++			return ipu_invalid_link(ipu, local, remote);
++		}
++		return ipu_smfc_set_csi(ipu, smfc, csi);
++	} else if (local->flags & MEDIA_PAD_FL_SOURCE) {
++		/* SMFCx_DEST_SEL */
++		pad = &ipu_entities[ipu_entity(ipu, entity)].pads[local->index];
++		mask = pad->mask << pad->offset;
++		if (link && (flags & MEDIA_LNK_FL_ENABLED))
++			sel = link->dest_sel << pad->offset;
++
++		ipu_cm_update_bits(ipu, IPU_FS_PROC_FLOW3, mask, sel);
++	}
++
++	return 0;
++}
++
++const struct media_entity_operations smfc_ops = {
++	.link_setup = ipu_smfc_link_setup,
++};
++
++static int ipu_ic_prp_link_setup(struct media_entity *entity,
++				 const struct media_pad *local,
++				 const struct media_pad *remote, u32 flags)
++{
++	struct ipu_soc *ipu = to_ipu(entity);
++	const struct ipu_link *link;
++	const struct ipu_pad *pad;
++	u32 mask, sel = FS_SEL_ARM;
++
++	link = ipu_find_link(ipu, local, remote);
++	if (!link)
++		return ipu_invalid_link(ipu, local, remote);
++
++	pad = &ipu_entities[ipu_entity(ipu, entity)].pads[local->index];
++	mask = pad->mask << pad->offset;
++	if (!mask)
++		return ipu_invalid_link(ipu, local, remote);
++
++	if (local->flags & MEDIA_PAD_FL_SINK) {
++		/* FIXME */
++		if (flags & MEDIA_LNK_FL_ENABLED)
++			sel = link->src_sel << pad->offset;
++		ipu_cm_update_bits(ipu, IPU_FS_PROC_FLOW1, mask, sel);
++
++		switch (ipu_entity(ipu, remote->entity)) {
++		case IPU_CSI0:
++			ipu_set_ic_src_mux(ipu, 0, false);
++			break;
++		case IPU_CSI1:
++			ipu_set_ic_src_mux(ipu, 1, false);
++			break;
++		case IPU_VDIC:
++			ipu_set_ic_src_mux(ipu, 0, true);
++			break;
++		default:
++			return ipu_invalid_link(ipu, local, remote);
++		}
++	} else if (local->flags & MEDIA_PAD_FL_SOURCE) {
++		if (flags & MEDIA_LNK_FL_ENABLED) {
++			switch (ipu_entity(ipu, remote->entity)) {
++			case IPU_IC_PRP_VF:
++			case IPU_IC_PRP_ENC:
++				/* FIXME */
++				sel = FS_PRP_DEST_SEL_IC_INPUT;
++				break;
++			default:
++				return ipu_invalid_link(ipu, local, remote);
++			}
++			ipu_ic_csi_mem_wr_en(ipu->ic_priv, false);
++		} else {
++			/* FIXME */
++			ipu_ic_csi_mem_wr_en(ipu->ic_priv, true);
++		}
++
++		ipu_cm_update_bits(ipu, IPU_FS_PROC_FLOW2, mask, sel);
++	}
++
++	return 0;
++}
++
++const struct media_entity_operations ic_prp_ops = {
++	.link_setup = ipu_ic_prp_link_setup,
++};
++
++static int ipu_idmac_link_setup(struct media_entity *entity,
++				 const struct media_pad *local,
++				 const struct media_pad *remote, u32 flags)
++{
++	struct ipu_soc *ipu = to_ipu(entity);
++	const struct ipu_link *link;
++	const struct ipu_pad *pad;
++	u32 mask, sel = FS_SEL_ARM;
++
++	link = ipu_find_link(ipu, local, remote);
++	if (!link)
++		return ipu_invalid_link(ipu, local, remote);
++
++	if ((ipu_entity(ipu, entity) == IPU_IC_PRP_VF ||
++	     ipu_entity(ipu, entity) == IPU_IC_PRP_VF) &&
++	    local->flags & MEDIA_PAD_FL_SINK) {
++		/* IC_PRP -> IC_PRP_VF, IC_PRP_ENC are fixed links */
++		return 0;
++	}
++
++	pad = &ipu_entities[ipu_entity(ipu, entity)].pads[local->index];
++	mask = pad->mask << pad->offset;
++	if (!mask)
++		return ipu_invalid_link(ipu, local, remote);
++
++	if (local->flags & MEDIA_PAD_FL_SINK) {
++		if (flags & MEDIA_LNK_FL_ENABLED)
++			sel = link->src_sel << pad->offset;
++		ipu_cm_update_bits(ipu, IPU_FS_PROC_FLOW1, mask, sel);
++	} else if (local->flags & MEDIA_PAD_FL_SOURCE) {
++		if (flags & MEDIA_LNK_FL_ENABLED)
++			sel = link->dest_sel << pad->offset;
++		ipu_cm_update_bits(ipu, IPU_FS_PROC_FLOW2, mask, sel);
++	}
++
++	return 0;
++}
++
++static int ipu_idmac_link_validate(struct media_link *link)
++{
++	struct ipu_soc *ipu = to_ipu(link->source->entity);
++	int source_ch, sink_ch;
++
++	dev_dbg(ipu->dev, "%s('%s':%d -> '%s':%d)\n", __func__,
++		link->source->entity->name, link->source->index,
++		link->sink->entity->name, link->sink->index);
++
++	source_ch = ipu_media_pad_to_channel(ipu, link->source);
++	sink_ch = ipu_media_pad_to_channel(ipu, link->sink);
++
++	/* Not an IDMAC channel link */
++	if (source_ch == -ENOENT || sink_ch == -ENOENT)
++		return 0;
++
++	if (source_ch < 0)
++		return source_ch;
++	if (sink_ch < 0)
++		return source_ch;
++
++	/* TODO: check equal CPMEM settings, EBA */
++#if 0
++	return ipu_cpmem_link_validate(&ipu->channel[source_ch],
++				       &ipu->channel[sink_ch]);
++#endif
++
++	return 0;
++}
++
++const struct media_entity_operations ipu_common_ops = {
++	.link_setup = ipu_idmac_link_setup,
++	.link_validate = ipu_idmac_link_validate,
++};
++
++#define IPU_PAD_SOURCE							\
++	{ MEDIA_PAD_FL_SOURCE, 0, 0, 0 }
++#define IPU_PAD_SINK							\
++	{ MEDIA_PAD_FL_SINK, 0, 0, 0 }
++#define IPU_PAD_SOURCE_IDMAC(ch, sel)					\
++	{ MEDIA_PAD_FL_SOURCE, (IPUV3_CHANNEL_##ch) + 1,		\
++	  FS_##sel##_MASK >> FS_##sel##_OFFSET, FS_##sel##_OFFSET }
++#define IPU_PAD_SINK_IDMAC(ch, sel)					\
++	{ MEDIA_PAD_FL_SINK, (IPUV3_CHANNEL_##ch) + 1,			\
++	  FS_##sel##_MASK >> FS_##sel##_OFFSET, FS_##sel##_OFFSET }
++
++static const struct ipu_entity_template ipu_entities[IPU_NUM_ENTITIES] = {
++	/* Each CSI has four pads for the four virtual channels */
++	[IPU_CSI0] = {
++		.name = "CSI0",
++		.ops = &csi_ops,
++		.pads = {
++			IPU_PAD_SINK,
++			IPU_PAD_SOURCE,
++			IPU_PAD_SOURCE,
++			IPU_PAD_SOURCE,
++			IPU_PAD_SOURCE,
++		},
++	},
++	[IPU_CSI1] = {
++		.name = "CSI1",
++		.ops = &csi_ops,
++		.pads = {
++			IPU_PAD_SINK,
++			IPU_PAD_SOURCE,
++			IPU_PAD_SOURCE,
++			IPU_PAD_SOURCE,
++			IPU_PAD_SOURCE,
++		},
++	},
++
++	/* Each of the SMFC's four channels has gets its own entity */
++	[IPU_SMFC0] = {
++		.name = "SMFC0",
++		.ops = &smfc_ops,
++		.pads = {
++			IPU_PAD_SINK,
++			IPU_PAD_SOURCE_IDMAC(CSI0, SMFC0_DEST_SEL),
++		},
++	},
++	[IPU_SMFC1] = {
++		.name = "SMFC1",
++		.ops = &smfc_ops,
++		.pads = {
++			IPU_PAD_SINK,
++			IPU_PAD_SOURCE_IDMAC(CSI1, SMFC1_DEST_SEL),
++		},
++	},
++	[IPU_SMFC2] = {
++		.name = "SMFC2",
++		.ops = &smfc_ops,
++		.pads = {
++			IPU_PAD_SINK,
++			IPU_PAD_SOURCE_IDMAC(CSI2, SMFC2_DEST_SEL),
++		},
++	},
++	[IPU_SMFC3] = {
++		.name = "SMFC3",
++		.ops = &smfc_ops,
++		.pads = {
++			IPU_PAD_SINK,
++			IPU_PAD_SOURCE_IDMAC(CSI3, SMFC3_DEST_SEL),
++		},
++	},
++
++	/* One entity for each of the IC and IRT tasks */
++	[IPU_IC_PRP] = {
++		.name = "IC PRP",
++		.ops = &ic_prp_ops,
++		.pads = {
++			IPU_PAD_SINK_IDMAC(MEM_IC_PRP_VF, PRP_SRC_SEL),
++			IPU_PAD_SOURCE_IDMAC(VDI_MEM_IC_VF, PRP_DEST_SEL),
++		},
++	},
++	[IPU_IC_PRP_ENC] = {
++		.name = "IC PRP ENC",
++		.ops = &ipu_common_ops,
++		.pads = {
++			IPU_PAD_SINK,
++			IPU_PAD_SOURCE_IDMAC(IC_PRP_ENC_MEM, PRPENC_DEST_SEL),
++		},
++	},
++	[IPU_IC_PRP_VF] = {
++		.name = "IC PRP VF",
++		.ops = &ipu_common_ops,
++		.pads = {
++			IPU_PAD_SINK,
++			IPU_PAD_SOURCE_IDMAC(IC_PRP_VF_MEM, PRPVF_DEST_SEL),
++		},
++	},
++	[IPU_IC_PP] = {
++		.name = "IC PP",
++		.ops = &ipu_common_ops,
++		.pads = {
++			IPU_PAD_SINK_IDMAC(MEM_IC_PP, PP_SRC_SEL),
++			IPU_PAD_SOURCE_IDMAC(IC_PP_MEM, PP_DEST_SEL),
++		},
++	},
++	[IPU_IRT_ENC] = {
++		.name = "IRT ENC",
++		.ops = &ipu_common_ops,
++		.pads = {
++			IPU_PAD_SINK_IDMAC(MEM_ROT_ENC, PRPENC_ROT_SRC_SEL),
++			IPU_PAD_SOURCE_IDMAC(ROT_ENC_MEM, PRPENC_ROT_DEST_SEL),
++		},
++	},
++	[IPU_IRT_VF] = {
++		.name = "IRT VF",
++		.ops = &ipu_common_ops,
++		.pads = {
++			IPU_PAD_SINK_IDMAC(MEM_ROT_VF, PRPVF_ROT_SRC_SEL),
++			IPU_PAD_SOURCE_IDMAC(ROT_VF_MEM, PRPVF_ROT_DEST_SEL),
++		},
++	},
++	[IPU_IRT_PP] = {
++		.name = "IRT PP",
++		.ops = &ipu_common_ops,
++		.pads = {
++			IPU_PAD_SINK_IDMAC(MEM_ROT_PP, PP_ROT_SRC_SEL),
++			IPU_PAD_SOURCE_IDMAC(ROT_PP_MEM, PP_ROT_DEST_SEL),
++		},
++	},
++
++	/* One entity for VDIC in both deinterlacing and combining modes */
++	[IPU_VDIC] = {
++		.name = "VDIC",
++		.ops = &ipu_common_ops,
++		.pads = {
++			IPU_PAD_SINK_IDMAC(MEM_VDI_CUR, VDI_SRC_SEL),
++			IPU_PAD_SINK_IDMAC(MEM_VDI_PLANE1_COMB, VDI1_SRC_SEL),
++			IPU_PAD_SINK_IDMAC(MEM_VDI_PLANE3_COMB, VDI3_SRC_SEL),
++			IPU_PAD_SOURCE,
++		},
++	},
++};
++
++/* Links to enable by default */
++struct ipu_link ipu_default_links[] = {
++	{ IPU_CSI0, 1, IPU_SMFC0, 0, },
++	{ IPU_CSI1, 1, IPU_SMFC2, 0, },
++};
++
++const struct v4l2_subdev_ops ipu_subdev_ops = {
++};
++
++int ipu_register_subdev(struct ipu_soc *ipu, enum ipu_entities idx,
++			struct v4l2_subdev *sd)
++{
++	struct v4l2_device *v4l2_dev = ipu_media_get_v4l2_dev();
++	int ret;
++	int i, k;
++
++	v4l2_set_subdevdata(sd, ipu);
++
++	ret = v4l2_device_register_subdev(v4l2_dev, sd);
++	if (ret < 0)
++		return ret;
++
++	if (sd->flags & V4L2_SUBDEV_FL_HAS_DEVNODE) {
++		ret = v4l2_device_register_subdev_node(v4l2_dev, sd);
++		if (ret < 0)
++			goto err;
++	}
++
++	/* Store subdevice pointer in array */
++	ipu->subdevs[idx] = sd;
++
++	/* Create links between this entity and other entities */
++	for (i = 0; i < ARRAY_SIZE(ipu_links); i++) {
++		struct v4l2_subdev *sd_src, *sd_dst;
++		const struct ipu_link *l;
++
++		l = &ipu_links[i];
++		sd_src = ipu->subdevs[l->src_entity];
++		sd_dst = ipu->subdevs[l->dst_entity];
++
++		if (sd != sd_src && sd != sd_dst)
++			continue;
++		if (!sd_src || !sd_dst)
++			continue;
++
++		ret = media_entity_create_link(&sd_src->entity, l->src_pad,
++					       &sd_dst->entity, l->dst_pad, 0);
++		if (ret) {
++			dev_err(ipu->dev,
++				"failed to create link '%s':%d -> '%s':%d: %d\n",
++				sd_src->name, l->src_pad,
++				sd_dst->name, l->dst_pad, ret);
++			return ret;
++		}
++
++		/* Enable default links */
++		for (k = 0; k < ARRAY_SIZE(ipu_default_links); k++) {
++			struct media_link *link;
++
++			if (memcmp(l, &ipu_default_links[k], sizeof(*l)))
++				continue;
++
++			link = media_entity_find_link(
++				&sd_src->entity.pads[l->src_pad],
++				&sd_dst->entity.pads[l->dst_pad]);
++			if (!link) {
++				dev_err(ipu->dev,
++					"link not found: '%s':%d -> '%s':%d\n",
++					sd_src->name, l->src_pad,
++					sd_dst->name, l->dst_pad);
++				break;
++			}
++
++			ret = media_entity_setup_link(link, link->flags |
++						      MEDIA_LNK_FL_ENABLED);
++			if (ret) {
++				dev_err(ipu->dev,
++					"failed to activate link '%s':%d -> '%s':%d: %d\n",
++					sd_src->name, l->src_pad,
++					sd_dst->name, l->dst_pad, ret);
++			}
++		}
++	}
++
++	return 0;
++
++err:
++	v4l2_device_unregister_subdev(sd);
++	return ret;
++}
++EXPORT_SYMBOL_GPL(ipu_register_subdev);
++
++void ipu_unregister_subdev(struct v4l2_subdev *sd)
++{
++	struct ipu_soc *ipu = to_ipu(&sd->entity);
++	int i;
++
++	v4l2_device_unregister_subdev(sd);
++
++	for (i = 0; i < IPU_NUM_ENTITIES; i++) {
++		if (ipu->subdevs[i] == sd) {
++			ipu->subdevs[i] = NULL;
++			return;
++		}
++	}
++}
++EXPORT_SYMBOL_GPL(ipu_unregister_subdev);
++
++/*
++ * ipu_media_init - Initialize and register IPU internal entities
++ */
++int ipu_media_init(struct ipu_soc *ipu)
++{
++	struct v4l2_device *v4l2_dev = ipu_media_get_v4l2_dev();
++	struct media_pad *pad;
++	int num_pads;
++	int i, p;
++	int ret;
++
++	if (!v4l2_dev)
++		return -ENODEV;
++
++	/* Initialize and register IPU internal entities, skip CSI entities */
++	for (i = IPU_CSI1 + 1; i < IPU_NUM_ENTITIES; i++) {
++		struct v4l2_subdev *sd;
++
++		sd = devm_kzalloc(ipu->dev, sizeof(*sd), GFP_KERNEL);
++		if (!sd)
++			return -ENOMEM;
++
++		v4l2_subdev_init(sd, &ipu_subdev_ops);
++		if (ipu->id >= 0)
++			snprintf(sd->name, sizeof(sd->name), "IPU%d %s",
++				 ipu->id, ipu_entities[i].name);
++		else
++			snprintf(sd->name, sizeof(sd->name), "IPU %s",
++				 ipu_entities[i].name);
++		sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
++		sd->dev = ipu->dev;
++
++		sd->entity.name = sd->name;
++		sd->entity.ops = ipu_entities[i].ops;
++
++		for (num_pads = 0; num_pads < ARRAY_SIZE(ipu_entities[0].pads)
++		     && ipu_entities[i].pads[num_pads].flags; num_pads++)
++			;
++
++		pad = devm_kzalloc(ipu->dev, sizeof(*pad) * num_pads,
++				   GFP_KERNEL);
++		if (!pad)
++			return -ENOMEM;
++
++		for (p = 0; p < num_pads; p++)
++			pad[p].flags = ipu_entities[i].pads[p].flags;
++
++		ret = media_entity_init(&sd->entity, num_pads, pad, 0);
++		if (ret) {
++			dev_err(ipu->dev,
++				"failed to initialize entity '%s': %d\n",
++				sd->entity.name, ret);
++			return ret;
++		}
++
++		ret = ipu_register_subdev(ipu, i, sd);
++		if (ret < 0)
++			return ret;
++	}
++
++	return 0;
++}
++
++void ipu_media_exit(struct ipu_soc *ipu)
++{
++	int i;
++
++	/* Skip the first two entities, IPU_CSI0 and IPU_CSI1 */
++	for (i = IPU_CSI1 + 1; i < IPU_NUM_ENTITIES; i++)
++		v4l2_device_unregister_subdev(ipu->subdevs[i]);
++}
+diff --git a/drivers/gpu/ipu-v3/ipu-prv.h b/drivers/gpu/ipu-v3/ipu-prv.h
+index a2242e6c031b..6803cc7038ee 100644
+--- a/drivers/gpu/ipu-v3/ipu-prv.h
++++ b/drivers/gpu/ipu-v3/ipu-prv.h
+@@ -350,6 +350,7 @@ struct ipu_ic_priv;
+ struct ipu_smfc_priv;
+ 
+ struct ipu_devtype;
++struct v4l2_subdev;
+ 
+ struct ipu_soc {
+ 	struct device		*dev;
+@@ -380,8 +381,13 @@ struct ipu_soc {
+ 	struct ipu_csi		*csi_priv[2];
+ 	struct ipu_ic_priv	*ic_priv;
+ 	struct ipu_smfc_priv	*smfc_priv;
++
++	struct v4l2_subdev	*subdevs[IPU_NUM_ENTITIES];
+ };
+ 
++void ipu_cm_update_bits(struct ipu_soc *ipu, unsigned int reg,
++			unsigned int mask, unsigned int val);
++
+ static inline u32 ipu_idmac_read(struct ipu_soc *ipu, unsigned offset)
+ {
+ 	return readl(ipu->idmac_reg + offset);
+@@ -404,6 +410,7 @@ int ipu_wait_interrupt(struct ipu_soc *ipu, int irq, int ms);
+ int ipu_csi_init(struct ipu_soc *ipu, struct device *dev, int id,
+ 		 unsigned long base, u32 module, struct clk *clk_ipu);
+ void ipu_csi_exit(struct ipu_soc *ipu, int id);
++int ipu_csi_set_dest(struct ipu_csi *csi, enum ipu_csi_dest csi_dest);
+ 
+ int ipu_ic_init(struct ipu_soc *ipu, struct device *dev,
+ 		unsigned long base, unsigned long tpmem_base,
+@@ -433,4 +440,15 @@ int ipu_smfc_init(struct ipu_soc *ipu, struct device *dev, unsigned long base);
+ void ipu_smfc_exit(struct ipu_soc *ipu);
+ int ipu_smfc_set_csi(struct ipu_soc *ipu, int chno, int csi_id);
+ 
++#if IS_ENABLED(CONFIG_MEDIA_IMX)
++int ipu_media_init(struct ipu_soc *ipu);
++void ipu_media_exit(struct ipu_soc *ipu);
++#else
++static inline int ipu_media_init(struct ipu_soc *ipu)
++{
++	return 0;
++}
++static inline void ipu_media_exit(struct ipu_soc *ipu) { }
++#endif
++
+ #endif				/* __IPU_PRV_H__ */
+diff --git a/include/video/imx-ipu-v3.h b/include/video/imx-ipu-v3.h
+index 76d86534aef0..e6f22a5489b0 100644
+--- a/include/video/imx-ipu-v3.h
++++ b/include/video/imx-ipu-v3.h
+@@ -28,6 +28,28 @@ enum ipuv3_type {
+ 	IPUV3H,
+ };
+ 
++/*
++ * Media entity abstractions of IPU internal blocks
++ */
++enum ipu_entities {
++	IPU_CSI0,
++	IPU_CSI1,
++	IPU_SMFC0,
++	IPU_SMFC1,
++	IPU_SMFC2,
++	IPU_SMFC3,
++	IPU_IC_PRP,
++	IPU_IC_PRP_ENC,
++	IPU_IC_PRP_VF,
++	IPU_IC_PP,
++	IPU_IRT_ENC,
++	IPU_IRT_VF,
++	IPU_IRT_PP,
++	IPU_VDIC,
++	/* TODO: add display units (DC, DP, DMFC) */
++	IPU_NUM_ENTITIES
++};
++
+ #define IPU_PIX_FMT_GBR24	v4l2_fourcc('G', 'B', 'R', '3')
+ 
+ /*
+@@ -179,6 +201,16 @@ int ipu_get_id(struct ipu_soc *ipu);
+ void ipu_set_csi_src_mux(struct ipu_soc *ipu, int csi_id, bool mipi_csi2);
+ void ipu_set_ic_src_mux(struct ipu_soc *ipu, int csi_id, bool vdi);
+ void ipu_dump(struct ipu_soc *ipu);
++struct media_pad;
++struct media_entity;
++struct media_entity *ipu_get_entity(struct ipu_soc *ipu,
++				    enum ipu_entities entity);
++struct media_pad *ipu_channel_to_media_pad(struct ipu_soc *ipu, int channel);
++int ipu_media_pad_to_channel(struct ipu_soc *ipu, struct media_pad *pad);
++struct v4l2_subdev;
++int ipu_register_subdev(struct ipu_soc *ipu, enum ipu_entities idx,
++			struct v4l2_subdev *sd);
++void ipu_unregister_subdev(struct v4l2_subdev *sd);
+ 
+ /*
+  * IPU Image DMA Controller (idmac) functions
+@@ -319,7 +351,9 @@ int ipu_csi_set_mipi_datatype(struct ipu_csi *csi, u32 vc,
+ 			      struct v4l2_mbus_framefmt *mbus_fmt);
+ int ipu_csi_set_skip_smfc(struct ipu_csi *csi, u32 skip,
+ 			  u32 max_ratio, u32 id);
+-int ipu_csi_set_dest(struct ipu_csi *csi, enum ipu_csi_dest csi_dest);
++int ipu_csi_link_setup(struct media_entity *entity,
++		       const struct media_pad *local,
++		       const struct media_pad *remote, u32 flags);
+ int ipu_csi_enable(struct ipu_csi *csi);
+ int ipu_csi_disable(struct ipu_csi *csi);
+ struct ipu_csi *ipu_csi_get(struct ipu_soc *ipu, int id);

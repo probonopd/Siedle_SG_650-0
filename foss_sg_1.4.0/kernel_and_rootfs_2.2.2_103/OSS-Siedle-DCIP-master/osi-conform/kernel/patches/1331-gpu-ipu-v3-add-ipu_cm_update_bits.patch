@@ -1,0 +1,37 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 5 Aug 2014 12:50:28 +0200
+Subject: [PATCH] gpu: ipu-v3: add ipu_cm_update_bits
+
+Add a helper function to do read-modify-write cycles
+with the ipu lock held for register bitfield updates.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-common.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-common.c b/drivers/gpu/ipu-v3/ipu-common.c
+index 1f04056a7928..6b9a7ac7ece2 100644
+--- a/drivers/gpu/ipu-v3/ipu-common.c
++++ b/drivers/gpu/ipu-v3/ipu-common.c
+@@ -45,6 +45,20 @@ static inline void ipu_cm_write(struct ipu_soc *ipu, u32 value, unsigned offset)
+ 	writel(value, ipu->cm_reg + offset);
+ }
+ 
++static void ipu_cm_update_bits(struct ipu_soc *ipu, unsigned int reg,
++			       unsigned int mask, unsigned int val)
++{
++	unsigned long flags;
++	u32 tmp;
++
++	spin_lock_irqsave(&ipu->lock, flags);
++	tmp = ipu_cm_read(ipu, reg);
++	tmp &= ~mask;
++	tmp |= (val & mask);
++	ipu_cm_write(ipu, val, reg);
++	spin_unlock_irqrestore(&ipu->lock, flags);
++}
++
+ void ipu_srm_dp_sync_update(struct ipu_soc *ipu)
+ {
+ 	u32 val;

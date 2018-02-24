@@ -1,0 +1,38 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 1 Aug 2014 15:12:07 +0200
+Subject: [PATCH] [media] imx-ipuv3-csi: release device lock before calling
+ vb2_fop_release
+
+If the release function is called while the queue still has an owner (that is,
+if VIDIOC_REQBUFS was not called and there are still buffers in the queue),
+vb2_fop_release will take the device lock to call vb2_queue_release.
+Therefore, do not call vb2_fop_release under ipucsi->mutex.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 62847cf230b2..4e1f8b10c2c2 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -1399,15 +1399,17 @@ static int ipucsi_release(struct file *file)
+ 	mutex_lock(&ipucsi->mutex);
+ 	if (v4l2_fh_is_singular_file(file)) {
+ 		v4l2_media_subdev_s_power(ipucsi, 0);
++		mutex_unlock(&ipucsi->mutex);
+ 
+ 		v4l2_ctrl_handler_free(&ipucsi->ctrls_vdev);
+ 
+ 		vb2_fop_release(file);
+ 	} else {
++		mutex_unlock(&ipucsi->mutex);
++
+ 		v4l2_fh_release(file);
+ 	}
+ 
+-	mutex_unlock(&ipucsi->mutex);
+ 	return 0;
+ }
+ 

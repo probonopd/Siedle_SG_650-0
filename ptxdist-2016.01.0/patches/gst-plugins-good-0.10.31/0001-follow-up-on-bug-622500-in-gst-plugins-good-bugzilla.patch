@@ -1,0 +1,22 @@
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Date: Mon, 18 Apr 2011 11:35:21 +0200
+Subject: [PATCH] follow up on bug:622500 in gst-plugins-good bugzilla
+
+The situation is still unclear, so just for now we will
+keep that patch to check on this again later.
+---
+ sys/v4l2/gstv4l2sink.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/sys/v4l2/gstv4l2sink.c b/sys/v4l2/gstv4l2sink.c
+index f6aba24..1a218e4 100644
+--- a/sys/v4l2/gstv4l2sink.c
++++ b/sys/v4l2/gstv4l2sink.c
+@@ -737,6 +737,7 @@ gst_v4l2sink_set_caps (GstBaseSink * bsink, GstCaps * caps)
+      *   gst_v4l2_buffer_pool_destroy()
+      *
+      */
++    gst_v4l2_object_stop_streaming(v4l2sink->v4l2object);
+     GST_DEBUG_OBJECT (v4l2sink, "warning, changing caps not supported yet");
+     return FALSE;
+   }

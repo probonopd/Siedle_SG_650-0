@@ -1,0 +1,640 @@
+if ARCH_IMX
+
+config ARCH_TEXT_BASE
+	hex
+	default 0x83f00000 if MACH_EUKREA_CPUIMX25
+	default 0xa0000000 if MACH_EUKREA_CPUIMX27
+	default 0x87f00000 if MACH_EUKREA_CPUIMX35
+	default 0x97f00000 if MACH_EUKREA_CPUIMX51SD
+	default 0xc0000000 if MACH_IMX21ADS
+	default 0xa0000000 if MACH_IMX27ADS
+	default 0x83f00000 if MACH_FREESCALE_MX25_3STACK && FREESCALE_MX25_3STACK_SDRAM_64MB_DDR2
+	default 0x87f00000 if MACH_FREESCALE_MX25_3STACK && FREESCALE_MX25_3STACK_SDRAM_128MB_MDDR
+	default 0x87f00000 if MACH_FREESCALE_MX35_3STACK
+	default 0xa7f00000 if MACH_PCA100
+	default 0xa0000000 if MACH_PCM038
+	default 0x87f00000 if MACH_PCM037
+	default 0x87f00000 if MACH_MX31MOBOARD
+	default 0x87f00000 if MACH_PCM043
+	default 0x08f80000 if MACH_SCB9328
+	default 0xa7e00000 if MACH_NESO
+	default 0x97f00000 if MACH_FREESCALE_MX51_PDK
+	default 0x7ff00000 if MACH_FREESCALE_MX53_LOCO
+	default 0x7ff00000 if MACH_FREESCALE_MX53_SMD
+	default 0x7ff00000 if MACH_FREESCALE_MX53_VMX53
+	default 0x87f00000 if MACH_GUF_CUPID
+	default 0x93d00000 if MACH_TX25
+	default 0x7ff00000 if MACH_TQMA53
+	default 0x97f00000 if MACH_TX51
+	default 0x4fc00000 if MACH_MX6Q_ARM2
+	default 0x97f00000 if MACH_CCMX51
+	default 0x4fc00000 if MACH_SABRELITE
+	default 0x8fe00000 if MACH_TX53
+	default 0x7fc00000 if MACH_GUF_VINCELL
+	default 0x97f00000 if MACH_EFIKA_MX_SMARTBOOK
+	default 0x17800000 if MACH_SABRESD
+	default 0x4fc00000 if MACH_REALQ7
+	default 0x4fc00000 if MACH_GK802
+	default 0x2fc00000 if MACH_TQMA6X
+	default 0x4fc00000 if MACH_PHYTEC_PFLA02
+	default 0x4fc00000 if MACH_DFI_FS700_M60
+	default 0x4fc00000 if MACH_UDOO
+	default 0x4fc00000 if MACH_VARISCITE_MX6
+	default 0x4fc00000 if MACH_PCAAXL3
+
+config ARCH_IMX_INTERNAL_BOOT
+	bool "support internal boot mode"
+	depends on ARCH_IMX25 || ARCH_IMX35 || ARCH_IMX51 || ARCH_IMX53 || ARCH_IMX6
+	depends on !HAVE_PBL_MULTI_IMAGES
+	help
+	  i.MX processors support two different boot modes. With the internal
+	  boot mode the boot medium contains a header describing the image to
+	  load. The header also contains a register/value table which can be
+	  used to setup SDRAM. The internal ROM code then initializes SDRAM
+	  using the register/value table, loads the whole barebox image to
+	  SDRAM and starts it. The internal boot mode is available on newer
+	  i.MX processors (i.MX25, i.MX35, i.MX51, i.MX53 and i.MX6), and
+	  supports booting from NOR, NAND, MMC/SD and serial ROMs.
+	  The external boot mode supports booting only from NAND and NOR. With
+	  NOR flash the image is just started in NOR flash. With NAND flash
+	  the NAND controller loads the first 2kbyte from NAND into the NAND
+	  controllers internal SRAM where it is then started. It's the
+	  responsibility of these 2kbyte to load the rest of the boot image.
+	  The external boot mode is supported on older i.MX processors (i.MX1,
+	  i.MX21, i.MX25, i.MX27, i.MX31, i.MX35).
+
+config ARCH_IMX_IMXIMAGE
+	bool
+	default y
+	help
+	  if enabled the imx-image tool is compiled
+
+choice
+	depends on ARCH_IMX_INTERNAL_BOOT
+	prompt "Internal boot source"
+	default ARCH_IMX_INTERNAL_BOOT_NAND
+	help
+	  Determines the location of the header information for internal boot.
+	  0x100 for OneNAND
+	  0x400 for NAND, SD/MMC or Serial ROM
+	  0x1000 for NOR
+
+config ARCH_IMX_INTERNAL_BOOT_NAND
+	bool "NAND, SD/MMC, Serial ROM"
+
+config ARCH_IMX_INTERNAL_BOOT_NOR
+	bool "NOR"
+
+config ARCH_IMX_INTERNAL_BOOT_ONENAND
+	bool "OneNAND"
+
+config ARCH_IMX_INTERNAL_BOOT_SERIAL
+	bool "Serial (read help)"
+	help
+	  Normally the first instruction of the barebox image contains a jump
+	  to the real start of the image which means that you can start it by
+	  jumping to the load address. With serial boot images this is not
+	  possible because the first instruction is occupied by a magic for the
+	  ROM boot code. You can still start this image as a second stage loader,
+	  but you have to add 0x400 to the entry point.
+
+endchoice
+
+config ARCH_IMX_EXTERNAL_BOOT_NAND
+	bool
+	depends on ARCH_IMX25 || ARCH_IMX27 || ARCH_IMX31 || ARCH_IMX35
+	prompt "Support Starting barebox from NAND in external bootmode"
+
+config BAREBOX_UPDATE_IMX_EXTERNAL_NAND
+	bool
+	depends on ARCH_IMX_EXTERNAL_BOOT_NAND
+	depends on BAREBOX_UPDATE
+	default y
+
+config BAREBOX_UPDATE_IMX6_NAND
+	bool
+	depends on ARCH_IMX6
+	depends on BAREBOX_UPDATE
+	default y
+
+comment "Freescale i.MX System-on-Chip"
+
+config ARCH_IMX1
+	bool
+	select CPU_ARM920T
+	select PINCTRL_IMX_IOMUX_V1
+
+config ARCH_IMX21
+	bool
+	select CPU_ARM926T
+	select PINCTRL_IMX_IOMUX_V1
+
+config ARCH_IMX25
+	bool
+	select CPU_ARM926T
+	select ARCH_HAS_FEC_IMX
+	select PINCTRL_IMX_IOMUX_V3
+
+config ARCH_IMX27
+	bool
+	select CPU_ARM926T
+	select ARCH_HAS_FEC_IMX
+	select PINCTRL_IMX_IOMUX_V1
+
+config ARCH_IMX31
+	select CPU_V6
+	bool
+	select PINCTRL_IMX_IOMUX_V2
+
+config ARCH_IMX35
+	bool
+	select CPU_V6
+	select ARCH_HAS_FEC_IMX
+	select PINCTRL_IMX_IOMUX_V3
+
+config ARCH_IMX51
+	bool
+	select CPU_V7
+	select ARCH_HAS_FEC_IMX
+	select PINCTRL_IMX_IOMUX_V3
+
+config ARCH_IMX53
+	bool
+	select CPU_V7
+	select ARCH_HAS_FEC_IMX
+	select PINCTRL_IMX_IOMUX_V3
+
+config ARCH_IMX6
+	bool
+	select ARCH_HAS_FEC_IMX
+	select CPU_V7
+	select PINCTRL_IMX_IOMUX_V3
+
+config IMX_MULTI_BOARDS
+	bool "Allow multiple boards to be selected"
+	select HAVE_DEFAULT_ENVIRONMENT_NEW
+	select HAVE_PBL_MULTI_IMAGES
+
+if IMX_MULTI_BOARDS
+
+config MACH_TX25
+	bool "Ka-Ro TX25"
+	select ARCH_IMX25
+	select ARCH_IMX_EXTERNAL_BOOT_NAND
+	help
+	  Say Y here if you are using the Ka-Ro tx25 board
+
+config MACH_PCA100
+	bool "phyCard-i.MX27"
+	select ARCH_IMX27
+	select HAVE_DEFAULT_ENVIRONMENT_NEW
+	select ARCH_IMX_EXTERNAL_BOOT_NAND
+	help
+	  Say Y here if you are using Phytec's phyCard-i.MX27 (pca100) equipped
+	  with a Freescale i.MX27 Processor
+
+config MACH_PCM038
+	bool "phyCORE-i.MX27"
+	select ARCH_IMX27
+	select HAVE_DEFAULT_ENVIRONMENT_NEW
+	select ARCH_IMX_EXTERNAL_BOOT_NAND
+	help
+	  Say Y here if you are using Phytec's phyCORE-i.MX27 (pcm038) equipped
+	  with a Freescale i.MX27 Processor
+
+config MACH_EFIKA_MX_SMARTBOOK
+	bool "Efika MX smartbook"
+	select ARCH_IMX51
+	help
+	  Choose this to compile barebox for the Efika MX Smartbook
+
+config MACH_EMBEDSKY_E9
+	bool "Embedsky E9 Mini-PC"
+	select ARCH_IMX6
+	help
+	  Choose this to compile barebox for the Embedsky E9 Mini PC
+
+config MACH_FREESCALE_MX51_PDK
+	bool "Freescale i.MX51 PDK"
+	select ARCH_IMX51
+
+config MACH_FREESCALE_MX53_LOCO
+	bool "Freescale i.MX53 LOCO"
+	select ARCH_IMX53
+
+config MACH_TQMA53
+	bool "TQ i.MX53 TQMa53"
+	select ARCH_IMX53
+
+config MACH_FREESCALE_MX53_VMX53
+	bool "Voipac i.MX53"
+	select ARCH_IMX53
+	help
+	  Say Y here if you are using the Voipac Technologies X53-DMM-668
+	  module equipped with a Freescale i.MX53 Processor
+
+config MACH_PCAAXL3
+        bool "Phytec phyCARD-i.MX6 Quad"
+        select ARCH_IMX6
+
+config MACH_PHYTEC_PFLA02
+	bool "Phytec phyFLEX-i.MX6"
+	select ARCH_IMX6
+
+config MACH_DFI_FS700_M60
+	bool "DFI i.MX6 FS700 M60 Q7 Board"
+	select ARCH_IMX6
+
+config MACH_GUF_SANTARO
+	bool "Garz+Fricke Santaro Board"
+	select ARCH_IMX6
+
+config MACH_REALQ7
+	bool "DataModul i.MX6Q Real Qseven Board"
+	select ARCH_IMX6
+
+config MACH_GK802
+	bool "Zealz GK802 Mini PC"
+	select ARCH_IMX6
+
+config MACH_TQMA6X
+	bool "TQ tqma6x on mba6x"
+	select ARCH_IMX6
+
+config MACH_SABRELITE
+	bool "Freescale i.MX6 Sabre Lite"
+	select ARCH_IMX6
+	select HAVE_DEFAULT_ENVIRONMENT_NEW
+	select HAVE_PBL_MULTI_IMAGES
+
+config MACH_SABRESD
+	bool "Freescale i.MX6 SabreSD"
+	select ARCH_IMX6
+
+config MACH_NITROGEN6X
+	bool "BoundaryDevices Nitrogen6x"
+	select ARCH_IMX6
+
+config MACH_SOLIDRUN_MICROSOM
+	bool "SolidRun MicroSOM based devices"
+	select ARCH_IMX6
+
+config MACH_EMBEST_RIOTBOARD
+	bool "Embest RIoTboard"
+	select ARCH_IMX6
+
+config MACH_UDOO
+	bool "Freescale i.MX6 UDOO Board"
+	select ARCH_IMX6
+
+config MACH_VARISCITE_MX6
+	bool "Variscite i.MX6 Quad SOM"
+	select ARCH_IMX6
+
+
+endif
+
+# ----------------------------------------------------------
+
+choice
+	prompt "Select Board"
+	depends on !IMX_MULTI_BOARDS
+
+comment "i.MX1 Boards"
+
+config MACH_SCB9328
+	bool "Synertronixx scb9328"
+	select ARCH_IMX1
+	select HAS_DM9000
+	help
+	  Say Y here if you are using the Synertronixx scb9328 board
+
+# ----------------------------------------------------------
+
+comment "i.MX21 Boards"
+
+config MACH_IMX21ADS
+	bool "Freescale i.MX21ADS"
+	select ARCH_IMX21
+	select HAS_CS8900
+	help
+	  Say Y here if you are using the Freescale i.MX21ads board equipped
+	  with a Freescale i.MX21 Processor
+
+# ----------------------------------------------------------
+
+comment "i.MX25 Boards"
+
+config MACH_EUKREA_CPUIMX25
+	bool "Eukrea CPUIMX25"
+	select ARCH_IMX25
+	help
+	  Say Y here if you are using the Eukrea Electromatique's CPUIMX25
+	  equipped with a Freescale i.MX25 Processor
+
+config MACH_FREESCALE_MX25_3STACK
+	bool "Freescale MX25 3stack"
+	select ARCH_IMX25
+	select I2C
+	select MFD_MC34704
+	help
+	  Say Y here if you are using the Freescale MX25 3stack board equipped
+	  with a Freescale i.MX25 Processor
+
+# ----------------------------------------------------------
+
+comment "i.MX27 Boards"
+
+config MACH_EUKREA_CPUIMX27
+	bool "EUKREA CPUIMX27"
+	select ARCH_IMX27
+	help
+	  Say Y here if you are using Eukrea's CPUIMX27 equipped
+	  with a Freescale i.MX27 Processor
+
+config MACH_IMX27ADS
+	bool "Freescale i.MX27ADS"
+	select ARCH_IMX27
+	help
+	  Say Y here if you are using the Freescale i.MX27ads board equipped
+	  with a Freescale i.MX27 Processor
+
+config MACH_NESO
+	bool "Garz+Fricke Neso"
+	select ARCH_IMX27
+	help
+	  Say Y here if you are using the Garz+Fricke Neso board equipped
+	  with a Freescale i.MX27 Processor
+
+# ----------------------------------------------------------
+
+comment "i.MX31 Boards"
+
+config MACH_PCM037
+	bool "phyCORE-i.MX31"
+	select ARCH_IMX31
+	select USB_ULPI if USB
+	select HAVE_DEFAULT_ENVIRONMENT_NEW
+	select ARCH_HAS_L2X0
+	help
+	  Say Y here if you are using Phytec's phyCORE-i.MX31 (pcm037) equipped
+	  with a Freescale i.MX31 Processor
+
+config MACH_MX31MOBOARD
+	bool "mx31moboard-i.MX31"
+	select ARCH_IMX31
+	select USB_ULPI if USB
+	select HAVE_DEFAULT_ENVIRONMENT_NEW
+	select ARCH_HAS_L2X0
+	help
+	  Say Y here if you are using EPFL mx31moboard board equipped
+	  with a Freescale i.MX31 Processor
+
+# ----------------------------------------------------------
+
+comment "i.MX35 Boards"
+
+config MACH_EUKREA_CPUIMX35
+	bool "EUKREA CPUIMX35"
+	select ARCH_IMX35
+	select ARCH_HAS_L2X0
+	help
+	  Say Y here if you are using Eukrea's CPUIMX35 equipped
+	  with a Freescale i.MX35 Processor
+
+config MACH_FREESCALE_MX35_3STACK
+	bool "Freescale MX35 3stack"
+	select ARCH_IMX35
+	select I2C
+	select I2C_IMX
+	select MFD_MC13XXX
+	select MFD_MC9SDZ60
+	help
+	  Say Y here if you are using the Freescale MX35 3stack board equipped
+	  with a Freescale i.MX35 Processor
+
+config MACH_PCM043
+	bool "phyCORE-i.MX35"
+	select ARCH_IMX35
+	select ARCH_HAS_L2X0
+	select HAVE_DEFAULT_ENVIRONMENT_NEW
+	help
+	  Say Y here if you are using Phytec's phyCORE-i.MX35 (pcm043) equipped
+	  with a Freescale i.MX35 Processor
+
+config MACH_GUF_CUPID
+	bool "Garz+Fricke Cupid"
+	select ARCH_IMX35
+	select ARCH_HAS_L2X0
+	help
+	  Say Y here if you are using the Garz+Fricke Neso board equipped
+	  with a Freescale i.MX35 Processor
+
+# ----------------------------------------------------------
+
+comment "i.MX51 Boards"
+
+config MACH_EUKREA_CPUIMX51SD
+	bool "Ka-Ro TX51"
+	select ARCH_IMX51
+	help
+	  Say Y here if you are using Eukrea's CPUIMX51 equipped
+	  with a Freescale i.MX51 Processor
+
+config MACH_TX51
+	bool "Ka-Ro TX51"
+	select ARCH_IMX51
+	help
+	  Say Y here if you are using the Ka-Ro tx51 board
+
+config MACH_CCMX51
+	bool "ConnectCore i.MX51"
+	select ARCH_IMX51
+	select IMX_IIM
+	select SPI
+	select DRIVER_SPI_IMX
+	select MFD_MC13XXX
+	help
+	  Say Y here if you are using Digi ConnectCore (W)i-i.MX51
+	  equipped with a Freescale i.MX51 Processor
+
+config MACH_CCMX51_BASEBOARD
+	bool "Digi development board for CCMX51 module"
+	depends on MACH_CCMX51
+	default y
+	help
+	  This adds board specific devices that can be found on Digi
+	  evaluation board for CCMX51 module.
+
+# ----------------------------------------------------------
+
+comment "i.MX53 Boards"
+
+config MACH_FREESCALE_MX53_SMD
+	bool "Freescale i.MX53 SMD"
+	select ARCH_IMX53
+
+config MACH_TX53
+	bool "Ka-Ro TX53"
+	select ARCH_IMX53
+	select HAVE_DEFAULT_ENVIRONMENT_NEW
+	help
+	  Say Y here if you are using the Ka-Ro tx53 board
+
+config MACH_GUF_VINCELL
+	bool "Garz-Fricke Vincell"
+	select ARCH_IMX53
+	select HAVE_DEFAULT_ENVIRONMENT_NEW
+
+comment "i.MX6 Boards"
+
+config MACH_MX6Q_ARM2
+	bool "Freescale i.MX6q Armadillo2"
+	select ARCH_IMX6
+
+endchoice
+
+# ----------------------------------------------------------
+
+menu "Board specific settings"
+
+if MACH_PCM037
+
+choice
+	prompt "SDRAM Bank0"
+config PCM037_SDRAM_BANK0_128MB
+	bool "128MB"
+config PCM037_SDRAM_BANK0_256MB
+	bool "256MB"
+endchoice
+
+choice
+	prompt "SDRAM Bank1"
+config PCM037_SDRAM_BANK1_NONE
+	bool "none"
+config PCM037_SDRAM_BANK1_128MB
+	bool "128MB"
+config PCM037_SDRAM_BANK1_256MB
+	bool "256MB"
+endchoice
+
+endif
+
+if MACH_EUKREA_CPUIMX27
+
+choice
+	prompt "SDRAM Size"
+config EUKREA_CPUIMX27_SDRAM_128MB
+	bool "128 MB"
+config EUKREA_CPUIMX27_SDRAM_256MB
+	bool "256 MB"
+endchoice
+
+choice
+	prompt "NOR Flash Size"
+config EUKREA_CPUIMX27_NOR_32MB
+	bool "<= 32 MB"
+config EUKREA_CPUIMX27_NOR_64MB
+	bool "> 32 MB"
+endchoice
+
+choice
+	prompt "Quad UART Port"
+	depends on DRIVER_SERIAL_NS16550
+config EUKREA_CPUIMX27_QUART1
+	bool "Q1"
+config EUKREA_CPUIMX27_QUART2
+	bool "Q2"
+config EUKREA_CPUIMX27_QUART3
+	bool "Q3"
+config EUKREA_CPUIMX27_QUART4
+	bool "Q4"
+endchoice
+
+endif
+
+if MACH_FREESCALE_MX25_3STACK
+
+choice
+	prompt "SDRAM Type"
+config FREESCALE_MX25_3STACK_SDRAM_64MB_DDR2
+	bool "64 MB (DDR2)"
+config FREESCALE_MX25_3STACK_SDRAM_128MB_MDDR
+	bool "128 MB (mDDR)"
+endchoice
+
+endif
+
+if MACH_TX53
+
+choice
+	prompt "TX53 board revision"
+config TX53_REV_1011
+	bool "1011"
+config TX53_REV_XX30
+	bool "8030 / 1030"
+
+endchoice
+
+endif
+
+endmenu
+
+menu "i.MX specific settings"
+
+config ARCH_IMX_USBLOADER
+	bool "compile imx-usb-loader"
+	help
+	  imx-usb-loader is a tool to upload and start imximages to an i.MX SoC
+	  in ROM boot mode. It requires libusb, so make sure you have the libusb
+	  devel package installed on your machine.
+
+config IMX_IIM
+	tristate "IIM fusebox device"
+	depends on !ARCH_IMX21
+	help
+	  Device driver for the IC Identification Module (IIM) fusebox. Use the
+	  regular md/mw commands to program and read the fusebox.
+
+	  Fuses are grouped in "rows", 8 bits per row. When using md/mw commands,
+	  employ the -b switch and consider the region to be specifying the "Fuse
+	  Row Index" rather than "Fuse Row Offset" (which is FRI * 4). You should
+	  consult the documentation for your chip for more elaborate description,
+	  including the eFuse map, e.g. see AN3682 for i.MX25.
+
+config IMX_IIM_FUSE_BLOW
+	bool "IIM fuses blow support"
+	depends on IMX_IIM
+	help
+	  Enable this option to add permanent programming of the fusebox, using
+	  fuses blowing.
+
+	  Warning: blown fuses can not be unblown. Using this option may damage
+	  your CPU, or make it unbootalbe. Use with care.
+
+	  Before being actually able to blow the fuses, you need to explicitely
+	  enable it:
+	    imx_iim0.permanent_write_enable=1
+
+config IMX_OCOTP
+	tristate "i.MX6 On Chip OTP controller"
+	depends on ARCH_IMX6
+	depends on OFDEVICE
+	help
+	  This adds support for the i.MX6 On-Chip OTP controller. Currently the
+	  only supported functionality is reading the MAC address and assigning
+	  it to an ethernet device.
+
+config IMX_OCOTP_WRITE
+	bool
+	prompt "Enable write support of i.MX6 CPUs OTP fuses"
+	depends on IMX_OCOTP
+	help
+	  This adds write support to IMX6 On-Chip OTP registers.
+	  Example of set MAC to 12:34:56:78:9A:BC (2 words with offset 0x22 * 4):
+		mw -l -d /dev/imx-ocotp 0x8C 0x00001234
+		mw -l -d /dev/imx-ocotp 0x88 0x56789ABC
+
+endmenu
+
+endif

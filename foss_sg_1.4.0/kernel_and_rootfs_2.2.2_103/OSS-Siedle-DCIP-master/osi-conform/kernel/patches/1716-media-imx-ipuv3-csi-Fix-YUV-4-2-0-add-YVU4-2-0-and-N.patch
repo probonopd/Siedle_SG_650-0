@@ -1,0 +1,77 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 13 Aug 2014 17:27:23 +0200
+Subject: [PATCH] [media] imx-ipuv3-csi: Fix YUV 4:2:0, add YVU4:2:0 and NV12
+ output
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 25 +++++++++++++++----------
+ 1 file changed, 15 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 4e1f8b10c2c2..5b8e2a56df0b 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -649,7 +649,7 @@ static int ipucsi_videobuf_setup(struct vb2_queue *vq, const void *parg,
+ 	*num_planes = 1;
+ 
+ 	ipucsi->sequence = 0;
+-	sizes[0] = bytes_per_line * fmt->fmt.pix.height;
++	sizes[0] = fmt->fmt.pix.sizeimage;
+ 	alloc_ctxs[0] = ipucsi->alloc_ctx;
+ 
+ 	if (!*count)
+@@ -660,21 +660,16 @@ static int ipucsi_videobuf_setup(struct vb2_queue *vq, const void *parg,
+ 
+ static int ipucsi_videobuf_prepare(struct vb2_buffer *vb)
+ {
+-	struct vb2_queue *vq = vb->vb2_queue;
+-	struct ipucsi *ipucsi = vq->drv_priv;
+-	size_t new_size;
++	struct ipucsi *ipucsi = vb->vb2_queue->drv_priv;
+ 	struct ipucsi_buffer *buf;
+ 	struct v4l2_pix_format *pix = &ipucsi->format.fmt.pix;
+-	struct ipucsi_format *ipucsifmt = ipucsi_current_format(ipucsi);
+ 
+ 	buf = to_ipucsi_vb(vb);
+ 
+-	new_size = pix->width * pix->height * ipucsifmt->bytes_per_pixel;
+-
+-	if (vb2_plane_size(vb, 0) < new_size)
++	if (vb2_plane_size(vb, 0) < pix->sizeimage)
+ 		return -ENOBUFS;
+ 
+-	vb2_set_plane_payload(vb, 0, new_size);
++	vb2_set_plane_payload(vb, 0, pix->sizeimage);
+ 
+ 	return 0;
+ }
+@@ -804,10 +799,14 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 			ipu_cpmem_set_yuv_interleaved(ipucsi->ipuch, fourcc);
+ 			break;
+ 		case V4L2_PIX_FMT_YUV420:
++		case V4L2_PIX_FMT_YVU420:
++		case V4L2_PIX_FMT_NV12:
+ 			/* HACK: Allow setting YUV 4:2:0 format on grayscale sources */
+ 			if (ipucsifmt->fourcc != V4L2_PIX_FMT_GREY) {
+ 				ipu_cpmem_set_stride(ipucsi->ipuch, width);
+-				ipu_cpmem_set_yuv_planar(ipucsi->ipuch, V4L2_PIX_FMT_YUV420, width, height);
++				ipu_cpmem_set_fmt(ipucsi->ipuch, fourcc);
++				ipu_cpmem_set_yuv_planar(ipucsi->ipuch, fourcc, width, height);
++				burstsize = 16;
+ 				break;
+ 			}
+ 			/* else: fallthrough */
+@@ -1053,6 +1052,12 @@ static int ipucsi_try_fmt(struct file *file, void *fh,
+ 
+ 	f->fmt.pix.bytesperline = f->fmt.pix.width * bytes_per_pixel;
+ 	f->fmt.pix.sizeimage = f->fmt.pix.bytesperline * f->fmt.pix.height;
++	if (fmt->fourcc == V4L2_PIX_FMT_YUV420 ||
++	    fmt->fourcc == V4L2_PIX_FMT_YVU420 ||
++	    fmt->fourcc == V4L2_PIX_FMT_NV12)
++		f->fmt.pix.sizeimage = f->fmt.pix.sizeimage * 3 / 2;
++	else if (fmt->fourcc == V4L2_PIX_FMT_YUV422P)
++		f->fmt.pix.sizeimage *= 2;
+ 
+ 	if ((in == V4L2_FIELD_SEQ_TB && out == V4L2_FIELD_INTERLACED_TB) ||
+ 	    (in == V4L2_FIELD_INTERLACED_TB && out == V4L2_FIELD_SEQ_TB) ||

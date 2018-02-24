@@ -1,0 +1,31 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 13 Feb 2015 15:16:58 +0100
+Subject: [PATCH] [media] v4l2-subdev.h: add prepare_stream op
+
+In some cases, for example with MIPI CSI-2 input on i.MX6, the sender and
+receiver need to be prepared in lock-step before the actual streaming can start.
+In the i.MX6 MIPI CSI-2 case, the sender needs to be put its CSI-2 transmitter
+lanes into stop state, and the receiver needs to configure its D-PHY and detect
+the stop state on all active lanes. Only then the sender can be enabled to
+stream data and the receiver lock its PLL to the clock lane.
+
+This patch adds a prepare_stream(sd) callback that can be issued to all
+v4l2_subdevs before calling s_stream(sd, 1).
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ include/media/v4l2-subdev.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/media/v4l2-subdev.h b/include/media/v4l2-subdev.h
+index b273cf9ac047..3de246603b24 100644
+--- a/include/media/v4l2-subdev.h
++++ b/include/media/v4l2-subdev.h
+@@ -399,6 +399,7 @@ struct v4l2_subdev_video_ops {
+ 	int (*g_tvnorms)(struct v4l2_subdev *sd, v4l2_std_id *std);
+ 	int (*g_tvnorms_output)(struct v4l2_subdev *sd, v4l2_std_id *std);
+ 	int (*g_input_status)(struct v4l2_subdev *sd, u32 *status);
++	int (*prepare_stream)(struct v4l2_subdev *sd);
+ 	int (*s_stream)(struct v4l2_subdev *sd, int enable);
+ 	int (*cropcap)(struct v4l2_subdev *sd, struct v4l2_cropcap *cc);
+ 	int (*g_crop)(struct v4l2_subdev *sd, struct v4l2_crop *crop);

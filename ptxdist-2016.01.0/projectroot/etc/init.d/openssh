@@ -1,0 +1,60 @@
+#!/bin/sh
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/sshd
+NAME=sshd
+PIDFILE=/var/run/sshd.pid
+
+case "$1" in
+
+	start)
+		mkdir -p /var/run/sshd
+
+		echo -n "starting sshd..."
+		start-stop-daemon -S -x "$DAEMON" -p "$PIDFILE" > /dev/null 2>&1
+		if [ "$?" = "0" ]; then
+			echo "done"
+		else
+			echo "failed"
+			exit 1
+		fi
+		;;
+
+	stop)
+		echo -n "stopping sshd..."
+		start-stop-daemon -K -p $PIDFILE > /dev/null 2>&1
+		if [ "$?" = "0" ]; then
+			echo "done"
+		else
+			echo "failed"
+			exit 1
+		fi
+		;;
+
+	restart|force-reload)
+		echo -n "restarting sshd..."
+		start-stop-daemon -K -x "$DAEMON" -p $PIDFILE > /dev/null 2>&1
+		if [ "$?" = "0" ]; then
+			echo "done"
+		else
+			echo "failed"
+			exit 1
+		fi
+		sleep 1
+		start-stop-daemon -S -x "$DAEMON" -p $PIDFILE > /dev/null 2>&1
+		if [ "$?" = "0" ]; then
+			echo "done"
+		else
+			echo "failed"
+			exit 1
+		fi
+		;;
+
+	*)
+		echo "Usage: $0 {start|stop|restart|force-reload}" >&2
+		exit 1
+		;;
+esac
+
+exit 0
+

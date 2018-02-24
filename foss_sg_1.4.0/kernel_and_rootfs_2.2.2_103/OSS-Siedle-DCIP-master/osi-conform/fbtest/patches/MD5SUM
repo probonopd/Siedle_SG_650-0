@@ -1,0 +1,6 @@
+2fd125e779a5a6264937dc9395e0f978  0001-provide-a-pre-generated-penguin.c-to-get-rid-of-this.patch
+049a639db09353bd15f274812ce1d34e  0002-Don-t-use-Werror.patch
+257b59dee6fc5a44f0a8291050e152df  0003-Workaround-for-a-gcc-compiler-bug.patch
+5115dca51554478a6220d56df7e30151  0004-remove-asm-page.h-use-sysconf.patch
+4989d00e7766590b1b108b84a17fde6a  0005-add-install-target.patch
+d21e9aa8c19e878fcdcbf6b983da4b8e  series

@@ -1,0 +1,76 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 11 Jul 2014 18:02:56 +0200
+Subject: [PATCH] drm/imx: Add support for non-RGB output colorspace
+
+This patch allows to use non-RGB color formats on the output. This is needed
+to support YUV output via HDMI or TV-Encoder.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/drm/imx/ipuv3-crtc.c  | 3 ++-
+ drivers/gpu/drm/imx/ipuv3-plane.c | 9 +++++----
+ drivers/gpu/drm/imx/ipuv3-plane.h | 3 ++-
+ 3 files changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/imx/ipuv3-crtc.c b/drivers/gpu/drm/imx/ipuv3-crtc.c
+index 22f36eea65d5..56d70c205f65 100644
+--- a/drivers/gpu/drm/imx/ipuv3-crtc.c
++++ b/drivers/gpu/drm/imx/ipuv3-crtc.c
+@@ -204,7 +204,8 @@ static int ipu_crtc_mode_set(struct drm_crtc *crtc,
+ 				  crtc->primary->fb,
+ 				  0, 0, mode->hdisplay, mode->vdisplay,
+ 				  x, y, mode->hdisplay, mode->vdisplay,
+-				  mode->flags & DRM_MODE_FLAG_INTERLACE);
++				  mode->flags & DRM_MODE_FLAG_INTERLACE,
++				  ipu_mbus_code_to_colorspace(ipu_crtc->bus_format));
+ }
+ 
+ static void ipu_crtc_handle_pageflip(struct ipu_crtc *ipu_crtc)
+diff --git a/drivers/gpu/drm/imx/ipuv3-plane.c b/drivers/gpu/drm/imx/ipuv3-plane.c
+index 3fb604ae608e..2ac3cd9d1933 100644
+--- a/drivers/gpu/drm/imx/ipuv3-plane.c
++++ b/drivers/gpu/drm/imx/ipuv3-plane.c
+@@ -159,7 +159,8 @@ int ipu_plane_mode_set(struct ipu_plane *ipu_plane, struct drm_crtc *crtc,
+ 		       struct drm_framebuffer *fb, int crtc_x, int crtc_y,
+ 		       unsigned int crtc_w, unsigned int crtc_h,
+ 		       uint32_t src_x, uint32_t src_y,
+-		       uint32_t src_w, uint32_t src_h, bool interlaced)
++		       uint32_t src_w, uint32_t src_h, bool interlaced,
++		       enum ipu_color_space out_colorspace)
+ {
+ 	struct device *dev = ipu_plane->base.dev->dev;
+ 	int ret;
+@@ -219,8 +220,8 @@ int ipu_plane_mode_set(struct ipu_plane *ipu_plane, struct drm_crtc *crtc,
+ 	switch (ipu_plane->dp_flow) {
+ 	case IPU_DP_FLOW_SYNC_BG:
+ 		ret = ipu_dp_setup_channel(ipu_plane->dp,
+-				IPUV3_COLORSPACE_RGB,
+-				IPUV3_COLORSPACE_RGB);
++				ipu_drm_fourcc_to_colorspace(fb->pixel_format),
++				out_colorspace);
+ 		if (ret) {
+ 			dev_err(dev,
+ 				"initializing display processor failed with %d\n",
+@@ -424,7 +425,7 @@ static int ipu_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
+ 	ret = ipu_plane_mode_set(ipu_plane, crtc, &crtc->hwmode, fb,
+ 			crtc_x, crtc_y, crtc_w, crtc_h,
+ 			src_x >> 16, src_y >> 16, src_w >> 16, src_h >> 16,
+-			false);
++			false, IPUV3_COLORSPACE_UNKNOWN);
+ 	if (ret < 0) {
+ 		ipu_plane_put_resources(ipu_plane);
+ 		return ret;
+diff --git a/drivers/gpu/drm/imx/ipuv3-plane.h b/drivers/gpu/drm/imx/ipuv3-plane.h
+index d02558f2028a..bade1ca8d8b6 100644
+--- a/drivers/gpu/drm/imx/ipuv3-plane.h
++++ b/drivers/gpu/drm/imx/ipuv3-plane.h
+@@ -44,7 +44,8 @@ int ipu_plane_mode_set(struct ipu_plane *plane, struct drm_crtc *crtc,
+ 		       struct drm_framebuffer *fb, int crtc_x, int crtc_y,
+ 		       unsigned int crtc_w, unsigned int crtc_h,
+ 		       uint32_t src_x, uint32_t src_y, uint32_t src_w,
+-		       uint32_t src_h, bool interlaced);
++		       uint32_t src_h, bool interlaced,
++		       enum ipu_color_space out_colorspace);
+ 
+ void ipu_plane_enable(struct ipu_plane *plane);
+ void ipu_plane_disable(struct ipu_plane *plane);

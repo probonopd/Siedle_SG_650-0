@@ -1,0 +1,112 @@
+## SECTION=system_libraries
+menuconfig ALSA_LIB
+	tristate
+	prompt "alsa libaries                 "
+	select LIBC_DL
+	select LIBC_M
+	select LIBC_PTHREAD
+	select LIBC_RT
+	select GCCLIBS_GCC_S
+	help
+	  This is the userspace library to the kernel's "Advanced Linux Sound Architecture" feature
+
+if ALSA_LIB
+
+choice
+	prompt "Base library"
+	default ALSA_LIB_FULL
+
+	config ALSA_LIB_FULL
+		bool
+		prompt "full featured ALSA libs"
+		help
+		  Full featured ALSA library. No limits.
+
+	config ALSA_LIB_LIGHT
+		bool
+		prompt "embedded ALSA libs"
+		help
+		  SALSA-Lib is a small, light-weight, hot and spicy version of
+		  the ALSA library, mainly for embedded systems with limited
+		  resources. The library is designed to be source-level
+		  compatible with ALSA library API for limited contents.  Most
+		  of function calls are inlined, and accesses directly to the
+		  hardware via system calls.
+		  Some components like ALSA sequencer aren't supported, and
+		  most of all, the alsa-lib plugins and configurations are
+		  completely dropped.  Thus, neither dmix nor format
+		  conversion is available with SALSA-lib.
+endchoice
+
+config ALSA_LIB_ASOUND_CONF
+	bool
+	prompt "install /etc/asound.conf from projectroot"
+	help
+	  install a asound.conf file from the projectroot
+
+config ALSA_LIB_RESMGR
+	bool
+	depends on BROKEN
+	prompt "resmgr"
+	help
+	  support resmgr (optional component)
+
+config ALSA_LIB_READ
+	bool
+	default y
+	prompt "read support"
+	help
+	  Reading /dev/aload* is the default. Disable it on demand
+
+config ALSA_LIB_MIXER
+	bool
+	default y
+	prompt "mixer"
+	help
+	  Disable the mixer component if you do not need it
+
+config ALSA_LIB_PCM
+	bool
+	default y
+	prompt "pcm"
+	help
+	  Disable the PCM component if you do not need it
+
+config ALSA_LIB_RAWMIDI
+	bool
+	default y
+	prompt "raw midi support"
+	help
+	  Disable the raw MIDI component if you do not need it
+
+config ALSA_LIB_HWDEP
+	bool
+	default y
+	prompt "hwdep"
+	help
+	  Disable the hwdep component if you do not need it
+
+config ALSA_LIB_SEQ
+	bool
+	default y
+	prompt "sequencer"
+	help
+	  Disable the sequencer component if you do not need it
+
+config ALSA_LIB_UCM
+	bool
+	default y
+	prompt "use-case-manager"
+	help
+	  Disable the use-case-manager component if you do not need it
+
+config ALSA_LIB_ALISP
+	bool
+	default y
+	prompt "alisp"
+	help
+	  Disable the alisp component if you do not need it
+
+
+endif
+

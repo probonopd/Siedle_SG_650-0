@@ -1,0 +1,25 @@
+http://gcc.gnu.org/PR25343
+
+sniped from Debian
+
+2008-04-27  Roman Zippel <zippel@linux-m68k.org>
+
+	* config/host-linux.c (TRY_EMPTY_VM_SPACE): Define for __mc68000__.
+
+---
+ gcc/config/host-linux.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+Index: gcc-4.3.1/gcc/config/host-linux.c
+===================================================================
+--- gcc-4.3.1.orig/gcc/config/host-linux.c
++++ gcc-4.3.1/gcc/config/host-linux.c
+@@ -84,6 +84,8 @@
+ # define TRY_EMPTY_VM_SPACE	0x8000000000
+ #elif defined(__sparc__)
+ # define TRY_EMPTY_VM_SPACE	0x60000000
++#elif defined(__mc68000__)
++# define TRY_EMPTY_VM_SPACE	0x40000000
+ #else
+ # define TRY_EMPTY_VM_SPACE	0
+ #endif

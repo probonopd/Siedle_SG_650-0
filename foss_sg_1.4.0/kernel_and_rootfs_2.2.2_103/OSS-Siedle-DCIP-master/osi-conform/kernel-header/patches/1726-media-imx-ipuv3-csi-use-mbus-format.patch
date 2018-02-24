@@ -1,0 +1,72 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Sun, 21 Dec 2014 16:10:49 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: use mbus format
+
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 46c1b9c48ee0..caa8e820368f 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -71,43 +71,43 @@ int v4l2_media_subdev_s_stream(struct media_entity *entity, int enable);
+ static struct ipucsi_format ipucsi_formats[] = {
+ 	{
+ 		.fourcc = V4L2_PIX_FMT_GREY,
+-		.mbus_code = V4L2_MBUS_FMT_Y8_1X8,
++		.mbus_code = MEDIA_BUS_FMT_Y8_1X8,
+ 		.bytes_per_pixel = 1,
+ 		.bytes_per_sample = 1,
+ 		.raw = 1,
+ 	}, {
+ 		.fourcc = V4L2_PIX_FMT_Y10,
+-		.mbus_code = V4L2_MBUS_FMT_Y10_1X10,
++		.mbus_code = MEDIA_BUS_FMT_Y10_1X10,
+ 		.bytes_per_pixel = 2,
+ 		.bytes_per_sample = 2,
+ 		.raw = 1,
+ 	}, {
+ 		.fourcc = V4L2_PIX_FMT_Y16,
+-		.mbus_code = V4L2_MBUS_FMT_Y12_1X12,
++		.mbus_code = MEDIA_BUS_FMT_Y12_1X12,
+ 		.bytes_per_pixel = 2,
+ 		.bytes_per_sample = 2,
+ 		.raw = 1,
+ 	}, {
+ 		.fourcc = V4L2_PIX_FMT_UYVY,
+-		.mbus_code = V4L2_MBUS_FMT_UYVY8_2X8,
++		.mbus_code = MEDIA_BUS_FMT_UYVY8_2X8,
+ 		.bytes_per_pixel = 2,
+ 		.bytes_per_sample = 1,
+ 		.yuv = 1,
+ 	}, {
+ 		.fourcc = V4L2_PIX_FMT_YUYV,
+-		.mbus_code = V4L2_MBUS_FMT_YUYV8_2X8,
++		.mbus_code = MEDIA_BUS_FMT_YUYV8_2X8,
+ 		.bytes_per_pixel = 2,
+ 		.bytes_per_sample = 1,
+ 		.yuv = 1,
+ 	}, {
+ 		.fourcc = V4L2_PIX_FMT_UYVY,
+-		.mbus_code = V4L2_MBUS_FMT_UYVY8_1X16,
++		.mbus_code = MEDIA_BUS_FMT_UYVY8_1X16,
+ 		.bytes_per_pixel = 2,
+ 		.bytes_per_sample = 2,
+ 		.raw = 1,
+ 	}, {
+ 		.fourcc = V4L2_PIX_FMT_YUYV,
+-		.mbus_code = V4L2_MBUS_FMT_YUYV8_1X16,
++		.mbus_code = MEDIA_BUS_FMT_YUYV8_1X16,
+ 		.bytes_per_pixel = 2,
+ 		.bytes_per_sample = 2,
+ 		.raw = 1,
+@@ -116,7 +116,7 @@ static struct ipucsi_format ipucsi_formats[] = {
+ 
+ static struct ipucsi_format ipucsi_format_testpattern = {
+ 	.fourcc = V4L2_PIX_FMT_RGB32,
+-	.mbus_code = V4L2_MBUS_FMT_FIXED,
++	.mbus_code = MEDIA_BUS_FMT_FIXED,
+ 	.bytes_per_pixel = 4,
+ 	.bytes_per_sample = 4,
+ 	.rgb = 1,

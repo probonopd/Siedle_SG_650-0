@@ -1,0 +1,28 @@
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Wed, 3 Dec 2014 15:05:52 +0100
+Subject: [PATCH] Hack around mips args to host-gcc
+
+originally From: "Steven J dot  Hill" <sjhill at realitydiluted dot com>
+for Crosstool
+
+In OSELAS.Toolchain we pass -DBOOTSTRAP_GCC in CC. This patch fixes the
+header extraction from the glibc, by not passing mips specific flags to
+the HOST compiler.
+
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+ sysdeps/mips/mips32/Makefile | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/sysdeps/mips/mips32/Makefile b/sysdeps/mips/mips32/Makefile
+index dec0b024c3a8..dde2ca6bce1d 100644
+--- a/sysdeps/mips/mips32/Makefile
++++ b/sysdeps/mips/mips32/Makefile
+@@ -1,3 +1,7 @@
++ifeq ($(filter -DBOOTSTRAP_GCC,$(CC)),)
+ ifeq ($(filter -mabi=32,$(CC)),)
+ CC += -mabi=32
+ endif
++else
++CC += -D_MIPS_SZPTR=32
++endif

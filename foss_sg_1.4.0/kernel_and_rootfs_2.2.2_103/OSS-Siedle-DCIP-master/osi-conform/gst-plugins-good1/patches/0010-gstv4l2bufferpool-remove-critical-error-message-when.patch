@@ -1,0 +1,28 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 24 Nov 2016 14:25:22 +0100
+Subject: [PATCH] gstv4l2bufferpool: remove critical error message when process
+ is called on an inactive pool
+
+If the pool is inactive, it is guaranteed to also be flushing, so the
+following check will return GST_FLOW_FLUSHING anyway.
+This can happen if a v4l2src is blocking on DQBUF in create and is sent
+an EOS event on another thread. In that case the pool is set to
+flushing/inactive without locking, the v4l2src is unblocked, and may
+call pool_process with a valid buffer on the already inactive pool.
+---
+ sys/v4l2/gstv4l2bufferpool.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2bufferpool.c b/sys/v4l2/gstv4l2bufferpool.c
+index 1f94e96306ee..276d0db86533 100644
+--- a/sys/v4l2/gstv4l2bufferpool.c
++++ b/sys/v4l2/gstv4l2bufferpool.c
+@@ -1709,8 +1709,6 @@ gst_v4l2_buffer_pool_process (GstV4l2BufferPool * pool, GstBuffer ** buf)
+ 
+   GST_DEBUG_OBJECT (pool, "process buffer %p", buf);
+ 
+-  g_return_val_if_fail (gst_buffer_pool_is_active (bpool), GST_FLOW_ERROR);
+-
+   if (GST_BUFFER_POOL_IS_FLUSHING (pool))
+     return GST_FLOW_FLUSHING;
+ 

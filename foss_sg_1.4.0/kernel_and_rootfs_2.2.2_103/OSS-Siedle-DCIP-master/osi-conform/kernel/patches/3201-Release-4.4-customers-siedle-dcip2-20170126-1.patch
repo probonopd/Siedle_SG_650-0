@@ -1,0 +1,22 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 26 Jan 2017 14:55:34 +0100
+Subject: [PATCH] Release 4.4/customers/siedle/dcip2/20170126-1
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Makefile b/Makefile
+index d6a1de0e2bd7..5c09567e6295 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,7 +1,7 @@
+ VERSION = 4
+ PATCHLEVEL = 4
+ SUBLEVEL = 44
+-EXTRAVERSION =
++EXTRAVERSION =-20170126-1
+ NAME = Blurry Fish Butt
+ 
+ # *DOCUMENTATION*

@@ -1,0 +1,24 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 16 Aug 2013 18:00:20 +0200
+Subject: [PATCH] [media] tvp5150: Default to composite0 input
+
+This needs a proper configuration through DT.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/i2c/tvp5150.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/media/i2c/tvp5150.c b/drivers/media/i2c/tvp5150.c
+index d25444fa5f55..0516b3396a08 100644
+--- a/drivers/media/i2c/tvp5150.c
++++ b/drivers/media/i2c/tvp5150.c
+@@ -1550,7 +1550,7 @@ static int tvp5150_probe(struct i2c_client *c,
+ 
+ 	core->norm = V4L2_STD_ALL;	/* Default is autodetect */
+ 	core->detected_norm = V4L2_STD_UNKNOWN;
+-	core->input = TVP5150_COMPOSITE1;
++	core->input = TVP5150_COMPOSITE0;
+ 	core->enable = 1;
+ 
+ 	v4l2_ctrl_handler_init(&core->hdl, 4);

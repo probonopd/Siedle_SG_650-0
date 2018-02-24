@@ -1,0 +1,995 @@
+## SECTION=qt
+
+menuconfig QT4
+	tristate
+	select LIBC_PTHREAD
+	select LIBC_DL
+	select LIBC_RT
+	select LIBC_M
+	select GCCLIBS_CXX
+	select GCCLIBS_GCC_S
+	select HOST_QT4
+	select TSLIB		if QT4_MOUSE_TSLIB
+	select DBUS		if QT4_DBUS
+	select HOST_QT4_DBUS	if QT4_DBUS
+	select GLIB		if QT4_GLIB
+	select ZLIB		if QT4_ZLIB_SYSTEM
+	select FREETYPE		if QT4_FREETYPE_SYSTEM
+	select LIBPNG		if QT4_PNG_SYSTEM
+	select LIBJPEG		if QT4_JPG_SYSTEM
+	select SQLITE		if QT4_SQLITE_SYSTEM
+	select DIRECTFB		if QT4_GFX_DIRECTFB_PLUGIN
+	select GSTREAMER	if QT4_BUILD_PHONON
+	select GST_PLUGINS_BASE	if QT4_BUILD_PHONON
+	select OPENSSL		if QT4_OPENSSL
+	select MESALIB		if QT4_OPENGL_DESKTOP
+	select ALSA_LIB		if QT4_BUILD_MULTIMEDIA
+# libsvga is currently not in ptxdist
+#	select LIBSVGA		if QT4_GFX_SVGA_PLUGIN
+
+	select XORG_LIB_X11		if QT4_X11
+	select XORG_LIB_SM		if QT4_X11_SM
+	select XORG_PROTO_XEXT		if QT4_X11_XSHAPE
+	select XORG_PROTO_XEXT		if QT4_X11_XSYNC
+	select XORG_LIB_XINERAMA	if QT4_X11_XINERAMA
+	select XORG_LIB_XCURSOR		if QT4_X11_XCURSOR
+	select XORG_LIB_XFIXES		if QT4_X11_XFIXES
+	select XORG_LIB_XRANDR		if QT4_X11_XRANDR
+	select XORG_LIB_XRENDER		if QT4_X11_XRENDER
+	select XORG_PROTO_XEXT		if QT4_X11_MITSHM
+	select FONTCONFIG		if QT4_X11_FONTCONFIG
+	select FREETYPE			if QT4_X11_FONTCONFIG
+	select XORG_PROTO_INPUT		if QT4_X11_XINPUT
+	select XORG_LIB_XI		if QT4_X11_XINPUT
+	select XORG_PROTO_KB		if QT4_X11_XKB
+	select XORG_LIB_XKBUI		if QT4_X11_XKB
+
+	prompt "qt                            "
+	help
+	  Qt is Nokia's Widget Library for Linux.
+
+if QT4
+
+menu "build options               "
+
+config QT4_SHARED
+	bool
+	default y
+	prompt "build shared libraries"
+	help
+	  If selected the shared Qt Libraries are built
+	  and installed.
+
+choice
+	prompt "platform            "
+	default QT4_PLATFORM_EMBEDDED
+
+	config QT4_PLATFORM_EMBEDDED
+		bool
+		prompt "embedded"
+		help
+		  Build Qt for embedded
+
+	config QT4_PLATFORM_X11
+		bool
+		prompt "X11     "
+		help
+		  Build Qt for X11
+endchoice
+
+endmenu
+
+if QT4_PLATFORM_EMBEDDED
+
+menu "graphics driver             "
+
+choice
+	prompt "ahi                 "
+	default QT4_GFX_AHI_NULL
+	help
+	  FIXME
+
+	config QT4_GFX_AHI_NULL
+		bool
+		prompt "none   "
+		help
+		  Don't build the driver
+
+# only as plugin
+
+	config QT4_GFX_AHI_PLUGIN
+		bool
+		prompt "plugin "
+		depends on BROKEN
+		help
+		  Load the driver at runtime
+endchoice
+
+choice
+	prompt "DirectFB            "
+	default QT4_GFX_DIRECTFB_NONE
+	help
+	  Accelerated driver using DirectFB
+
+	config QT4_GFX_DIRECTFB_NONE
+		bool
+		prompt "none   "
+		help
+		  Don't build the driver
+
+# only as plugin
+
+	config QT4_GFX_DIRECTFB_PLUGIN
+		bool
+		prompt "plugin "
+		help
+		  Load the driver at runtime
+endchoice
+
+choice
+	prompt "eglnullws           "
+	default QT4_GFX_EGLNULLWS_NULL
+	help
+	  Accelerated driver using eglnullws
+
+	config QT4_GFX_EGLNULLWS_NULL
+		bool
+		prompt "none   "
+		help
+		  Don't build the driver
+
+# only as plugin
+
+	config QT4_GFX_EGLNULLWS_PLUGIN
+		bool
+		depends on QT4_BUILD_OPENGL
+		prompt "plugin "
+		help
+		  Load the driver at runtime
+endchoice
+
+choice
+	prompt "LinuxFb             "
+	default QT4_GFX_LINUXFB_NONE
+	help
+	  Unaccelerated linux frambuffer driver
+
+	config QT4_GFX_LINUXFB_NONE
+		bool
+		prompt "none   "
+		help
+		  Don't build the driver
+
+	config QT4_GFX_LINUXFB_BUILTIN
+		bool
+		prompt "builtin"
+		help
+		  Link the driver into QtGui
+
+	config QT4_GFX_LINUXFB_PLUGIN
+		bool
+		prompt "plugin "
+		help
+		  Load the driver at runtime
+endchoice
+
+choice
+	prompt "PowerVR             "
+	default QT4_GFX_POWERVR_NULL
+	help
+	  FIXME
+
+	config QT4_GFX_POWERVR_NULL
+		bool
+		prompt "none   "
+		help
+		  Don't build the driver
+
+# only as plugin
+
+	config QT4_GFX_POWERVR_PLUGIN
+		bool
+		prompt "plugin "
+		help
+		  Load the driver at runtime
+endchoice
+
+choice
+	prompt "Qt Virtual Fb       "
+	default QT4_GFX_QVFB_NONE
+	help
+	  The Qt Virtual Framebuffer can be used to test Qt Embedded applications.
+	  It must be used in combination with the QVFb tool which is part of Qt/X11
+
+	config QT4_GFX_QVFB_NONE
+		bool
+		prompt "none   "
+		help
+		  Don't build the driver
+
+	config QT4_GFX_QVFB_BUILTIN
+		bool
+		prompt "builtin"
+		help
+		  Link the driver into QtGui
+
+	config QT4_GFX_QVFB_PLUGIN
+		bool
+		prompt "plugin "
+		help
+		  Load the driver at runtime
+endchoice
+
+choice
+	prompt "SVGA                "
+	depends on BROKEN
+	default QT4_GFX_SVGA_NONE
+	help
+	  Unaccelerated driver using svgalib.
+
+
+	config QT4_GFX_SVGA_NONE
+		bool
+		prompt "none   "
+		help
+		  Don't build the driver
+
+# only as plugin
+
+	config QT4_GFX_SVGA_PLUGIN
+		bool
+		prompt "plugin "
+		depends on BROKEN
+		help
+		  Load the driver at runtime
+endchoice
+
+choice
+	prompt "VNC                 "
+	default QT4_GFX_VNC_NONE
+	help
+	  The VNC driver provides a VNC server. It can also be used in
+	  combination with other drivers.
+
+
+	config QT4_GFX_VNC_NONE
+		bool
+		prompt "none   "
+		help
+		  Don't build the driver
+
+	config QT4_GFX_VNC_BUILTIN
+		bool
+		prompt "builtin"
+		help
+		  Link the driver into QtGui
+
+	config QT4_GFX_VNC_PLUGIN
+		bool
+		prompt "plugin "
+		help
+		  Load the driver at runtime
+endchoice
+
+choice
+	prompt "Transformed         "
+	default QT4_GFX_TRANSFORMED_NONE
+	help
+	  Transformed is a meta driver that delegates the drawing to another driver
+	  after rotating the contents
+
+
+	config QT4_GFX_TRANSFORMED_NONE
+		bool
+		prompt "none   "
+		help
+		  Don't build the driver
+
+	config QT4_GFX_TRANSFORMED_BUILTIN
+		bool
+		prompt "builtin"
+		help
+		  Link the driver into QtGui
+
+	config QT4_GFX_TRANSFORMED_PLUGIN
+		bool
+		prompt "plugin "
+		help
+		  Load the driver at runtime
+endchoice
+
+choice
+	prompt "Multi               "
+	default QT4_GFX_MULTISCREEN_NONE
+	help
+	  Multi is a meta driver that delegates the drawing to multiple other
+	  drivers.
+
+	config QT4_GFX_MULTISCREEN_NONE
+		bool
+		prompt "none   "
+		help
+		  Don't build the driver
+
+	config QT4_GFX_MULTISCREEN_BUILTIN
+		bool
+		prompt "builtin"
+		help
+		  Link the driver into QtGui
+
+# not as plugin
+endchoice
+
+choice
+	prompt "hybrid              "
+	default QT4_GFX_HYBRID_NULL
+
+	config QT4_GFX_HYBRID_NULL
+		bool
+		prompt "none   "
+		help
+		  Don't build the driver
+
+# only as plugin
+
+	config QT4_GFX_HYBRID_PLUGIN
+		bool
+		prompt "plugin [BROKEN]"
+		# needs GLES/egl.h and others
+		depends on BROKEN
+		help
+		  Load the driver at runtime
+endchoice
+
+endmenu
+
+menu "keyboard drivers            "
+
+config QT4_KBD_TTY
+	bool
+	prompt "tty"
+	help
+	  Generic console (tty) driver
+
+config QT4_KBD_INPUT
+	bool
+	prompt "Linux Input"
+	help
+	  Generic Linux Input driver
+
+config QT4_KBD_QVFB
+	bool
+	prompt "Qt Virtual Frambuffer"
+	help
+	  Keyboard driver for the Qt Virtual Frambuffer
+
+endmenu
+
+menu "mouse drivers               "
+
+config QT4_MOUSE_PC
+	bool
+	prompt "Generic Mouse Driver"
+	help
+	  Generic driver for the MouseMan, IntelliMouse, Microsoft and MouseSystems
+	  protocols.
+
+config QT4_MOUSE_INPUT
+	bool
+	prompt "Linux Input"
+
+config QT4_MOUSE_LINUXTP
+	bool
+	prompt "Linux Touch Panel"
+
+config QT4_MOUSE_TSLIB
+	bool
+	prompt "Tslib"
+	help
+	  Driver for the universal touch screen library, tslib.
+
+config QT4_MOUSE_QVFB
+	bool
+	prompt "Qt Virtual Frambuffer"
+	help
+	  Mouse driver for the Qt Virtual Frambuffer
+
+endmenu
+
+endif # QT4_PLATFORM_EMBEDDED
+
+if QT4_PLATFORM_X11
+
+menu "X11 feature options         "
+
+config QT4_X11_SM
+	bool
+	prompt "X Session Management"
+	help
+	  Support X Session Management, links in -lSM -lICE.
+
+config QT4_X11_XSHAPE
+	bool
+	prompt "XShape"
+	help
+	  Compile XShape support. Requires X11/extensions/shape.h.
+
+config QT4_X11_XSYNC
+	bool
+	prompt "XSync"
+	help
+	  Compile XSync support. Requires X11/extensions/sync.h.
+
+config QT4_X11_XINERAMA
+	bool
+	prompt "Xinerama"
+	help
+	  Compile Xinerama support. Requires X11/extensions/Xinerama.h
+	  and libXinerama. By default, Xinerama support will be compiled if
+	  available and the shared libraries are dynamically loaded at
+	  runtime.
+
+config QT4_X11_XCURSOR
+	bool
+	prompt "Xcursor"
+	help
+	  Compile Xcursor support. Requires X11/Xcursor/Xcursor.h and
+	  libXcursor. By default, Xcursor support will be compiled if
+	  available and the shared libraries are dynamically loaded
+	  at runtime.
+
+config QT4_X11_XFIXES
+	bool
+	prompt "Xfixes"
+	help
+	  Compile Xfixes support.  Requires X11/extensions/Xfixes.h and
+	  libXfixes.  By default, Xfixes support will be compiled if
+	  available and the shared libraries are dynamically loaded at
+	  runtime.
+
+config QT4_X11_XRANDR
+	bool
+	prompt "Xrandr"
+	help
+	  Compile Xrandr support.  Requires X11/extensions/Xrandr.h
+	  and libXrandr.
+
+config QT4_X11_XRENDER
+	bool
+	prompt "Xrender"
+	help
+	  Compile Xrender support.  Requires X11/extensions/Xrender.h
+	  and libXrender.
+
+config QT4_X11_MITSHM
+	bool
+	prompt "MIT-SHM"
+	help
+	  Compile MIT-SHM support.  Requires sys/ipc.h, sys/shm.h
+	  and X11/extensions/XShm.h
+
+config QT4_X11_FONTCONFIG
+	bool
+	prompt "FontConfig"
+	help
+	  Compile FontConfig (anti-aliased font) support. Requires
+	  fontconfig/fontconfig.h, libfontconfig, freetype.h and
+	  libfreetype.
+
+config QT4_X11_XINPUT
+	bool
+	prompt "Xinput"
+	help
+	  ompile Xinput support. This also enabled tablet support
+	  which requires IRIX with wacom.h and libXi or XFree86 with
+	  X11/extensions/XInput.h and libXi.
+
+config QT4_X11_XKB
+	bool
+	prompt "XKB"
+	help
+	  Compile XKB (X KeyBoard extension) support.
+
+endmenu
+
+endif # QT4_PLATFORM_X11
+
+# prepare the build system to build the examples
+# selected by QT4_EXAMPLES
+config QT4_PREPARE_EXAMPLES
+	bool
+
+menu "feature options             "
+
+choice
+	prompt "zlib support       "
+	default QT4_ZLIB_SYSTEM
+	help
+	  zlib support is required for at least the PNG graphic format
+
+config QT4_ZLIB_INTERNAL
+	bool "internal"
+	help
+	  This uses the embedded zlib support
+
+config QT4_ZLIB_SYSTEM
+	bool "system  "
+	help
+	  Use system's zlib
+endchoice
+
+choice
+	prompt "freetype support   "
+	default QT4_FREETYPE_SYSTEM
+	help
+	  Control freetype support
+
+config QT4_FREETYPE_NONE
+	bool "none    "
+	help
+	 This disables freeetype support entirely
+
+config QT4_FREETYPE_INTERNAL
+	bool "internal"
+	help
+	  This uses the embedded freetype support
+
+config QT4_FREETYPE_SYSTEM
+	bool "system  "
+	help
+	  Use system's freetype
+endchoice
+
+choice
+	prompt "ICO support        "
+	default QT4_ICO_NONE
+	help
+	  Control support for the ICO File Format
+
+config QT4_ICO_NONE
+	bool "none    "
+	help
+	 This disables entirely any ICO support
+
+config QT4_ICO_INTERNAL
+	bool "internal"
+	help
+	  This uses the embedded ICO support
+endchoice
+
+choice
+	prompt "PNG support        "
+	default QT4_PNG_SYSTEM
+	help
+	  Control support for the Portable Network Graphics format
+
+config QT4_PNG_NONE
+	bool "none    "
+	help
+	 This disables entirely any PNG support
+
+config QT4_PNG_INTERNAL
+	bool "internal"
+	help
+	  This uses the embedded PNG support
+
+config QT4_PNG_SYSTEM
+	bool "system  "
+	help
+	  Use system's PNG library
+endchoice
+
+choice
+	prompt "MNG support        "
+	default QT4_MNG_NONE
+	help
+	  Control support for the Multiple-image Network Graphics format
+
+config QT4_MNG_NONE
+	bool "none    "
+	help
+	 This disables entirely any MNG support
+
+config QT4_MNG_INTERNAL
+	bool "internal"
+	help
+	  This uses the embedded MNG support
+
+# there is currently no support for MNG in ptxdist
+#config QT4_MNG_SYSTEM
+#	bool "system  "
+#	help
+#	  Use system's MNG library
+
+endchoice
+
+choice
+	prompt "TIFF support       "
+	default QT4_TIFF_NONE
+	help
+	  Control support for the Tag Image File Format
+
+config QT4_TIFF_NONE
+	bool "none    "
+	help
+	 This disables entirely any TIFF support
+
+config QT4_TIFF_INTERNAL
+	bool "internal"
+	help
+	  This uses the embedded TIFF support
+
+# there is currently no support for TIFF in ptxdist
+#config QT4_TIFF_SYSTEM
+#	bool "system  "
+#	help
+#	  Use system's TIFF library
+
+endchoice
+
+choice
+	prompt "GIF support        "
+	default QT4_GIF_NONE
+	help
+	  Control support for the "Graphics Interchange Format" format
+
+config QT4_GIF_NONE
+	bool "none    "
+	help
+	 This disables entirely any GIF support
+
+config QT4_GIF_NULL
+	# note: NULL == no configure option. There is only -no-gif
+	bool "internal"
+	help
+	  This uses the embedded GIF support
+
+endchoice
+
+choice
+	prompt "JPG support        "
+	default QT4_JPG_NONE
+
+config QT4_JPG_NONE
+	bool "none    "
+	help
+	 This disables entirely any JPG support
+
+config QT4_JPG_INTERNAL
+	bool "internal"
+	help
+	  This uses the embedded JPG support
+
+config QT4_JPG_SYSTEM
+	bool "system  "
+	help
+	  Use system's JPG library
+
+endchoice
+
+config QT4_STL
+	bool
+	prompt "stl support"
+	help
+	  Add Qt support for standard template library.
+
+config QT4_GLIB
+	bool
+	prompt "glib support"
+	help
+	  Add Qt support for glib.
+
+config QT4_OPENSSL
+	bool
+	prompt "openssl support"
+	help
+	  Add Qt support for openssl.
+
+config QT4_DBUS
+	bool
+	prompt "dbus support"
+	help
+	  Build D-Bus bindings for Qt
+
+choice
+	prompt "dbus support       "
+	depends on QT4_DBUS
+	default QT4_DBUS_LOAD
+	help
+	  Qt dbus support.
+
+config QT4_DBUS_LOAD
+	bool "load    "
+	select QT4_BUILD_XML
+	help
+	  Build Qt dbus support and dynamically load libdbus-1.
+
+config QT4_DBUS_LINK
+	bool "link    "
+	select QT4_BUILD_XML
+	help
+	  Build Qt dbus support and link to libdbus-1.
+endchoice
+
+config QT4_ACCESSIBILITY
+	bool
+	prompt "accessibility"
+	help
+	  Compile Accessibility support.
+
+endmenu
+
+config QT4_BUILD_OPENGL
+	bool
+
+choice
+	prompt "OpenGL support  "
+	help
+	  Add Qt support for OpenGL
+
+config QT4_OPENGL_NONE
+	bool "none     "
+
+config QT4_OPENGL_DESKTOP
+	bool "Desktop  "
+	depends on QT4_PLATFORM_X11
+	select QT4_BUILD_OPENGL
+
+config QT4_OPENGL_ES1
+	bool "ES 1.x   "
+	select QT4_BUILD_OPENGL
+
+config QT4_OPENGL_ES2
+	bool "ES 2.x   "
+	select QT4_BUILD_OPENGL
+
+endchoice
+
+config QT4_OPENGL_EGL
+	bool "use EGL"
+	depends on QT4_BUILD_OPENGL && !QT4_OPENGL_DESKTOP
+
+menu "optional libraries          "
+
+config QT4_BUILD_GUI
+	bool
+	select QT4_BUILD_NETWORK
+	prompt "QtGui"
+	help
+	  The QtGui module provides the classes necessary for a graphical user interface.
+
+config QT4_BUILD_NETWORK
+	bool
+	prompt "QtNetwork"
+	help
+	  The QtNetwork module offers classes that allow you to write TCP/IP
+	  clients and servers.
+
+menuconfig QT4_BUILD_SQL
+	bool
+	prompt "QtSql                         "
+	help
+	  The QtSql module helps you provide seamless database integration
+	  to your Qt applications.
+	  The SQL classes are divided into three layers:
+	   - Driver Layer:  Provides the low-level bridge between the specific
+	                    databases and the SQL API layer.
+	   - SQL API Layer: Provides a Qt API for SQL
+	   - UI Layer:      These classes link the data from a database to
+	                    data-aware widgets.
+
+if QT4_BUILD_SQL
+
+choice
+	prompt "SQLITE support    "
+	default QT4_SQLITE_NULL
+
+config QT4_SQLITE_NULL
+	bool "none   "
+	help
+	 This disables entirely any SQLITE support
+
+config QT4_SQLITE_BUILTIN
+	bool "builtin"
+	help
+	  Link the driver into QtSql
+
+config QT4_SQLITE_PLUGIN
+	bool "plugin "
+	help
+	  Load the driver at runtime
+endchoice
+
+config QT4_SQLITE_SYSTEM
+	bool
+	depends on !QT4_SQLITE_NULL
+	prompt "use system sqlite"
+
+endif # QT4_BUILD_SQL
+
+# make sure this symbol exists even if QT4_BUILD_SQL if disabled
+config QT4_SQLITE_NONE
+	bool
+	default QT4_SQLITE_NULL || !QT4_BUILD_SQL
+
+
+config QT4_BUILD_SCRIPT
+	bool
+	default y
+	prompt "QtScript"
+	help
+	  The QtScript module provides classes for making Qt applications scriptable.
+	  Qt Script is based on the ECMAScript scripting language, as defined in
+	  standard ECMA-262.
+
+config QT4_BUILD_SVG
+	bool
+	default y
+	select QT4_BUILD_XML
+	select QT4_BUILD_GUI
+	prompt "QtSvg"
+	help
+	  The QtSvg module provides classes for displaying the contents of SVG files.
+
+config QT4_BUILD_XML
+	bool
+	prompt "QtXml"
+	help
+	  The QtXml module provides a stream reader and writer for XML documents,
+	  and C++ implementations of SAX and DOM.
+
+config QT4_BUILD_DESIGNERLIBS
+	bool
+	select QT4_BUILD_XML
+	select QT4_BUILD_TOOLS
+	prompt "Qt Designer Libraries"
+	help
+	  This option enables two libraries:
+	  - QtDesigner: Provides classes that allow you to create your own custom widget
+	                plugins for Qt Designer, and classes that enable you to access
+	                Qt Designer's components.
+	  - QtUiTools:  Allows standalone applications dynamically create user interfaces
+	                at run-time using the information stored in .ui files or specified
+	                plugin paths
+
+config QT4_BUILD_ASSISTANTLIB
+	bool
+	select QT4_BUILD_NETWORK
+	select QT4_BUILD_XML
+	select QT4_BUILD_SQL
+	select QT4_BUILD_TOOLS
+	prompt "QtAssistant"
+	help
+	  The QtAssistant module provides a means of launching Qt Assistant to provide
+	  online help.
+
+config QT4_BUILD_QTESTLIB
+	bool
+	prompt "QtTest"
+	help
+	  he QtTest module provides classes for unit testing Qt applications and libraries.
+
+config QT4_BUILD_QTXMLPATTERNS
+	bool
+	select QT4_BUILD_NETWORK
+	prompt "QtXmlPatterns"
+	help
+	  XQuery 1.0 and XPath 2.0 support for Qt
+
+config QT4_BUILD_MULTIMEDIA
+	bool
+	select QT4_BUILD_GUI
+	select QT4_BUILD_NETWORK
+	prompt "Multimedia"
+	help
+	  The Multimedia API provides media playback and playlist support for
+	  Qt Applications. Play music and movies through a single interface
+	  with selectable output for movies to widgets or graphics view.
+
+config QT4_BUILD_PHONON
+	bool
+	select QT4_BUILD_GUI
+	select QT4_GLIB
+	prompt "Phonon"
+	help
+	  Phonon is a cross-platform multimedia framework that enables the use
+	  of audio and video content in Qt applications.
+
+config QT4_BUILD_WEBKIT
+	bool
+	select QT4_BUILD_XML
+	select QT4_BUILD_GUI
+	select QT4_BUILD_NETWORK
+	select QT4_BUILD_SQL
+	select QT4_X11_XRENDER if QT4_PLATFORM_X11
+	prompt "Webkit"
+	help
+	  QtWebKit provides a Web browser engine that makes it easy to embed
+	  content from the World Wide Web into your Qt application. At the
+	  same time Web content can be enhanced with native controls.
+
+config QT4_BUILD_SCRIPTTOOLS
+	bool
+	select QT4_BUILD_GUI
+	select QT4_BUILD_SCRIPT
+	prompt "ScriptTools"
+	help
+	  QtScriptTools provides additional components for applications that
+	  use Qt Script.
+
+config QT4_BUILD_DECLARATIVE
+	bool
+	prompt "Declarative"
+	select QT4_BUILD_GUI
+	select QT4_BUILD_SQL
+	select QT4_BUILD_SCRIPT
+	select QT4_BUILD_NETWORK
+	help
+	  QtDeclarative is a C++ library that provides the underlying engine,
+	  which translates the declarative description of the UI in QML into
+	  items on a QGraphicsScene. The library also provides APIs to bind
+	  custom C++ types and elements to QML, and to connect the QML UI with
+	  the underlying application logic written in C++.
+
+config QT4_INSTALL_QMLVIEWER
+	bool
+	prompt "install qmlviewer"
+	select QT4_BUILD_SQL
+	select QT4_BUILD_TOOLS
+	depends on QT4_BUILD_DECLARATIVE
+
+endmenu
+
+config QT4_BUILD_TOOLS
+	bool
+
+if QT4_PLATFORM_EMBEDDED
+
+menu "Install Fonts               "
+
+	config QT4_FONT_DEJAVU
+		bool
+		prompt "DejaVu"
+
+	config QT4_FONT_UT
+		bool
+		prompt "UT"
+
+	config QT4_FONT_VERA
+		bool
+		prompt "Vera"
+
+	config QT4_FONT_C0
+		bool
+		prompt "c0"
+
+	config QT4_FONT_COUR
+		bool
+		prompt "cour"
+
+	config QT4_FONT_CURSOR
+		bool
+		prompt "cursor"
+
+	config QT4_FONT_FIXED
+		bool
+		prompt "fixed"
+
+	config QT4_FONT_HELVETICA
+		bool
+		prompt "helvetica"
+
+	config QT4_FONT_JAPANESE
+		bool
+		prompt "japanese"
+
+	config QT4_FONT_L04
+		bool
+		prompt "l04"
+
+endmenu
+
+endif
+
+endif
+

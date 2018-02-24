@@ -1,0 +1,80 @@
+#!/bin/sh
+
+export PATH=/env/bin
+
+global hostname
+global user
+global autoboot_timeout
+global boot.default
+global allow_color
+global linux.bootargs.base
+global linux.bootargs.console
+#linux.bootargs.dyn.* will be cleared at the beginning of boot
+global linux.bootargs.dyn.ip
+global linux.bootargs.dyn.root
+global editcmd
+
+[ -z "${global.hostname}" ] && global.hostname=generic
+[ -z "${global.user}" ] && global.user=none
+[ -z "${global.autoboot_timeout}" ] && global.autoboot_timeout=3
+[ -z "${global.boot.default}" ] && global.boot.default=net
+[ -z "${global.allow_color}" ] && global.allow_color=true
+[ -z "${global.editcmd}" ] && global.editcmd=sedit
+
+[ -e /env/config-board ] && /env/config-board
+/env/config
+
+# request password to login if a timeout is specified and password set
+if [ -n ${global.login.timeout} ]; then
+	[ ${global.login.timeout} -gt 0 ] && login_cmd=login
+fi
+# allow the input if not
+[ -n ${global.console.input_allow} ] && global.console.input_allow=1
+
+# allow to stop the boot before execute the /env/init/*
+# but without waiting
+timeout -s -a -v key 0
+
+if [ "${key}" = "q" ]; then
+	${login_cmd}
+	exit
+fi
+
+[ -n ${login_cmd} ] && global.console.input_allow=0
+
+for i in /env/init/*; do
+	. $i
+done
+
+if [ -e /env/menu ]; then
+	echo -e -n "\nHit m for menu or any other key to stop autoboot: "
+else
+	echo -e -n "\nHit any key to stop autoboot: "
+fi
+
+[ -n ${login_cmd} ] && global.console.input_allow=1
+
+timeout -a $global.autoboot_timeout -v key
+autoboot="$?"
+
+[ -n ${login_cmd} ] && global.console.input_allow=0
+
+if [ "${key}" = "q" ]; then
+	${login_cmd}
+	exit
+fi
+
+if [ "$autoboot" = 0 ]; then
+	boot
+fi
+
+if [ -e /env/menu ]; then
+	${login_cmd}
+	if [ "${key}" != "m" ]; then
+		echo -e "\ntype exit to get to the menu"
+		sh
+	fi
+	/env/menu/mainmenu
+fi
+
+${login_cmd}

@@ -1,0 +1,36 @@
+## SECTION=networking
+
+menuconfig TCPWRAPPER
+	tristate
+	prompt "tcpwrapper                    "
+	help
+	  With this package you can monitor and filter incoming requests for the
+	  SYSTAT, FINGER, FTP, TELNET, RLOGIN, RSH, EXEC, TFTP, TALK, and other
+	  network services.
+
+	  The package provides tiny daemon wrapper programs that can be installed
+	  without any changes to existing software or to existing configuration
+	  files.  The wrappers report the name of the client host and of the
+	  requested service; the wrappers do not exchange information with the
+	  client or server applications, and impose no overhead on the actual
+	  conversation between the client and server applications.
+
+if TCPWRAPPER
+
+config	TCPWRAPPER_INSTALL_TCPD
+	bool
+	prompt "Install /usr/sbin/tcpd"
+	help
+	  The tcpd program can be set up to monitor incoming requests for telnet,
+	  finger, ftp, exec, rsh, rlogin, tftp, talk, comsat and other services
+	  that have a one-to-one mapping onto executable files.
+
+config	TCPWRAPPER_INSTALL_HOSTS_ACCESS_CONFIGS
+	bool
+	select TCPWRAPPER_INSTALL_TCPD
+	prompt "Install /etc/hosts.{allow|deny}"
+	help
+	  Install the hosts.allow and hosts.deny configs from either
+	  projectroot or from ptxdist/projectroot.
+
+endif

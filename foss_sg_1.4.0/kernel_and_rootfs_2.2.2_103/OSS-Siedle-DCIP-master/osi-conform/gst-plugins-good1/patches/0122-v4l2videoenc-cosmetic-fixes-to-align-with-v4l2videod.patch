@@ -1,0 +1,127 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 23 Jun 2016 15:40:39 +0200
+Subject: [PATCH] v4l2videoenc: cosmetic fixes to align with v4l2videodec
+
+---
+ sys/v4l2/gstv4l2videoenc.c | 29 ++++++++++++-----------------
+ 1 file changed, 12 insertions(+), 17 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2videoenc.c b/sys/v4l2/gstv4l2videoenc.c
+index e630f45cd7da..ef9ff9b1a7d8 100644
+--- a/sys/v4l2/gstv4l2videoenc.c
++++ b/sys/v4l2/gstv4l2videoenc.c
+@@ -279,7 +279,6 @@ gst_v4l2_video_enc_flush (GstVideoEncoder * encoder)
+     gst_v4l2_object_unlock (self->v4l2output);
+     gst_v4l2_object_unlock (self->v4l2capture);
+     gst_pad_stop_task (encoder->srcpad);
+-
+     GST_VIDEO_ENCODER_STREAM_LOCK (encoder);
+ 
+   }
+@@ -347,16 +346,14 @@ gst_v4l2_video_enc_finish (GstVideoEncoder * encoder)
+ 
+     /* If the encoder stop command succeeded, just wait until processing is
+      * finished */
+-
+     GST_OBJECT_LOCK (task);
+     while (GST_TASK_STATE (task) == GST_TASK_STARTED)
+       GST_TASK_WAIT (task);
+     GST_OBJECT_UNLOCK (task);
+-
+     ret = GST_FLOW_FLUSHING;
+   }
+ 
+-  /* and ensure the processing thead has stopped in case another error
++  /* and ensure the processing thread has stopped in case another error
+    * occured. */
+   gst_v4l2_object_unlock (self->v4l2capture);
+   gst_pad_stop_task (encoder->srcpad);
+@@ -391,8 +388,7 @@ gst_v4l2_video_enc_get_oldest_frame (GstVideoEncoder * encoder)
+ 
+   if (frame) {
+     GST_LOG_OBJECT (encoder,
+-        "Oldest frame is %d %" GST_TIME_FORMAT
+-        " and %d frames left",
++        "Oldest frame is %d %" GST_TIME_FORMAT " and %d frames left",
+         frame->system_frame_number, GST_TIME_ARGS (frame->pts), count - 1);
+     gst_video_codec_frame_ref (frame);
+   }
+@@ -406,6 +402,7 @@ static GstFlowReturn
+ gst_v4l2_video_enc_push_frame (GstVideoEncoder * encoder)
+ {
+   GstV4l2VideoEnc *self = GST_V4L2_VIDEO_ENC (encoder);
++  GstV4l2BufferPool *v4l2_pool = GST_V4L2_BUFFER_POOL (self->v4l2capture->pool);
+   GstVideoCodecFrame *frame;
+   GstBuffer *buffer = NULL;
+   GstFlowReturn ret;
+@@ -423,9 +420,7 @@ gst_v4l2_video_enc_push_frame (GstVideoEncoder * encoder)
+   /* FIXME Check if buffer isn't the last one here */
+ 
+   GST_LOG_OBJECT (encoder, "Process output buffer");
+-  ret =
+-      gst_v4l2_buffer_pool_process (GST_V4L2_BUFFER_POOL
+-      (self->v4l2capture->pool), &buffer);
++  ret = gst_v4l2_buffer_pool_process (v4l2_pool, &buffer);
+ 
+   if (ret != GST_FLOW_OK)
+     goto beach;
+@@ -439,7 +434,6 @@ gst_v4l2_video_enc_push_frame (GstVideoEncoder * encoder)
+ 
+     if (ret != GST_FLOW_OK)
+       goto beach;
+-
+   } else {
+     GST_WARNING_OBJECT (encoder, "Encoder is producing too many buffers");
+     gst_buffer_unref (buffer);
+@@ -501,8 +495,7 @@ gst_v4l2_video_enc_handle_frame (GstVideoEncoder * encoder,
+     if (!self->input_state)
+       goto not_negotiated;
+     if (!gst_v4l2_object_set_format (self->v4l2output, self->input_state->caps,
+-        &error))
+-      gst_v4l2_error(self, &error);
++          &error))
+       goto not_negotiated;
+   }
+ 
+@@ -607,6 +600,7 @@ not_negotiated:
+   {
+     GST_ERROR_OBJECT (self, "not negotiated");
+     ret = GST_FLOW_NOT_NEGOTIATED;
++    gst_v4l2_error (self, &error);
+     goto drop;
+   }
+ activate_failed:
+@@ -614,8 +608,8 @@ activate_failed:
+     GST_ELEMENT_ERROR (self, RESOURCE, SETTINGS,
+         (_("Failed to allocate required memory.")),
+         ("Buffer pool activation failed"));
+-    return GST_FLOW_ERROR;
+-
++    ret = GST_FLOW_ERROR;
++    goto drop;
+   }
+ flushing:
+   {
+@@ -656,9 +650,8 @@ gst_v4l2_video_enc_decide_allocation (GstVideoEncoder *
+   self->v4l2capture->info.size = MAX_CODEC_FRAME;
+ 
+   if (gst_v4l2_object_decide_allocation (self->v4l2capture, query))
+-    ret =
+-        GST_VIDEO_ENCODER_CLASS
+-        (parent_class)->decide_allocation (encoder, query);
++    ret = GST_VIDEO_ENCODER_CLASS (parent_class)->decide_allocation (encoder,
++        query);
+   latency =
+       self->v4l2capture->min_buffers_for_capture * self->v4l2capture->duration;
+   gst_video_encoder_set_latency (encoder, latency, latency);
+@@ -764,8 +757,10 @@ gst_v4l2_video_enc_sink_event (GstVideoEncoder * encoder, GstEvent * event)
+ 
+   switch (GST_EVENT_TYPE (event)) {
+     case GST_EVENT_FLUSH_START:
++      /* The processing thread should stop now, wait for it */
+       gst_pad_stop_task (encoder->srcpad);
+       GST_DEBUG_OBJECT (self, "flush start done");
++      break;
+     default:
+       break;
+   }

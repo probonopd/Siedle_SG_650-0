@@ -1,0 +1,31 @@
+## SECTION=shell_and_console
+
+menuconfig BZIP2
+	tristate
+	prompt "bzip2                         "
+	help
+	  bzip2 is a freely available, patent free, high-quality data
+	  compressor. The code is organised as a library with a
+	  programming interface. The bzip2 program itself is a client
+	  of the library.
+
+if BZIP2
+
+config BZIP2_BZIP2
+	bool
+	select BZIP2_LIBBZ2
+	depends on !BUSYBOX_BZIP2 || ALLYES
+	prompt "install bzip2 binary"
+
+comment "BusyBox' bzip2 is selected!"
+	depends on BUSYBOX_BZIP2
+
+config BZIP2_BZIP2RECOVER
+	bool
+	prompt "install bzip2recover binary"
+
+config BZIP2_LIBBZ2
+	bool
+	prompt "install libbz2 library"
+
+endif

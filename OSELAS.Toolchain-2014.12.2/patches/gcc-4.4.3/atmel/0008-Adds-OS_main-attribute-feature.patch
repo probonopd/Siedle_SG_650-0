@@ -1,0 +1,78 @@
+From 453085e747e76605743415e3cb671f4eb3fd3f70 Mon Sep 17 00:00:00 2001
+From: Stephan Linz <linz@li-pro.net>
+Date: Wed, 20 Apr 2011 22:40:10 +0200
+Subject: [PATCH 08/10] Adds OS_main attribute feature
+
+Not yet complete committed patch written by Anatoly Sokolov.
+
+Original ATMEL patch from:
+http://distribute.atmel.no/tools/opensource/avr-gcc/gcc-4.4.3/60-gcc-4.4.3-osmain.patch
+
+Signed-off-by: Stephan Linz <linz@li-pro.net>
+---
+ gcc/config/avr/avr.c |    8 +++++---
+ gcc/function.c       |    8 ++++++++
+ gcc/rtl.h            |    1 +
+ 3 files changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/gcc/config/avr/avr.c b/gcc/config/avr/avr.c
+index 422fad9..0175fae 100644
+--- a/gcc/config/avr/avr.c
++++ b/gcc/config/avr/avr.c
+@@ -1032,7 +1032,8 @@ expand_prologue (void)
+ 		}
+ 	      else if ((!AVR_XMEGA && TARGET_NO_INTERRUPTS)
+ 		       || (!AVR_XMEGA && cfun->machine->is_signal)
+-		       || (!AVR_XMEGA && cfun->machine->is_OS_main))
++		       || (!AVR_XMEGA && cfun->machine->is_OS_main)
++		       || (AVR_XMEGA && cfun->machine->is_nmi))
+ 		{
+ 		  insn = 
+ 		    emit_insn (gen_movhi_sp_r_irq_off (stack_pointer_rtx, 
+@@ -1205,9 +1206,10 @@ expand_epilogue (void)
+ 		  emit_move_insn (stack_pointer_rtx, frame_pointer_rtx);
+ 		}
+ 	      else if ((!AVR_XMEGA && TARGET_NO_INTERRUPTS)
+-		       || (!AVR_XMEGA && cfun->machine->is_signal))
++		       || (!AVR_XMEGA && cfun->machine->is_signal)
++		       || (AVR_XMEGA && cfun->machine->is_nmi))
+ 		{
+-		  emit_insn (gen_movhi_sp_r_irq_off (stack_pointer_rtx, 
++		  emit_insn (gen_movhi_sp_r_irq_off (stack_pointer_rtx,
+ 						     frame_pointer_rtx));
+ 		}
+ 	      else if (!AVR_XMEGA && cfun->machine->is_interrupt)
+diff --git a/gcc/function.c b/gcc/function.c
+index d582fea..9c71ae0 100644
+--- a/gcc/function.c
++++ b/gcc/function.c
+@@ -4936,6 +4936,14 @@ contains (const_rtx insn, VEC(int,heap) **vec)
+ }
+ 
+ int
++prologue_contains (const_rtx insn)
++{
++  if (contains (insn, &prologue))
++    return 1;
++  return 0;
++}
++
++int
+ prologue_epilogue_contains (const_rtx insn)
+ {
+   if (contains (insn, &prologue))
+diff --git a/gcc/rtl.h b/gcc/rtl.h
+index 838146b..38bcc13 100644
+--- a/gcc/rtl.h
++++ b/gcc/rtl.h
+@@ -2181,6 +2181,7 @@ extern void print_inline_rtx (FILE *, const_rtx, int);
+ 
+ /* In function.c */
+ extern void reposition_prologue_and_epilogue_notes (void);
++extern int prologue_contains (const_rtx);
+ extern int prologue_epilogue_contains (const_rtx);
+ extern int sibcall_epilogue_contains (const_rtx);
+ extern void mark_temp_addr_taken (rtx);
+-- 
+1.6.0.4
+

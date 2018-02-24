@@ -1,0 +1,11 @@
+## SECTION=multimedia_xorg_font_speedo
+
+config XORG_FONT_BITSTREAM_SPEEDO
+	bool
+	select XORG_FONTS
+	depends on XORG_FONT_SPEEDO
+	prompt "Bitstream speedo"
+	help
+	  This package contains the Speedo version of Bitstream
+	  Courier and Charter. Speedo fonts are vectorbased
+	  and can hence be used in need of big font size.

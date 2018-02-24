@@ -1,0 +1,39 @@
+From: Michael Olbrich <m.olbrich@pengutronix.de>
+Date: Mon, 10 Jun 2013 09:11:36 +0200
+Subject: [PATCH] HACK: disable some docs to avoid using makeinfo
+
+Patching Makefile.in because running automake fails.
+
+Signed-off-by: Michael Olbrich <m.olbrich@pengutronix.de>
+---
+ bfd/Makefile.in | 1 -
+ gas/Makefile.in | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/bfd/Makefile.in b/bfd/Makefile.in
+index 696b628..f779d38 100644
+--- a/bfd/Makefile.in
++++ b/bfd/Makefile.in
+@@ -320,7 +320,6 @@ ACLOCAL_AMFLAGS = -I . -I .. -I ../config
+ # RELEASE=y
+ INCDIR = $(srcdir)/../include
+ CSEARCH = -I. -I$(srcdir) -I$(INCDIR)
+-SUBDIRS = doc po
+ bfddocdir = doc
+ libbfd_la_LDFLAGS = $(am__append_1) -release `cat libtool-soversion` \
+ 	@SHARED_LDFLAGS@ $(am__empty)
+diff --git a/gas/Makefile.in b/gas/Makefile.in
+index 0b11739..cd3de73 100644
+--- a/gas/Makefile.in
++++ b/gas/Makefile.in
+@@ -278,7 +278,6 @@ top_builddir = @top_builddir@
+ top_srcdir = @top_srcdir@
+ AUTOMAKE_OPTIONS = 1.11 dejagnu foreign no-dist
+ ACLOCAL_AMFLAGS = -I .. -I ../config -I ../bfd
+-SUBDIRS = doc po
+ tooldir = $(exec_prefix)/$(target_alias)
+ 
+ # Automake 1.10+ disables lex and yacc output file regeneration if
+-- 
+1.8.2.rc2
+

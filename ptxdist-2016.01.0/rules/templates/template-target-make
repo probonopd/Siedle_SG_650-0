@@ -1,0 +1,101 @@
+# -*-makefile-*-
+#
+# Copyright (C) @YEAR@ by @AUTHOR@
+#
+# See CREDITS for details about who has contributed to this project.
+#
+# For further information about the PTXdist project and license conditions
+# see the README file.
+#
+
+#
+# We provide this package
+#
+PACKAGES-$(PTXCONF_@PACKAGE@) += @package@
+
+#
+# Paths and names
+#
+@PACKAGE@_VERSION	:= @VERSION@
+@PACKAGE@_MD5		:=
+@PACKAGE@		:= @package_filename@-$(@PACKAGE@_VERSION)
+@PACKAGE@_SUFFIX	:= @SUFFIX@
+@PACKAGE@_URL		:= @URL@/$(@PACKAGE@).$(@PACKAGE@_SUFFIX)
+@PACKAGE@_SOURCE	:= $(SRCDIR)/$(@PACKAGE@).$(@PACKAGE@_SUFFIX)
+@PACKAGE@_DIR		:= $(BUILDDIR)/$(@PACKAGE@)
+@PACKAGE@_LICENSE	:= unknown
+
+# ----------------------------------------------------------------------------
+# Get
+# ----------------------------------------------------------------------------
+
+#$(@PACKAGE@_SOURCE):
+#	@$(call targetinfo)
+#	@$(call get, @PACKAGE@)
+
+# ----------------------------------------------------------------------------
+# Prepare
+# ----------------------------------------------------------------------------
+
+#@PACKAGE@_CONF_ENV	:= $(CROSS_ENV)
+
+#
+# autoconf
+#
+@PACKAGE@_CONF_TOOL	:= autoconf
+#@PACKAGE@_CONF_OPT	:= $(CROSS_AUTOCONF_USR)
+
+#$(STATEDIR)/@package@.prepare:
+#	@$(call targetinfo)
+#	@$(call clean, $(@PACKAGE@_DIR)/config.cache)
+#	cd $(@PACKAGE@_DIR) && \
+#		$(@PACKAGE@_PATH) $(@PACKAGE@_ENV) \
+#		./configure $(@PACKAGE@_CONF_OPT)
+#	@$(call touch)
+
+# ----------------------------------------------------------------------------
+# Compile
+# ----------------------------------------------------------------------------
+
+#$(STATEDIR)/@package@.compile:
+#	@$(call targetinfo)
+#	@$(call world/compile, @PACKAGE@)
+#	@$(call touch)
+
+# ----------------------------------------------------------------------------
+# Install
+# ----------------------------------------------------------------------------
+
+#$(STATEDIR)/@package@.install:
+#	@$(call targetinfo)
+#	@$(call world/install, @PACKAGE@)
+#	@$(call touch)
+
+# ----------------------------------------------------------------------------
+# Target-Install
+# ----------------------------------------------------------------------------
+
+$(STATEDIR)/@package@.targetinstall:
+	@$(call targetinfo)
+
+	@$(call install_init, @package@)
+	@$(call install_fixup, @package@,PRIORITY,optional)
+	@$(call install_fixup, @package@,SECTION,base)
+	@$(call install_fixup, @package@,AUTHOR,"@AUTHOR@")
+	@$(call install_fixup, @package@,DESCRIPTION,missing)
+
+	@$(call install_copy, @package@, 0, 0, 0755, $(@PACKAGE@_DIR)/foobar, /dev/null)
+
+	@$(call install_finish, @package@)
+
+	@$(call touch)
+
+# ----------------------------------------------------------------------------
+# Clean
+# ----------------------------------------------------------------------------
+
+#$(STATEDIR)/@package@.clean:
+#	@$(call targetinfo)
+#	@$(call clean_pkg, @PACKAGE@)
+
+# vim: syntax=make

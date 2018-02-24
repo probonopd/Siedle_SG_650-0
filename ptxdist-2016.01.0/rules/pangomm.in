@@ -1,0 +1,10 @@
+## SECTION=multimedia_gtk
+
+config PANGOMM
+	tristate
+	select PANGO
+	select GLIBMM
+	select CAIROMM
+	prompt "pangomm"
+	help
+	  c++ bindings for pango

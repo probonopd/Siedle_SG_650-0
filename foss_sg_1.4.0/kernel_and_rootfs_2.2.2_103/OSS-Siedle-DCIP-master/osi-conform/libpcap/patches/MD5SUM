@@ -1,0 +1,4 @@
+4763d731365025adb834f23d7fc45994  0001-build-and-install-share-lib-only.patch
+c0a4b516300a978b24ddeb508dd275ee  0002-pcap-config-add-SYSROOT-support.patch
+c401a3a7be8b8fa6041639a1da299dc7  0003-configure.in-allow-specifying-path-for-libnl3.patch
+dc224918c6ffaf4e19a21def90a3580c  series

@@ -1,0 +1,52 @@
+From: Enrico Jorns <ejo@pengutronix.de>
+Date: Mon, 12 Jan 2015 13:06:34 +0100
+Subject: [PATCH] v4l2: Auto-detect dmabuf export for V4L2_IO_AUTO on capture
+ side
+
+---
+ sys/v4l2/gstv4l2object.c | 25 +++++++++++++++++++++++--
+ 1 file changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index 93cda9d3466f..e0e620b6571f 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -36,6 +36,7 @@
+ #include <gudev/gudev.h>
+ #endif
+ 
++#include "ext/videodev2.h"
+ #include "v4l2_calls.h"
+ #include "gstv4l2tuner.h"
+ #include "gstv4l2colorbalance.h"
+@@ -2774,8 +2775,28 @@ gst_v4l2_object_setup_pool (GstV4l2Object * v4l2object, GstCaps * caps)
+     goto method_not_supported;
+ 
+   if (v4l2object->vcap.capabilities & V4L2_CAP_STREAMING) {
+-    if (v4l2object->req_mode == GST_V4L2_IO_AUTO)
+-      mode = GST_V4L2_IO_MMAP;
++    /* XXX only for capture-site? */
++    if (v4l2object->req_mode == GST_V4L2_IO_AUTO) {
++      if (V4L2_TYPE_IS_OUTPUT (v4l2object->type)) {
++        mode = GST_V4L2_IO_MMAP;
++      } else {
++        struct v4l2_exportbuffer expbuf = { 0 };
++
++        expbuf.type = v4l2object->type;
++        expbuf.index = -1;
++        expbuf.plane = -1;
++        expbuf.flags = O_CLOEXEC | O_RDWR;
++
++        v4l2_ioctl (v4l2object->video_fd, VIDIOC_EXPBUF, &expbuf);
++
++        if (errno == EINVAL) {
++          mode = GST_V4L2_IO_DMABUF;
++        } else {
++          mode = GST_V4L2_IO_MMAP;
++        }
++      }
++
++    }
+   } else if (v4l2object->req_mode == GST_V4L2_IO_MMAP)
+     goto method_not_supported;
+ 

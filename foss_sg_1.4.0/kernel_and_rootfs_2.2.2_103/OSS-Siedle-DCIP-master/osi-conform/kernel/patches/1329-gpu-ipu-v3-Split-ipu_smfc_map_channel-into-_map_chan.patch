@@ -1,0 +1,70 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 4 Aug 2014 17:25:28 +0200
+Subject: [PATCH] gpu: ipu-v3: Split ipu_smfc_map_channel into _map_channel and
+ _set_csi.
+
+Allow to set CSI and MIPI virtual channel separately.
+This allows to handle CSI -> SMFC linking via the media entity interface.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-prv.h  |  1 +
+ drivers/gpu/ipu-v3/ipu-smfc.c | 27 +++++++++++++++++++++++++--
+ 2 files changed, 26 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-prv.h b/drivers/gpu/ipu-v3/ipu-prv.h
+index 931acf68dfb5..85388198d1a7 100644
+--- a/drivers/gpu/ipu-v3/ipu-prv.h
++++ b/drivers/gpu/ipu-v3/ipu-prv.h
+@@ -429,5 +429,6 @@ void ipu_cpmem_exit(struct ipu_soc *ipu);
+ 
+ int ipu_smfc_init(struct ipu_soc *ipu, struct device *dev, unsigned long base);
+ void ipu_smfc_exit(struct ipu_soc *ipu);
++int ipu_smfc_set_csi(struct ipu_soc *ipu, int chno, int csi_id);
+ 
+ #endif				/* __IPU_PRV_H__ */
+diff --git a/drivers/gpu/ipu-v3/ipu-smfc.c b/drivers/gpu/ipu-v3/ipu-smfc.c
+index 4ef910991413..6ac126ac11d4 100644
+--- a/drivers/gpu/ipu-v3/ipu-smfc.c
++++ b/drivers/gpu/ipu-v3/ipu-smfc.c
+@@ -59,6 +59,29 @@ int ipu_smfc_set_burstsize(struct ipu_smfc *smfc, int burstsize)
+ }
+ EXPORT_SYMBOL_GPL(ipu_smfc_set_burstsize);
+ 
++int ipu_smfc_set_csi(struct ipu_soc *ipu, int chno, int csi_id)
++{
++	struct ipu_smfc_priv *priv = ipu->smfc_priv;
++	unsigned long flags;
++	u32 val, shift;
++
++	spin_lock_irqsave(&priv->lock, flags);
++	if (priv->channel[chno].inuse) {
++		spin_unlock_irqrestore(&priv->lock, flags);
++		return -EBUSY;
++	}
++
++	shift = chno * 3;
++	val = readl(priv->base + SMFC_MAP);
++	val &= ~(0x4 << shift);
++	val |= (csi_id << 2) << shift;
++	writel(val, priv->base + SMFC_MAP);
++
++	spin_unlock_irqrestore(&priv->lock, flags);
++
++	return 0;
++}
++
+ int ipu_smfc_map_channel(struct ipu_smfc *smfc, int csi_id, int mipi_id)
+ {
+ 	struct ipu_smfc_priv *priv = smfc->priv;
+@@ -69,8 +92,8 @@ int ipu_smfc_map_channel(struct ipu_smfc *smfc, int csi_id, int mipi_id)
+ 
+ 	shift = smfc->chno * 3;
+ 	val = readl(priv->base + SMFC_MAP);
+-	val &= ~(0x7 << shift);
+-	val |= ((csi_id << 2) | mipi_id) << shift;
++	val &= ~(0x3 << shift);
++	val |= mipi_id << shift;
+ 	writel(val, priv->base + SMFC_MAP);
+ 
+ 	spin_unlock_irqrestore(&priv->lock, flags);

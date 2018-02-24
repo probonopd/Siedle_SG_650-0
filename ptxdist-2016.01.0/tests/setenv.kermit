@@ -1,0 +1,114 @@
+
+define setenv_uboot_v1 {
+	run \%1/make_uboot_env \%2
+	ptx_check_fail "Could not generate new environment"
+
+	ptx_test_start "Setting new environment"
+
+	# Open the file with the new environment
+	open read \%2
+	ptx_check_fail "Could not open \%2."
+
+	clear input
+	ptx_lineout "printenv"
+
+	declare \&c[1000]
+	# array with entries to skip
+	declare \&s = ethaddr stdin stdout stderr baudrate
+	.\%i = 0
+
+	while true {
+		# wait for newline or u-boot-prompt
+		minput 5 {\10} \m(uboot_prompt)
+		ptx_check_fail "Did not get old environment"
+		# quit on u-boot-prompt
+		if = \v(minput) 2 break
+		# Remove all CR, they just cause trouble
+		assign input \freplace(\v(input),\13,,)
+		# if no '=' then continue
+		if not match \m(input) *=* goto out
+		# extract part before '=' (from \m(input) the first word, allow '_-')
+		assign envvar \fword(\m(input),1,,_-)
+		# skip special keywords
+		if not = \farraylook(^\m(envvar)$,&s) -1 goto out
+		# put setenv-command into array
+		assign \&c[\%i] setenv \m(envvar)
+		incr \%i
+	:out
+		clear input
+	}
+
+	# clear old vars
+	for \%j 0 \%i-1 1 {
+		ptx_uboot_exec 5 "\&c[\%j]"
+	}
+
+	# set new ones from file
+	while true {
+		read \%l
+		if fail break
+		ptx_uboot_exec 5 "\%l"
+	}
+
+	close read
+
+	ptx_uboot_exec 5 "printenv"
+	ptx_uboot_exec 30 "saveenv"
+
+	ptx_test_end
+}
+
+define setenv_uboot_v2 {
+	if eq \m(uboot_prompt) "barebox:" { 
+		run \%1/make_barebox_env \%2
+	} else {
+		run \%1/make_uboot_v2_env \%2
+	}
+
+	ptx_check_fail "Could not generate new environment"
+	.imagename := \fbasename(\%2)
+
+	ptx_test_start "Setting initial environment"
+	ptx_uboot_exec 3 "eth0.ipaddr=\m(PTXCONF_BOARDSETUP_TARGETIP)"
+	ptx_uboot_exec 3 "eth0.serverip=\m(PTXCONF_BOARDSETUP_SERVERIP)"
+	ptx_uboot_exec 3 "eth0.gateway=\m(PTXCONF_BOARDSETUP_GATEWAY)"
+	ptx_uboot_exec 3 "eth0.netmask=\m(PTXCONF_BOARDSETUP_NETMASK)"
+	ptx_test_end
+
+	ptx_test_start "Getting default environment"
+	ptx_uboot_exec 15 "ping $eth0.serverip"
+	# in current versions of barebox tftp returns the filesize it has
+	# fetched. The return value will eventually intepreted as failure by
+	# ptx_uboot_exec. We call an empty echo to set $? to 0 if the return
+	# value of tftp is not 1 to work around this. (tftp returns 1 if it
+	# can't get the file. An successfully fetched image will mostly
+	# impossibly have the size 1) 
+	ptx_uboot_exec 15 "tftp \m(imagename); [ $? -ne 1 ] && echo"
+	ptx_test_end
+
+	ptx_test_start "Flashing default environment"
+	ptx_uboot_exec 3  "unprotect /dev/env0"
+	ptx_uboot_exec 10 "erase /dev/env0"
+	ptx_uboot_exec 20 "cp \m(imagename) /dev/env0"
+	ptx_test_end
+
+	ptx_uboot_exec_single "Reloading new environment" 10 "loadenv"
+
+	ptx_test_start "Restoring MAC address"
+	ptx_uboot_exec 5 "echo -a /env/config eth0.ethaddr=$eth0.ethaddr"
+	ptx_uboot_exec 10 "saveenv"
+	ptx_uboot_exec 3  "protect /dev/env0"
+	ptx_test_end
+}
+
+# Read the library
+take \%1/libptxdisttest.kermit
+
+# Set up the line
+ptx_init \%2
+
+ptx_uboot_enter_shell
+
+setenv_uboot_v\m(uboot_version) \%1 \%3
+
+ptx_exit

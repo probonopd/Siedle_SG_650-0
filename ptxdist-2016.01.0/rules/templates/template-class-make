@@ -1,0 +1,81 @@
+# -*-makefile-*-
+#
+# Copyright (C) @YEAR@ by @AUTHOR@
+#
+# See CREDITS for details about who has contributed to this project.
+#
+# For further information about the PTXdist project and license conditions
+# see the README file.
+#
+
+#
+# We provide this package
+#
+@CLASS@PACKAGES-$(PTXCONF_@CLASS@@PACKAGE@) += @class@@package@
+
+#
+# Paths and names
+#
+@CLASS@@PACKAGE@_VERSION	:= @VERSION@
+@CLASS@@PACKAGE@_MD5	:=
+@CLASS@@PACKAGE@		:= @package_filename@-$(@CLASS@@PACKAGE@_VERSION)
+@CLASS@@PACKAGE@_SUFFIX	:= @SUFFIX@
+@CLASS@@PACKAGE@_URL	:= @URL@/$(@CLASS@@PACKAGE@).$(@CLASS@@PACKAGE@_SUFFIX)
+@CLASS@@PACKAGE@_SOURCE	:= $(SRCDIR)/$(@CLASS@@PACKAGE@).$(@CLASS@@PACKAGE@_SUFFIX)
+@CLASS@@PACKAGE@_DIR	:= $(@CLASS@BUILDDIR)/$(@CLASS@@PACKAGE@)
+
+# ----------------------------------------------------------------------------
+# Get
+# ----------------------------------------------------------------------------
+
+#$(@CLASS@@PACKAGE@_SOURCE):
+#	@$(call targetinfo)
+#	@$(call get, @CLASS@@PACKAGE@)
+
+# ----------------------------------------------------------------------------
+# Prepare
+# ----------------------------------------------------------------------------
+
+#@CLASS@@PACKAGE@_CONF_ENV	:= $(@AUTOCONF_CLASS@ENV)
+
+#
+# autoconf
+#
+@CLASS@@PACKAGE@_CONF_TOOL	:= autoconf
+#@CLASS@@PACKAGE@_CONF_OPT	:= $(@AUTOCONF_CLASS@AUTOCONF)
+
+#$(STATEDIR)/@class@@package@.prepare:
+#	@$(call targetinfo)
+#	@$(call clean, $(@CLASS@@PACKAGE@_DIR)/config.cache)
+#	cd $(@CLASS@@PACKAGE@_DIR) && \
+#		$(@CLASS@@PACKAGE@_PATH) $(@CLASS@@PACKAGE@_ENV) \
+#		./configure $(@CLASS@@PACKAGE@_CONF_OPT)
+#	@$(call touch)
+
+# ----------------------------------------------------------------------------
+# Compile
+# ----------------------------------------------------------------------------
+
+#$(STATEDIR)/@class@@package@.compile:
+#	@$(call targetinfo)
+#	@$(call world/compile, @CLASS@@PACKAGE@)
+#	@$(call touch)
+
+# ----------------------------------------------------------------------------
+# Install
+# ----------------------------------------------------------------------------
+
+#$(STATEDIR)/@class@@package@.install:
+#	@$(call targetinfo)
+#	@$(call world/install, @CLASS@@PACKAGE@)
+#	@$(call touch)
+
+# ----------------------------------------------------------------------------
+# Clean
+# ----------------------------------------------------------------------------
+
+#$(STATEDIR)/@class@@package@.clean:
+#	@$(call targetinfo)
+#	@$(call clean_pkg, @CLASS@@PACKAGE@)
+
+# vim: syntax=make

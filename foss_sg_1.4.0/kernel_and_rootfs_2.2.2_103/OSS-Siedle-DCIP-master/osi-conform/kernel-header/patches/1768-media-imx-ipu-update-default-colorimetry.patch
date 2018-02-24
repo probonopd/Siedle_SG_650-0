@@ -1,0 +1,47 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 4 Mar 2016 16:53:09 +0100
+Subject: [PATCH] [media] imx-ipu: update default colorimetry
+
+Set default colorimetry as expected by GStreamer.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipu.c | 25 ++++++++++++++++++++++++-
+ 1 file changed, 24 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipu.c b/drivers/media/platform/imx/imx-ipu.c
+index 0d8f3d312aa7..06070c1eef2c 100644
+--- a/drivers/media/platform/imx/imx-ipu.c
++++ b/drivers/media/platform/imx/imx-ipu.c
+@@ -138,7 +138,30 @@ int ipu_try_fmt(struct file *file, void *fh,
+ 	else if (fmt->fourcc == V4L2_PIX_FMT_YUV422P ||
+ 		 fmt->fourcc == V4L2_PIX_FMT_NV16)
+ 		f->fmt.pix.sizeimage *= 2;
+-	f->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
++
++	switch (f->fmt.pix.pixelformat) {
++	case V4L2_PIX_FMT_YUV420:
++	case V4L2_PIX_FMT_YVU420:
++	case V4L2_PIX_FMT_YUV422P:
++	case V4L2_PIX_FMT_NV12:
++	case V4L2_PIX_FMT_NV16:
++	case V4L2_PIX_FMT_UYVY:
++	case V4L2_PIX_FMT_YUYV:
++		if (f->fmt.pix.width <= 720 && f->fmt.pix.height <= 576)
++			f->fmt.pix.colorspace = V4L2_COLORSPACE_SMPTE170M;
++		else
++			f->fmt.pix.colorspace = V4L2_COLORSPACE_REC709;
++		break;
++	case V4L2_PIX_FMT_RGB32:
++	case V4L2_PIX_FMT_RGB24:
++	case V4L2_PIX_FMT_BGR24:
++	case V4L2_PIX_FMT_RGB565:
++	case V4L2_PIX_FMT_BGR32:
++		f->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
++		break;
++	default:
++		return -EINVAL;
++	}
+ 
+ 	return 0;
+ }

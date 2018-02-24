@@ -1,0 +1,100 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 30 Oct 2013 11:18:41 +0100
+Subject: [PATCH] ARM: dts: pbab01: Add EDT ETM0700G0DH6 LVDS panel with FT5x06
+ touchscreen
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ arch/arm/boot/dts/imx6qdl-phytec-pbab01.dtsi | 54 ++++++++++++++++++++++++++++
+ 1 file changed, 54 insertions(+)
+
+diff --git a/arch/arm/boot/dts/imx6qdl-phytec-pbab01.dtsi b/arch/arm/boot/dts/imx6qdl-phytec-pbab01.dtsi
+index 54de9f2ac6bb..ef4910bd8140 100644
+--- a/arch/arm/boot/dts/imx6qdl-phytec-pbab01.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-phytec-pbab01.dtsi
+@@ -10,6 +10,7 @@
+  */
+ 
+ #include <dt-bindings/sound/fsl-imx-audmux.h>
++#include <dt-bindings/gpio/gpio.h>
+ 
+ / {
+ 	chosen {
+@@ -88,6 +89,18 @@
+ 		};
+ 	};
+ 
++	panel: lvds-panel {
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_panel>;
++		compatible = "edt,etm0700g0dh6", "simple-panel";
++		enable-gpios = <&gpio1 8 GPIO_ACTIVE_LOW>;
++
++		port {
++			panel_in: endpoint {
++				remote-endpoint = <&lvds0_out>;
++			};
++		};
++	};
+ };
+ 
+ &audmux {
+@@ -140,6 +153,15 @@
+ 		DVDD-supply = <&sound_1v8>;
+ 	};
+ 
++	touchscreen@38 {
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_ts>;
++		compatible = "edt,edt-ft5x06";
++		reg = <0x38>;
++		interrupt-parent = <&gpio7>;
++		interrupts = <12 2>; /* DI0_PIN4, falling edge */
++	};
++
+ 	stmpe@41 {
+ 		compatible = "st,stmpe811";
+ 		reg = <0x41>;
+@@ -168,6 +190,24 @@
+ 	status = "okay";
+ };
+ 
++&ldb {
++	status = "okay";
++
++	lvds-channel@0 {
++		status = "okay";
++		fsl,data-mapping = "spwg";
++		fsl,data-width = <18>;
++
++		lvds0: port@4 {
++			reg = <4>;
++
++			lvds0_out: endpoint {
++				remote-endpoint = <&panel_in>;
++			};
++		};
++	};
++};
++
+ &uart3 {
+ 	status = "okay";
+ };
+@@ -191,3 +231,17 @@
+ &usdhc3 {
+ 	status = "okay";
+ };
++
++&iomuxc {
++	pinctrl_panel: panelgrp {
++		fsl,pins = <
++			MX6QDL_PAD_GPIO_8__GPIO1_IO08		0x80000000
++		>;
++	};
++
++	pinctrl_ts: tsgrp {
++		fsl,pins = <
++			MX6QDL_PAD_GPIO_17__GPIO7_IO12		0x80000000
++		>;
++	};
++};

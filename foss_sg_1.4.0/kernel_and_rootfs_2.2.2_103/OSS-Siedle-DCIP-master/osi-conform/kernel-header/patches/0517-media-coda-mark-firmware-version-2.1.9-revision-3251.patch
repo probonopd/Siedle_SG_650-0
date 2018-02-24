@@ -1,0 +1,22 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 22 Jan 2015 17:01:53 +0100
+Subject: [PATCH] [media] coda: mark firmware version 2.1.9 (revision 32515) as
+ supported
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-bit.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index e3cc28397046..3de20494b12c 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -697,6 +697,7 @@ static u32 coda_supported_firmwares[] = {
+ 	CODA_FIRMWARE_VERNUM(CODA_DX6, 2, 2, 5),
+ 	CODA_FIRMWARE_VERNUM(CODA_7541, 1, 4, 50),
+ 	CODA_FIRMWARE_VERNUM(CODA_960, 2, 1, 5),
++	CODA_FIRMWARE_VERNUM(CODA_960, 2, 1, 9),
+ };
+ 
+ static bool coda_firmware_supported(u32 vernum)

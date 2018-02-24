@@ -1,0 +1,97 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 10 Feb 2015 13:46:19 +0100
+Subject: [PATCH] v4l2: implement min_buffers for output devices
+
+Query V4L2_CID_MIN_BUFFERS_FOR_OUTPUT/CAPTURE in setup_pool instead
+of in propose/decide_allocation.
+---
+ sys/v4l2/gstv4l2object.c   | 25 ++++++++++++++++---------
+ sys/v4l2/gstv4l2object.h   |  3 ---
+ sys/v4l2/gstv4l2videoenc.c |  3 +--
+ 3 files changed, 17 insertions(+), 14 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index 1dfda9c3adaf..30435c999a1e 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -2770,6 +2770,7 @@ error:
+ static gboolean
+ gst_v4l2_object_setup_pool (GstV4l2Object * v4l2object, GstCaps * caps)
+ {
++  struct v4l2_control ctl = { 0, };
+   GstV4l2IOMode mode;
+ 
+   GST_DEBUG_OBJECT (v4l2object->element, "initializing the %s system",
+@@ -2778,6 +2779,19 @@ gst_v4l2_object_setup_pool (GstV4l2Object * v4l2object, GstCaps * caps)
+   GST_V4L2_CHECK_OPEN (v4l2object);
+   GST_V4L2_CHECK_NOT_ACTIVE (v4l2object);
+ 
++  /* Certain drivers may expose a minimum through controls */
++  if (V4L2_TYPE_IS_OUTPUT (v4l2object->type))
++    ctl.id = V4L2_CID_MIN_BUFFERS_FOR_OUTPUT;
++  else
++    ctl.id = V4L2_CID_MIN_BUFFERS_FOR_CAPTURE;
++  if (v4l2_ioctl (v4l2object->video_fd, VIDIOC_G_CTRL, &ctl) >= 0) {
++    GST_DEBUG_OBJECT (v4l2object->element,
++        "driver requires a minimum of %d buffers", ctl.value);
++    v4l2object->min_buffers = ctl.value;
++  } else {
++    v4l2object->min_buffers = 0;
++  }
++
+   /* find transport */
+   mode = v4l2object->req_mode;
+ 
+@@ -4181,7 +4195,6 @@ gst_v4l2_object_propose_allocation (GstV4l2Object * obj, GstQuery * query)
+   guint size, min, max;
+   GstCaps *caps;
+   gboolean need_pool;
+-  struct v4l2_control ctl = { 0, };
+ 
+   /* Set defaults allocation parameters */
+   size = obj->info.size;
+@@ -4217,14 +4230,8 @@ gst_v4l2_object_propose_allocation (GstV4l2Object * obj, GstQuery * query)
+ 
+   min = MAX (obj->min_buffers, GST_V4L2_MIN_BUFFERS);
+ 
+-  /* Some devices may expose a minimum */
+-  ctl.id = V4L2_CID_MIN_BUFFERS_FOR_OUTPUT;
+-  if (v4l2_ioctl (obj->video_fd, VIDIOC_G_CTRL, &ctl) >= 0) {
+-    GST_DEBUG_OBJECT (obj->element, "driver require a miminum of %d buffers",
+-        ctl.value);
+-
+-    min = MAX (ctl.value, GST_V4L2_MIN_BUFFERS);
+-  }
++  if (obj->min_buffers)
++    min = MAX (obj->min_buffers, GST_V4L2_MIN_BUFFERS);
+ 
+   gst_query_add_allocation_pool (query, pool, size, min, max);
+ 
+diff --git a/sys/v4l2/gstv4l2object.h b/sys/v4l2/gstv4l2object.h
+index 5ac9e3576480..911bb140749f 100644
+--- a/sys/v4l2/gstv4l2object.h
++++ b/sys/v4l2/gstv4l2object.h
+@@ -122,9 +122,6 @@ struct _GstV4l2Object {
+    * calculate the minimum latency. */
+   guint32 min_buffers;
+ 
+-  /* This will be set if supported in propose allocation. */
+-  guint32 min_buffers_for_output;
+-
+   /* wanted mode */
+   GstV4l2IOMode req_mode;
+ 
+diff --git a/sys/v4l2/gstv4l2videoenc.c b/sys/v4l2/gstv4l2videoenc.c
+index e2d583c67614..da92cf93193c 100644
+--- a/sys/v4l2/gstv4l2videoenc.c
++++ b/sys/v4l2/gstv4l2videoenc.c
+@@ -655,8 +655,7 @@ gst_v4l2_video_enc_decide_allocation (GstVideoEncoder *
+   if (gst_v4l2_object_decide_allocation (self->v4l2capture, query))
+     ret = GST_VIDEO_ENCODER_CLASS (parent_class)->decide_allocation (encoder,
+         query);
+-  latency =
+-      self->v4l2capture->min_buffers_for_capture * self->v4l2capture->duration;
++  latency = self->v4l2capture->min_buffers * self->v4l2capture->duration;
+   gst_video_encoder_set_latency (encoder, latency, latency);
+   return ret;
+ }

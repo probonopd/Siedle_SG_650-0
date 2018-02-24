@@ -1,0 +1,44 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 27 Nov 2014 09:37:13 +0100
+Subject: [PATCH] gpu: ipu-v3: Add support for BT.1120 SDR modes
+
+In BT.1120 clock mode, YUYV8_1X16 and UYVY8_1X16 formats are handled
+just as YUYV8_2X8 and UYVY8_2X8 internally.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-csi.c | 21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-csi.c b/drivers/gpu/ipu-v3/ipu-csi.c
+index 86f11aaa041d..ea821538f196 100644
+--- a/drivers/gpu/ipu-v3/ipu-csi.c
++++ b/drivers/gpu/ipu-v3/ipu-csi.c
+@@ -350,10 +350,23 @@ static void fill_csi_bus_cfg(struct ipu_csi_bus_config *csicfg,
+ 		break;
+ 	case V4L2_MBUS_BT656:
+ 		csicfg->ext_vsync = 0;
+-		if (V4L2_FIELD_HAS_BOTH(mbus_fmt->field))
+-			csicfg->clk_mode = IPU_CSI_CLK_MODE_CCIR656_INTERLACED;
+-		else
+-			csicfg->clk_mode = IPU_CSI_CLK_MODE_CCIR656_PROGRESSIVE;
++		switch (mbus_fmt->code) {
++		case MEDIA_BUS_FMT_UYVY8_2X8:
++		case MEDIA_BUS_FMT_YUYV8_2X8:
++			if (V4L2_FIELD_HAS_BOTH(mbus_fmt->field))
++				csicfg->clk_mode = IPU_CSI_CLK_MODE_CCIR656_INTERLACED;
++			else
++				csicfg->clk_mode = IPU_CSI_CLK_MODE_CCIR656_PROGRESSIVE;
++			break;
++		case MEDIA_BUS_FMT_UYVY8_1X16:
++		case MEDIA_BUS_FMT_YUYV8_1X16:
++			if (V4L2_FIELD_HAS_BOTH(mbus_fmt->field))
++				csicfg->clk_mode = IPU_CSI_CLK_MODE_CCIR1120_INTERLACED_SDR;
++			else
++				csicfg->clk_mode = IPU_CSI_CLK_MODE_CCIR1120_PROGRESSIVE_SDR;
++			csicfg->data_width = IPU_CSI_DATA_WIDTH_8;
++			break;
++		}
+ 		break;
+ 	case V4L2_MBUS_CSI2:
+ 		/*

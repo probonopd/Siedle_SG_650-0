@@ -1,0 +1,7 @@
+## SECTION=core
+
+config GLOBAL_LARGE_FILE
+	bool
+	select BUSYBOX_LFS if BUSYBOX
+	default y
+

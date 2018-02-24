@@ -1,0 +1,28 @@
+---
+ Makefile.defs |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+Index: b/Makefile.defs
+===================================================================
+--- a/Makefile.defs
++++ b/Makefile.defs
+@@ -1287,8 +1287,8 @@
+ 						-Wa,-mimplicit-it=thumb \
+ 						-fno-strict-aliasing \
+ 						$(PROFILE)
+-			#if gcc 4.5 or 4.2+
+-ifeq (,$(strip $(filter-out 4.2+ 4.5,$(CC_SHORTVER))))
++			#if gcc 4.5+ or 4.2+
++ifeq (,$(strip $(filter-out 4.2+ 4.5+,$(CC_SHORTVER))))
+ 					CFLAGS+= -ftree-vectorize -fno-strict-overflow
+ else
+ 			#if gcc 4.x+
+@@ -1318,7 +1318,7 @@
+ endif			# CC_SHORTVER, 3.0
+ endif			# CC_SHORTVER, 3.4
+ endif			# CC_SHORTVER, 4.x
+-endif			# CC_SHORTVER, 4.5 or 4.2+
++endif			# CC_SHORTVER, 4.5+ or 4.2+
+ 	
+ else		# CC_NAME, gcc
+ 				#other compilers

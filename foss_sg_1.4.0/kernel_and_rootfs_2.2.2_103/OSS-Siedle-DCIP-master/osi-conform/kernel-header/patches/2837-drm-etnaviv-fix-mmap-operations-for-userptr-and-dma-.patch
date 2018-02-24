@@ -1,0 +1,92 @@
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Wed, 27 Apr 2016 12:27:02 +0200
+Subject: [PATCH] drm/etnaviv: fix mmap operations for userptr and dma-buf
+ objects
+
+Add an indirect object operations call to allow distinct implementations
+of the mmap operation based on the type of the object.
+
+This ensures that the exporter is called to set up the mmap for imported
+dma-bufs and disallows mapping of userptr objects through the DRM file,
+as this might lead to serious corruption of kernel internal state.
+
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ drivers/gpu/drm/etnaviv/etnaviv_gem.c       | 10 +++++++++-
+ drivers/gpu/drm/etnaviv/etnaviv_gem.h       |  1 +
+ drivers/gpu/drm/etnaviv/etnaviv_gem_prime.c |  7 +++++++
+ 3 files changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/etnaviv/etnaviv_gem.c b/drivers/gpu/drm/etnaviv/etnaviv_gem.c
+index 1af58eeb7dbb..ad0c25da7fb3 100644
+--- a/drivers/gpu/drm/etnaviv/etnaviv_gem.c
++++ b/drivers/gpu/drm/etnaviv/etnaviv_gem.c
+@@ -172,7 +172,7 @@ int etnaviv_gem_mmap(struct file *filp, struct vm_area_struct *vma)
+ 	}
+ 
+ 	obj = to_etnaviv_bo(vma->vm_private_data);
+-	return etnaviv_gem_mmap_obj(obj, vma);
++	return obj->ops->mmap(obj, vma);
+ }
+ 
+ int etnaviv_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+@@ -544,6 +544,7 @@ static const struct etnaviv_gem_ops etnaviv_gem_shmem_ops = {
+ 	.get_pages = etnaviv_gem_shmem_get_pages,
+ 	.release = etnaviv_gem_shmem_release,
+ 	.vmap = etnaviv_gem_vmap_impl,
++	.mmap = etnaviv_gem_mmap_obj,
+ };
+ 
+ void etnaviv_gem_free_object(struct drm_gem_object *obj)
+@@ -885,10 +886,17 @@ static void etnaviv_gem_userptr_release(struct etnaviv_gem_object *etnaviv_obj)
+ 	put_task_struct(etnaviv_obj->userptr.task);
+ }
+ 
++static int etnaviv_gem_userptr_mmap_obj(struct etnaviv_gem_object *etnaviv_obj,
++		struct vm_area_struct *vma)
++{
++	return -EINVAL;
++}
++
+ static const struct etnaviv_gem_ops etnaviv_gem_userptr_ops = {
+ 	.get_pages = etnaviv_gem_userptr_get_pages,
+ 	.release = etnaviv_gem_userptr_release,
+ 	.vmap = etnaviv_gem_vmap_impl,
++	.mmap = etnaviv_gem_userptr_mmap_obj,
+ };
+ 
+ int etnaviv_gem_new_userptr(struct drm_device *dev, struct drm_file *file,
+diff --git a/drivers/gpu/drm/etnaviv/etnaviv_gem.h b/drivers/gpu/drm/etnaviv/etnaviv_gem.h
+index 02665d8c10ee..e63ff116a3b3 100644
+--- a/drivers/gpu/drm/etnaviv/etnaviv_gem.h
++++ b/drivers/gpu/drm/etnaviv/etnaviv_gem.h
+@@ -79,6 +79,7 @@ struct etnaviv_gem_ops {
+ 	int (*get_pages)(struct etnaviv_gem_object *);
+ 	void (*release)(struct etnaviv_gem_object *);
+ 	void *(*vmap)(struct etnaviv_gem_object *);
++	int (*mmap)(struct etnaviv_gem_object *, struct vm_area_struct *);
+ };
+ 
+ static inline bool is_active(struct etnaviv_gem_object *etnaviv_obj)
+diff --git a/drivers/gpu/drm/etnaviv/etnaviv_gem_prime.c b/drivers/gpu/drm/etnaviv/etnaviv_gem_prime.c
+index 4e67395f5fa1..b93618c1aa69 100644
+--- a/drivers/gpu/drm/etnaviv/etnaviv_gem_prime.c
++++ b/drivers/gpu/drm/etnaviv/etnaviv_gem_prime.c
+@@ -84,10 +84,17 @@ static void *etnaviv_gem_prime_vmap_impl(struct etnaviv_gem_object *etnaviv_obj)
+ 	return dma_buf_vmap(etnaviv_obj->base.import_attach->dmabuf);
+ }
+ 
++static int etnaviv_gem_prime_mmap_obj(struct etnaviv_gem_object *etnaviv_obj,
++		struct vm_area_struct *vma)
++{
++	return dma_buf_mmap(etnaviv_obj->base.dma_buf, vma, 0);
++}
++
+ static const struct etnaviv_gem_ops etnaviv_gem_prime_ops = {
+ 	/* .get_pages should never be called */
+ 	.release = etnaviv_gem_prime_release,
+ 	.vmap = etnaviv_gem_prime_vmap_impl,
++	.mmap = etnaviv_gem_prime_mmap_obj,
+ };
+ 
+ struct drm_gem_object *etnaviv_gem_prime_import_sg_table(struct drm_device *dev,

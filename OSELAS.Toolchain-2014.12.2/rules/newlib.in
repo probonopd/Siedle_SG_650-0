@@ -1,0 +1,34 @@
+menuconfig NEWLIB
+	bool
+
+	select TOOLCHAIN_DISABLE_SYSROOT
+	select TOOLCHAIN_ENABLE_MULTILIB
+
+	select CROSS_GCC_FIRST
+	select CROSS_GCC_DISABLE_CXA_ATEXIT
+	select CROSS_GCC_ENABLE_SJLJ_EXCEPTIONS
+	select CROSS_GCC_DISABLE_LIBSSP
+	select CROSS_GCC_DISABLE_SHARED
+	select CROSS_GCC_THREADS_SINGLE
+
+	prompt "newlib                      "
+	help
+	  Newlib is a C library intended for use on embedded
+	  systems. It is a conglomeration of several library parts,
+	  all under free software licenses that make them easily
+	  usable on embedded products.
+
+if NEWLIB
+
+config NEWLIB_VERSION
+	string
+	prompt "newlib version"
+	default "1.16.0"
+	help
+	  Specify the newlib version here.
+
+config NEWLIB_MD5
+	string
+	prompt "newlib source md5sum"
+
+endif

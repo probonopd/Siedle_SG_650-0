@@ -1,0 +1,24 @@
+*.class
+
+# Package Files #
+*.jar
+*.war
+*.ear
+
+ari4java/*
+build/*
+dist/*
+nbproject/*
+libs/*
+
+manifest.mf
+build.xml
+
+/.settings
+/.classpath
+/.project
+/.gradle
+
+# macbook
+.DS_Store
+

@@ -1,0 +1,34 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 26 Nov 2014 14:01:41 +0100
+Subject: [PATCH] drm/imx: handle imx_drm_find_crtc being called with NULL
+ parameter
+
+imx_drc_find_crtc is called from imx_drm_panel_format_pins or
+imx_drm_encoder_get_mux_id, which are exported API functions.
+Calling these with an encoder that doesn't have an associated
+crtc causes a NULL pointer dereference without this patch.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/drm/imx/imx-drm-core.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/imx/imx-drm-core.c b/drivers/gpu/drm/imx/imx-drm-core.c
+index 5e7fa2ee7ef4..a4a77a0a41a9 100644
+--- a/drivers/gpu/drm/imx/imx-drm-core.c
++++ b/drivers/gpu/drm/imx/imx-drm-core.c
+@@ -93,9 +93,13 @@ static int imx_drm_driver_unload(struct drm_device *drm)
+ 
+ static struct imx_drm_crtc *imx_drm_find_crtc(struct drm_crtc *crtc)
+ {
+-	struct imx_drm_device *imxdrm = crtc->dev->dev_private;
++	struct imx_drm_device *imxdrm;
+ 	unsigned i;
+ 
++	if (!crtc)
++		return NULL;
++
++	imxdrm = crtc->dev->dev_private;
+ 	for (i = 0; i < MAX_CRTC; i++)
+ 		if (imxdrm->crtc[i] && imxdrm->crtc[i]->crtc == crtc)
+ 			return imxdrm->crtc[i];

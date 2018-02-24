@@ -1,0 +1,56 @@
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Thu, 18 Feb 2016 18:11:46 +0100
+Subject: [PATCH] drm/imx: also wait on fences on initial modeset
+
+Otherwise we may see a frame of unitialized memory, if the GPU
+has not yet finished its rendering.
+
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ drivers/gpu/drm/imx/ipuv3-crtc.c | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/drivers/gpu/drm/imx/ipuv3-crtc.c b/drivers/gpu/drm/imx/ipuv3-crtc.c
+index 3ec424f283bc..a60afb24b833 100644
+--- a/drivers/gpu/drm/imx/ipuv3-crtc.c
++++ b/drivers/gpu/drm/imx/ipuv3-crtc.c
+@@ -240,6 +240,7 @@ static int ipu_crtc_mode_set(struct drm_crtc *crtc,
+ 			       int x, int y,
+ 			       struct drm_framebuffer *old_fb)
+ {
++	struct drm_gem_cma_object *cma_obj = drm_fb_cma_get_gem_obj(crtc->primary->fb, 0);
+ 	struct drm_device *dev = crtc->dev;
+ 	struct drm_encoder *encoder;
+ 	struct ipu_crtc *ipu_crtc = to_ipu_crtc(crtc);
+@@ -298,6 +299,31 @@ static int ipu_crtc_mode_set(struct drm_crtc *crtc,
+ 		return ret;
+ 	}
+ 
++	/* wait for any outstanding fences on the FB */
++	if (cma_obj->base.dma_buf) {
++		struct fence *excl, **shared;
++		unsigned int shared_count, i;
++
++		ret = reservation_object_get_fences_rcu(
++				cma_obj->base.dma_buf->resv, &excl,
++				&shared_count, &shared);
++
++		if (unlikely(ret)) {
++			DRM_ERROR("failed to get fences for buffer\n");
++			return ret;
++		}
++
++		if (excl) {
++			fence_wait(excl, false);
++			fence_put(excl);
++		}
++		for (i = 0; i < shared_count; i++) {
++			fence_wait(shared[i], false);
++			fence_put(shared[i]);
++		}
++
++	}
++
+ 	return ipu_plane_mode_set(ipu_crtc->plane[0], crtc, mode,
+ 				  crtc->primary->fb,
+ 				  0, 0, mode->hdisplay, mode->vdisplay,

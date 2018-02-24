@@ -1,0 +1,30 @@
+## SECTION=debug_tools_gdb
+
+menuconfig GDB
+	tristate
+	prompt "gdb (the real one)            "
+	select LIBC_M
+	select LIBC_DL
+	select GCCLIBS_GCC_S
+	select NCURSES
+	help
+	  The GNU Debugger
+
+	  GDB is a source-level debugger, capable of breaking programs
+	  at any specific line, displaying variable values, and
+	  determining where errors occurred. Currently, it works for
+	  C, C++, Fortran, Modula 2 and Java programs. A must-have for
+	  any serious programmer.
+
+if GDB
+
+config GDB_SHARED
+	bool "build shared"
+	default y
+	select LIBC_M
+	help
+	  If not set, the build option
+	  LDFLAGS=-static will be activated.
+
+endif
+

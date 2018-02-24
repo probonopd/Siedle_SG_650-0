@@ -1,0 +1,8 @@
+## SECTION=editors
+config HEXEDIT
+	tristate
+	select GCCLIBS_GCC_S
+	select NCURSES
+	prompt "hexedit"
+	help
+	  hexedit - view and edit files in hexadecimal or in ASCII

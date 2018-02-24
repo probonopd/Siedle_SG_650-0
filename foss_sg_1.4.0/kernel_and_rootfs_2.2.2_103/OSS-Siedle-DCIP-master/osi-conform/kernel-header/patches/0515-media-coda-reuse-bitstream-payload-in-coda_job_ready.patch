@@ -1,0 +1,49 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 6 Jul 2015 16:17:48 +0200
+Subject: [PATCH] [media] coda: reuse bitstream payload in coda_job_ready in
+ preparation for coda_not_ready trace event
+
+The coda_get_bitstream_payload() function is called multiple times in
+coda_job_ready. Assign it to a local variable and reuse it.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-common.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index 5ae25293dcaf..ad63b2aa198c 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -1041,6 +1041,7 @@ static int coda_job_ready(void *m2m_priv)
+ 		int num_metas = ctx->num_metas;
+ 		struct coda_buffer_meta *meta;
+ 		unsigned int meta_size;
++		unsigned int payload = coda_get_bitstream_payload(ctx);
+ 
+ 		if (ctx->hold && !src_bufs) {
+ 			v4l2_dbg(1, coda_debug, &ctx->dev->v4l2_dev,
+@@ -1062,19 +1063,18 @@ static int coda_job_ready(void *m2m_priv)
+ 			meta_size = meta->end - meta->start;
+ 		else
+ 			meta_size = ctx->bitstream.size - meta->start + meta->end;
+-		if (!stream_end && coda_get_bitstream_payload(ctx) < meta_size + 512) {
++		if (!stream_end && payload < meta_size + 512) {
+ 			v4l2_dbg(1, coda_debug, &ctx->dev->v4l2_dev,
+ 				 "%d: not ready: need 3*256 bytes beyond first buffer in bitstream (%d %d)\n",
+-				 ctx->idx, meta_size,
+-				 coda_get_bitstream_payload(ctx));
++				 ctx->idx, meta_size, payload);
+ 			return 0;
+ 		}
+ 
+ 		if (!src_bufs && !stream_end &&
+-		    (coda_get_bitstream_payload(ctx) < 512)) {
++		    (payload < 512)) {
+ 			v4l2_dbg(1, coda_debug, &ctx->dev->v4l2_dev,
+ 				 "%d: not ready: not enough bitstream data (%d).\n",
+-				 ctx->idx, coda_get_bitstream_payload(ctx));
++				 ctx->idx, payload);
+ 			return 0;
+ 		}
+ 	}

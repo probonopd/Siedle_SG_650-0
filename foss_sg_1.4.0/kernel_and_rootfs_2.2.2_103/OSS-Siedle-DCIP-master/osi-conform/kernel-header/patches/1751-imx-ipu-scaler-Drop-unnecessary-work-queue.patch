@@ -1,0 +1,156 @@
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Date: Fri, 15 Jan 2016 12:49:19 +0100
+Subject: [PATCH] imx-ipu-scaler: Drop unnecessary work queue
+
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipu-scaler.c | 89 ++++++-----------------------
+ 1 file changed, 17 insertions(+), 72 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipu-scaler.c b/drivers/media/platform/imx/imx-ipu-scaler.c
+index 20524596a1b1..135b24eb8058 100644
+--- a/drivers/media/platform/imx/imx-ipu-scaler.c
++++ b/drivers/media/platform/imx/imx-ipu-scaler.c
+@@ -79,9 +79,6 @@ struct ipu_scale_ctx {
+ 
+ 	struct v4l2_fh		fh;
+ 	struct ipu_scale_q_data	q_data[2];
+-	struct work_struct	work;
+-	struct completion	completion;
+-	struct work_struct	skip_run;
+ 	int			error;
+ 	int			aborting;
+ 	enum ipu_image_scale_ctrl ctrl;
+@@ -135,50 +132,35 @@ static void job_abort(void *priv)
+ 
+ static void ipu_complete(void *priv, int err)
+ {
+-	struct ipu_scale_dev *ipu_scaler = priv;
+-	struct ipu_scale_ctx *curr_ctx;
++	struct ipu_scale_ctx *ctx = priv;
++	struct ipu_scale_dev *ipu_scaler = ctx->ipu_scaler;
++	struct vb2_v4l2_buffer *src_buf, *dst_buf;
++	unsigned long flags;
+ 
+-	curr_ctx = v4l2_m2m_get_curr_priv(ipu_scaler->m2m_dev);
++	src_buf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
++	dst_buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
+ 
+-	if (NULL == curr_ctx) {
+-		dev_dbg(ipu_scaler->dev,
+-			"Instance released before the end of transaction\n");
+-		return;
+-	}
++	dst_buf->timestamp = src_buf->timestamp;
++	dst_buf->timecode = src_buf->timecode;
+ 
+-	curr_ctx->error = err;
+-	complete(&curr_ctx->completion);
++	spin_lock_irqsave(&ipu_scaler->irqlock, flags);
++	v4l2_m2m_buf_done(src_buf, err ? VB2_BUF_STATE_ERROR :
++					 VB2_BUF_STATE_DONE);
++	v4l2_m2m_buf_done(dst_buf, err ? VB2_BUF_STATE_ERROR :
++					 VB2_BUF_STATE_DONE);
++	spin_unlock_irqrestore(&ipu_scaler->irqlock, flags);
++
++	v4l2_m2m_job_finish(ipu_scaler->m2m_dev, ctx->fh.m2m_ctx);
+ }
+ 
+ static void device_run(void *priv)
+ {
+ 	struct ipu_scale_ctx *ctx = priv;
+-
+-	schedule_work(&ctx->work);
+-}
+-
+-static void ipu_scaler_work(struct work_struct *work)
+-{
+-	struct ipu_scale_ctx *ctx = container_of(work, struct ipu_scale_ctx,
+-						 work);
+ 	struct ipu_scale_dev *ipu_scaler = ctx->ipu_scaler;
+ 	struct vb2_v4l2_buffer *src_buf, *dst_buf;
+ 	struct ipu_scale_q_data *q_data;
+ 	struct v4l2_pix_format *pix;
+ 	struct ipu_image in, out;
+-	int err = -ETIMEDOUT;
+-	unsigned long flags;
+-
+-	/*
+-	 * If streamoff dequeued all buffers before we could get the lock,
+-	 * just bail out immediately.
+-	 */
+-	if (!v4l2_m2m_num_src_bufs_ready(ctx->fh.m2m_ctx) ||
+-		!v4l2_m2m_num_dst_bufs_ready(ctx->fh.m2m_ctx)) {
+-		WARN_ON(1);
+-		schedule_work(&ctx->skip_run);
+-		return;
+-	}
+ 
+ 	src_buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
+ 	dst_buf = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
+@@ -211,37 +193,12 @@ static void ipu_scaler_work(struct work_struct *work)
+ 						     &ctx->num_tiles);
+ 		if (IS_ERR(ctx->icc)) {
+ 			ctx->icc = NULL;
+-			schedule_work(&ctx->skip_run);
+ 			return;
+ 		}
+ 	}
+ 
+ 	ipu_image_convert_run(ipu_scaler->ipu, &in, &out, ctx->icc,
+-			      ctx->num_tiles, ipu_complete, ipu_scaler, false);
+-
+-	if (!wait_for_completion_timeout(&ctx->completion,
+-					 msecs_to_jiffies(300))) {
+-		dev_err(ipu_scaler->dev,
+-			"Timeout waiting for scaling result\n");
+-		err = -ETIMEDOUT;
+-	} else {
+-		err = ctx->error;
+-	}
+-
+-	src_buf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
+-	dst_buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
+-
+-	dst_buf->timestamp = src_buf->timestamp;
+-	dst_buf->timecode = src_buf->timecode;
+-
+-	spin_lock_irqsave(&ipu_scaler->irqlock, flags);
+-	v4l2_m2m_buf_done(src_buf, err ? VB2_BUF_STATE_ERROR :
+-					 VB2_BUF_STATE_DONE);
+-	v4l2_m2m_buf_done(dst_buf, err ? VB2_BUF_STATE_ERROR :
+-					 VB2_BUF_STATE_DONE);
+-	spin_unlock_irqrestore(&ipu_scaler->irqlock, flags);
+-
+-	v4l2_m2m_job_finish(ipu_scaler->m2m_dev, ctx->fh.m2m_ctx);
++			      ctx->num_tiles, ipu_complete, ctx, false);
+ }
+ 
+ /*
+@@ -461,15 +418,6 @@ static const struct v4l2_ioctl_ops ipu_scale_ioctl_ops = {
+ 	.vidioc_enum_framesizes = vidioc_enum_framesizes,
+ };
+ 
+-static void ipu_scale_skip_run(struct work_struct *work)
+-{
+-	struct ipu_scale_ctx *ctx = container_of(work, struct ipu_scale_ctx,
+-						 skip_run);
+-
+-	v4l2_m2m_job_finish(ctx->ipu_scaler->m2m_dev, ctx->fh.m2m_ctx);
+-}
+-
+-
+ /*
+  * Queue operations
+  */
+@@ -669,9 +617,6 @@ static int ipu_scale_open(struct file *file)
+ 	if (!ctx)
+ 		return -ENOMEM;
+ 
+-	INIT_WORK(&ctx->skip_run, ipu_scale_skip_run);
+-	INIT_WORK(&ctx->work, ipu_scaler_work);
+-	init_completion(&ctx->completion);
+ 	v4l2_fh_init(&ctx->fh, video_devdata(file));
+ 	file->private_data = &ctx->fh;
+ 	v4l2_fh_add(&ctx->fh);

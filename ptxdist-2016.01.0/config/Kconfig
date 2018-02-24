@@ -1,0 +1,13 @@
+#
+# config/Kconfig: Main menu structure definition
+# Copyright (C) 2002-2006, 2009 by Robert Schwebel <r.schwebel@pengutronix.de>
+#
+
+mainmenu "PTXdist $CONFIGFILE_VERSION"
+
+source "generated/project_specific.in"
+source "generated/fixme.in"
+
+source "generated/project_name.in"
+
+source "rules/Kconfig"

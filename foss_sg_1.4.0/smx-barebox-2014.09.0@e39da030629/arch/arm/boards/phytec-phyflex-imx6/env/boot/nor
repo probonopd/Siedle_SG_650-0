@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# Kernel and oftree are defined by the boot spec
+# we just have to define the root filesystem entry
+
+if [ ! -e /mnt/nor ]; then
+	echo "Error: no rescue system in NOR flash accessible"
+	exit 1
+fi
+
+# remaining tasks are done by the automounter and the boot command
+boot /mnt/nor
+
+# FIXME what has to be done if we reach this point?

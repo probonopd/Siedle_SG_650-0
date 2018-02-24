@@ -1,0 +1,31 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 13 Jun 2016 18:52:30 +0200
+Subject: [PATCH] gst_video_encoder_set_output_state transfers caps ownership,
+ don't touch them afterwards
+
+---
+ sys/v4l2/gstv4l2videoenc.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2videoenc.c b/sys/v4l2/gstv4l2videoenc.c
+index 66e512da1a10..993720c61b6d 100644
+--- a/sys/v4l2/gstv4l2videoenc.c
++++ b/sys/v4l2/gstv4l2videoenc.c
+@@ -481,7 +481,7 @@ gst_v4l2_video_enc_handle_frame (GstVideoEncoder * encoder,
+         self->input_state);
+ 
+     /* Get output width and height information from input state */
+-    structure = gst_caps_get_structure (outcaps, 0);
++    structure = gst_caps_get_structure (output_state->caps, 0);
+     gst_structure_set (structure, "width", G_TYPE_INT, output_state->info.width,
+         NULL);
+     gst_structure_set (structure, "height", G_TYPE_INT,
+@@ -489,8 +489,6 @@ gst_v4l2_video_enc_handle_frame (GstVideoEncoder * encoder,
+ 
+     gst_v4l2_object_set_format (self->v4l2capture, output_state->caps, &error);
+ 
+-    gst_caps_unref (outcaps);
+-
+     if (!gst_buffer_pool_is_active (pool)) {
+       guint min, max;
+       GstStructure *config = gst_buffer_pool_get_config (pool);

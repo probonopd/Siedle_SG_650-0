@@ -1,0 +1,28 @@
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Tue, 12 Jan 2016 14:54:55 +0100
+Subject: [PATCH] ARM: dts: imx6: remove bogus interrupt-parent from CAAM node
+
+The interrupt-parent property is not needed as it is inherited from
+the parent bus and in the case of the CAAM node actively points to
+the wrong interrupt controller (GIC instead of GPC). This leads to
+the CAAM IRQs not getting unmasked at the GPC level, leaving them
+unable to wake the CPU from wait mode, potentially impacting
+performance of the CAAM unit when CPUidle is enabled.
+
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ arch/arm/boot/dts/imx6qdl.dtsi | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/imx6qdl.dtsi b/arch/arm/boot/dts/imx6qdl.dtsi
+index 977f836a9266..356485702624 100644
+--- a/arch/arm/boot/dts/imx6qdl.dtsi
++++ b/arch/arm/boot/dts/imx6qdl.dtsi
+@@ -876,7 +876,6 @@
+ 				#size-cells = <1>;
+ 				reg = <0x2100000 0x10000>;
+ 				ranges = <0 0x2100000 0x10000>;
+-				interrupt-parent = <&intc>;
+ 				clocks = <&clks IMX6QDL_CLK_CAAM_MEM>,
+ 					 <&clks IMX6QDL_CLK_CAAM_ACLK>,
+ 					 <&clks IMX6QDL_CLK_CAAM_IPG>,

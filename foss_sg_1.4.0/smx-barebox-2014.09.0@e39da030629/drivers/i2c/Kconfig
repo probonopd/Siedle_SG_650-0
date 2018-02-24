@@ -1,0 +1,9 @@
+menuconfig I2C
+	bool "I2C drivers"
+
+if I2C
+
+source drivers/i2c/algos/Kconfig
+source drivers/i2c/busses/Kconfig
+
+endif

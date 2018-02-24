@@ -1,0 +1,48 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 17 Feb 2015 11:29:38 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: stop pipeline in start_streaming in
+ case of error
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 5ff6812cb75d..88e8171735f6 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -910,7 +910,7 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 	ret = local_ipu_csi_init_interface(ipucsi, width, height);
+ 	if (ret) {
+ 		dev_err(dev, "Failed to initialize CSI\n");
+-		goto free_irq;
++		goto stop_pipe;
+ 	}
+ 
+ 	ipu_idmac_set_double_buffer(ipucsi->ipuch, 1);
+@@ -918,7 +918,7 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 	if (list_empty(&ipucsi->capture)) {
+ 		dev_err(dev, "No capture buffers\n");
+ 		ret = -ENOMEM;
+-		goto free_irq;
++		goto stop_pipe;
+ 	}
+ 
+ 	ipucsi->active = NULL;
+@@ -948,13 +948,13 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 	ret = v4l2_media_subdev_prepare_stream(&ipucsi->subdev.entity);
+ 	if (ret) {
+ 		dev_err(dev, "Failed to prepare streaming\n");
+-		goto free_irq;
++		goto stop_pipe;
+ 	}
+ 
+ 	ret = v4l2_media_subdev_s_stream(&ipucsi->subdev.entity, 1);
+ 	if (ret) {
+ 		dev_err(dev, "Failed to start streaming\n");
+-		goto free_irq;
++		goto stop_pipe;
+ 	}
+ 
+ 	return 0;

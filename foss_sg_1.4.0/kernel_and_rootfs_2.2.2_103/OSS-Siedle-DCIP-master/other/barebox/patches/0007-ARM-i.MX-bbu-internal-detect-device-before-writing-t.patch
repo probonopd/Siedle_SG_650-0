@@ -1,0 +1,23 @@
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Date: Fri, 26 Jul 2013 12:41:55 +0200
+Subject: [PATCH] ARM: i.MX: bbu-internal: detect device before writing to it
+
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+---
+ arch/arm/mach-imx/imx-bbu-internal.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/arm/mach-imx/imx-bbu-internal.c b/arch/arm/mach-imx/imx-bbu-internal.c
+index ac90c53bb70a..821ce660f5ab 100644
+--- a/arch/arm/mach-imx/imx-bbu-internal.c
++++ b/arch/arm/mach-imx/imx-bbu-internal.c
+@@ -132,6 +132,9 @@ static int imx_bbu_check_prereq(struct bbu_data *data)
+ 	if (ret)
+ 		return ret;
+ 
++	if (!strncmp(data->devicefile, "/dev/", 5))
++		device_detect_by_name(data->devicefile + 5);
++
+ 	return 0;
+ }
+ 

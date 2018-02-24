@@ -1,0 +1,21 @@
+# config for w32api-headers
+
+menuconfig W32API
+	bool
+	select CROSS_GCC_FIRST
+	prompt "w32api                      "
+
+if W32API
+
+config W32API_VERSION
+	string
+	prompt "w32api version"
+	default "3.12"
+	help
+	  Specify the w32api version here.
+
+config W32API_MD5
+	string
+	prompt "w32api source md5sum"
+
+endif

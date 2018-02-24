@@ -1,0 +1,44 @@
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Date: Thu, 5 Nov 2015 15:46:17 +0100
+Subject: [PATCH] imx-ipu-vdic: Use current context as private pointer
+
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipu-vdic.c | 14 +++-----------
+ 1 file changed, 3 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipu-vdic.c b/drivers/media/platform/imx/imx-ipu-vdic.c
+index 3b4582e3a2f8..20d6eec0f916 100644
+--- a/drivers/media/platform/imx/imx-ipu-vdic.c
++++ b/drivers/media/platform/imx/imx-ipu-vdic.c
+@@ -107,19 +107,11 @@ static void job_abort(void *priv)
+ 
+ static void ipu_complete(void *priv, int err)
+ {
+-	struct ipu_vdic_dev *ipu_vdic = priv;
+-	struct ipu_vdic_ctx *ctx;
++	struct ipu_vdic_ctx *ctx = priv;
++	struct ipu_vdic_dev *ipu_vdic = ctx->ipu_vdic;
+ 	struct vb2_v4l2_buffer *dst_vb;
+ 	unsigned long flags;
+ 
+-	ctx = v4l2_m2m_get_curr_priv(ipu_vdic->m2m_dev);
+-
+-	if (!ctx) {
+-		dev_dbg(ipu_vdic->dev,
+-			"Instance released before the end of transaction\n");
+-		return;
+-	}
+-
+ 	spin_lock_irqsave(&ipu_vdic->irqlock, flags);
+ 
+ 	if (ctx->in_p != ctx->in)
+@@ -212,7 +204,7 @@ static void device_run(void *priv)
+ 
+ 	ipu_image_deinterlace_convert(ipu_vdic->ipu, &image_in[0], &image_in[1],
+ 				      &image_in[2], &image_out, ipu_complete,
+-				      ipu_vdic);
++				      ctx);
+ }
+ 
+ /*

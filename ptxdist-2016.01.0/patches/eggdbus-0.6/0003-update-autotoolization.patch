@@ -1,0 +1,124 @@
+From: Michael Olbrich <m.olbrich@pengutronix.de>
+Date: Sat, 29 Oct 2011 19:14:59 +0200
+Subject: [PATCH] update autotoolization
+
+This patch updates the autotool-infrastructure for recent tools.
+
+Signed-off-by: Michael Olbrich <m.olbrich@pengutronix.de>
+---
+ Makefile.am              |    2 ++
+ configure.ac             |   15 ++++++++-------
+ docs/eggdbus/Makefile.am |    2 +-
+ docs/tests/Makefile.am   |    2 +-
+ src/eggdbus/Makefile.am  |    2 +-
+ src/tests/Makefile.am    |    2 +-
+ 6 files changed, 14 insertions(+), 11 deletions(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index c1f1470..9ab8648 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -1,5 +1,7 @@
+ ## Process this file with automake to produce Makefile.in
+ 
++ACLOCAL_AMFLAGS = -I m4
++
+ SUBDIRS = src docs
+ 
+ NULL =
+diff --git a/configure.ac b/configure.ac
+index 0f31dea..5ad85af 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -1,16 +1,16 @@
+ dnl Process this file with autoconf to produce a configure script.
+ 
+-AC_PREREQ(2.59c)
+-AC_INIT(eggdbus, 0.6, davidz@redhat.com)
++AC_PREREQ(2.64)
++AC_INIT([eggdbus],[0.6],[davidz@redhat.com])
+ AM_INIT_AUTOMAKE(eggdbus, 0.6)
+-AM_CONFIG_HEADER(config.h)
++AC_CONFIG_HEADERS(config.h)
+ AM_MAINTAINER_MODE
+ 
+-AC_ISC_POSIX
+ AC_PROG_CC
+-AM_PROG_CC_STDC
++am_cv_prog_cc_stdc=$ac_cv_prog_cc_stdc
++
+ AC_HEADER_STDC
+-AM_PROG_LIBTOOL
++LT_INIT
+ AC_PROG_MAKE_SET
+ AC_PROG_LN_S
+ AC_SYS_LARGEFILE
+@@ -135,7 +135,7 @@ if test "x$GCC" = "xyes"; then
+   LDFLAGS="-Wl,--as-needed $LDFLAGS"
+ fi
+ 
+-AC_OUTPUT([
++AC_CONFIG_FILES([
+ Makefile
+ eggdbus-1.pc
+ src/Makefile
+@@ -147,6 +147,7 @@ docs/man/Makefile
+ docs/tests/Makefile
+ docs/eggdbus/Makefile
+ ])
++AC_OUTPUT
+ 
+ dnl ==========================================================================
+ echo "
+diff --git a/docs/eggdbus/Makefile.am b/docs/eggdbus/Makefile.am
+index 94c00bf..e30e6c3 100644
+--- a/docs/eggdbus/Makefile.am
++++ b/docs/eggdbus/Makefile.am
+@@ -34,7 +34,7 @@ IGNORE_HFILES= 			\
+ 
+ # CFLAGS and LDFLAGS for compiling scan program. Only needed
+ # if $(DOC_MODULE).types is non-empty.
+-INCLUDES = \
++AM_CPPFLAGS = \
+ 	$(DBUS_GLIB_CFLAGS)						\
+ 	$(GLIB_CFLAGS)							\
+ 	$(GIO_CFLAGS)							\
+diff --git a/docs/tests/Makefile.am b/docs/tests/Makefile.am
+index 5f7940c..3ba5cba 100644
+--- a/docs/tests/Makefile.am
++++ b/docs/tests/Makefile.am
+@@ -29,7 +29,7 @@ IGNORE_HFILES= 			\
+ 
+ # CFLAGS and LDFLAGS for compiling scan program. Only needed
+ # if $(DOC_MODULE).types is non-empty.
+-INCLUDES = \
++AM_CPPFLAGS = \
+ 	$(DBUS_GLIB_CFLAGS)						\
+ 	$(GLIB_CFLAGS)							\
+ 	$(GIO_CFLAGS)							\
+diff --git a/src/eggdbus/Makefile.am b/src/eggdbus/Makefile.am
+index 95615cd..0f96181 100644
+--- a/src/eggdbus/Makefile.am
++++ b/src/eggdbus/Makefile.am
+@@ -1,7 +1,7 @@
+ 
+ NULL =
+ 
+-INCLUDES =                                              		\
++AM_CPPFLAGS =                                              		\
+ 	-I$(top_builddir)/src                           		\
+ 	-I$(top_srcdir)/src                             		\
+ 	-DPACKAGE_LIBEXEC_DIR=\""$(libexecdir)"\"       		\
+diff --git a/src/tests/Makefile.am b/src/tests/Makefile.am
+index 7bc1b24..71a3e82 100644
+--- a/src/tests/Makefile.am
++++ b/src/tests/Makefile.am
+@@ -1,7 +1,7 @@
+ 
+ NULL =
+ 
+-INCLUDES =                                              		\
++AM_CPPFLAGS =                                              		\
+ 	-I$(top_builddir)/src                           		\
+ 	-I$(top_srcdir)/src                             		\
+ 	-DPACKAGE_LIBEXEC_DIR=\""$(libexecdir)"\"       		\

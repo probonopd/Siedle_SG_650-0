@@ -1,0 +1,44 @@
+## SECTION=staging
+## old section:
+### SECTION=networking
+
+menuconfig LIBMICROHTTPD
+	tristate
+	select LIBC_PTHREAD
+	select LIBGCRYPT if LIBMICROHTTPD_HTTPS
+	prompt "libmicrohttpd                 "
+	help
+	  Library embedding HTTP server functionality
+
+	  libmicrohttpd is a small C library for embedding HTTP server
+	  functionality into applications. It will be used in future
+	  GNUnet versions as part of the HTTP transport.
+
+	  STAGING: remove in ptxdist-2016.08.0
+	  Upstream is at revision 0.9 and the archives for 0.4.4 seems no longer
+	  available.
+
+if LIBMICROHTTPD
+
+config LIBMICROHTTPD_HTTPS
+	bool
+	prompt "HTTPS support"
+	help
+	  Run in https mode (this option may not work with all
+	  threading modes yet).
+	  If you disable HTTPS/SSL support, you can also choose the
+	  eCos License.
+
+config LIBMICROHTTPD_CLIENT_SIDE
+	bool
+	prompt "Client side support"
+	help
+	  FIXME
+
+config LIBMICROHTTPD_MESSAGES
+	bool
+	prompt "Messages"
+	help
+	  Enable MHD error messages
+
+endif

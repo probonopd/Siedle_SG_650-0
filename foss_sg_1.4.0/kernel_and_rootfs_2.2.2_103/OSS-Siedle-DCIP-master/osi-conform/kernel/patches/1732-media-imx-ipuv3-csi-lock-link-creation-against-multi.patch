@@ -1,0 +1,41 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Wed, 4 Feb 2015 16:16:57 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: lock link creation against multiple
+ concurrent calls to ipucsi_open
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 496ca2db6757..65ff909be09b 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -1488,8 +1488,16 @@ static void ipucsi_create_links(struct ipucsi *ipucsi)
+ {
+ 	int i, ret;
+ 
+-	if (ipucsi->vdev.entity.num_links)
++	/*
++	 * This needs to be locked against concurrent execution from two
++	 * different CSI devices. We can use the media device graph_mutex,
++	 * since media_entity_create_link and media_entity_add link don't.
++	 */
++	mutex_lock(&ipucsi->v4l2_dev->mdev->graph_mutex);
++	if (ipucsi->vdev.entity.num_links) {
++		mutex_unlock(&ipucsi->v4l2_dev->mdev->graph_mutex);
+ 		return;
++	}
+ 
+ 	/* Create links to capture device for each IDMAC channel */
+ 	for (i = 0; i < ARRAY_SIZE(ipucsi_channels); i++) {
+@@ -1511,6 +1519,8 @@ static void ipucsi_create_links(struct ipucsi *ipucsi)
+ 				 pad->entity->name, pad->index, ret);
+ 		}
+ 	}
++
++	mutex_unlock(&ipucsi->v4l2_dev->mdev->graph_mutex);
+ }
+ 
+ static int ipucsi_open(struct file *file)

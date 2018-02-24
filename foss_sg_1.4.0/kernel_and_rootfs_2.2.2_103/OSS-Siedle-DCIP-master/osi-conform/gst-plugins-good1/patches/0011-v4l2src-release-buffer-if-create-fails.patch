@@ -1,0 +1,22 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 24 Nov 2016 14:41:52 +0100
+Subject: [PATCH] v4l2src: release buffer if create fails
+
+gst_base_src_get_range does not expect a buffer to be returned in
+the error case, so we are leaking a reference here if create fails.
+---
+ sys/v4l2/gstv4l2src.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/sys/v4l2/gstv4l2src.c b/sys/v4l2/gstv4l2src.c
+index 2ee431cf1bf6..6e5de0e06e9f 100644
+--- a/sys/v4l2/gstv4l2src.c
++++ b/sys/v4l2/gstv4l2src.c
+@@ -881,6 +881,7 @@ alloc_failed:
+   }
+ error:
+   {
++    gst_buffer_replace (buf, NULL);
+     if (ret == GST_V4L2_FLOW_LAST_BUFFER) {
+       GST_ELEMENT_ERROR (src, RESOURCE, FAILED,
+           ("Driver returned a buffer with no payload, this most likely "

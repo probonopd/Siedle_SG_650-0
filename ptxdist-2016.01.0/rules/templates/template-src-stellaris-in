@@ -1,0 +1,8 @@
+## SECTION=@section@
+
+config @PACKAGE@
+	bool
+	select SW_EK_LM3S3748
+	prompt "@package@"
+	help
+	  FIXME

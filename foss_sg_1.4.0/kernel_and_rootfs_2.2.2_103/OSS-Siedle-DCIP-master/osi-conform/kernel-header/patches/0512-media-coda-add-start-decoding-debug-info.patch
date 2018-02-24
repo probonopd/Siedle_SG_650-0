@@ -1,0 +1,26 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 15 Jan 2015 14:50:39 +0100
+Subject: [PATCH] [media] coda: add start decoding debug info
+
+---
+ drivers/media/platform/coda/coda-bit.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index 3ad9ce60e19e..e3cc28397046 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -1153,6 +1153,13 @@ static int coda_start_encoding(struct coda_ctx *ctx)
+ 		goto out;
+ 	}
+ 
++	v4l2_dbg(1, coda_debug, &ctx->dev->v4l2_dev,
++		 "Start encoding %dx%d %4.4s->%4.4s @ %d/%d Hz\n",
++		 q_data_src->width, q_data_src->height,
++		 (char *)&ctx->codec->src_fourcc, (char *)&dst_fourcc,
++		 ctx->params.framerate & 0xffff,
++		 (ctx->params.framerate >> 16) + 1);
++
+ 	/* Save stream headers */
+ 	buf = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
+ 	switch (dst_fourcc) {

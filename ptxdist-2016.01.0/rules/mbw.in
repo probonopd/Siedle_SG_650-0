@@ -1,0 +1,12 @@
+## SECTION=test_suites
+config MBW
+	tristate
+	prompt "mbw"
+	help
+	  MBW memory bandwidth benchmark
+
+	  MBW determines the "copy" memory bandwidth available to
+	  userspace programs. Its simplistic approach models that
+	  of real applications. It is not tuned to extremes and it
+	  is not aware of hardware architecture, just like your
+	  average software package.

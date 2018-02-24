@@ -1,0 +1,306 @@
+## SECTION=architecture_options
+
+choice
+	prompt "cpu architecture"
+	default ARCH_X86
+	help
+	  Specify which processor architecture you want to compile for.
+
+	config ARCH_ALPHA
+		bool "alpha      "
+		select HAS_MMU
+		select ARCH_SUPPORTS_ENDIAN_LITTLE
+		help
+		  This is support for the Alpha processor architecture.
+
+	config ARCH_AVR32
+		bool "avr32      "
+		select ARCH_SUPPORTS_ENDIAN_BIG
+		select HAS_MMU
+		help
+		  This is support for the Atmel AVR32 processors.
+		  Note: Only some (obsoleted AP7000 series) support
+		  linux.
+
+	config ARCH_AVR
+		bool "avr 8 bit "
+		select ARCH_SUPPORTS_ENDIAN_LITTLE
+		help
+		  This is support for the Atmel AVR processors.
+		  Note: This covers the 8bit family only, they are not
+		  intended to be used with Linux. Bare metall only.
+
+	config ARCH_ARM
+		bool "arm        "
+		select ARCH_SUPPORTS_ENDIAN_LITTLE
+		select ARCH_SUPPORTS_ENDIAN_BIG
+		select HAS_MMU
+		help
+		  This is support for the ARM processor architecture.
+
+	config ARCH_ARM64
+		bool "arm64      "
+		select ARCH_LP64
+		select ARCH_SUPPORTS_ENDIAN_LITTLE
+		select ARCH_SUPPORTS_ENDIAN_BIG
+		select HAS_MMU
+		help
+		  This is support for the ARM64 processor architecture.
+
+	config ARCH_BLACKFIN
+		bool "blackfin   "
+		select ARCH_SUPPORTS_ENDIAN_LITTLE
+		help
+		  This is support for the blackfin processor.
+
+	config ARCH_X86
+		bool "x86        "
+		select HAS_MMU
+		select ARCH_SUPPORTS_ENDIAN_LITTLE
+		help
+		  This is support for the Intel x86 architecture.
+
+	config ARCH_MINGW
+		bool "mingw      "
+		select HAS_MMU
+		select ARCH_SUPPORTS_ENDIAN_LITTLE
+		help
+		  This is support for the Intel x86 architecture.
+
+	config ARCH_PPC
+		bool "ppc        "
+		select HAS_MMU
+		select ARCH_SUPPORTS_ENDIAN_BIG
+		help
+		  This is support for the PowerPC architecture.
+
+	config ARCH_M68K
+		bool "m68k       "
+		select HAS_MMU
+		select ARCH_SUPPORTS_ENDIAN_BIG
+		help
+		  This is support for the Motorola/Freescale M68k architecture.
+
+	config ARCH_SPARC
+		bool "sparc      "
+		select HAS_MMU
+		select ARCH_SUPPORTS_ENDIAN_BIG
+		help
+		  This is support for the SPARC architecture.
+
+	config ARCH_MICROBLAZE
+		bool "microblaze "
+		select HAS_MMU
+		select ARCH_SUPPORTS_ENDIAN_LITTLE
+		select ARCH_SUPPORTS_ENDIAN_BIG
+		help
+		  This is support for the Xilinx MicroBlaze architecture (with MMU).
+
+	config ARCH_MIPS
+		bool "mips       "
+		select HAS_MMU
+		select ARCH_SUPPORTS_ENDIAN_LITTLE
+		select ARCH_SUPPORTS_ENDIAN_BIG
+		help
+		  This is support for the MIPS architecture.
+
+	config ARCH_CRIS
+		bool "cris       "
+		select HAS_MMU
+		select ARCH_SUPPORTS_ENDIAN_LITTLE
+		help
+		  This is support for the cris architecture.
+
+	config ARCH_PARISC
+		bool "parisc     "
+		select HAS_MMU
+		select ARCH_SUPPORTS_ENDIAN_BIG
+		help
+		  This is support for the parisc architecture.
+
+	config ARCH_SH
+		bool "superh     "
+		select HAS_MMU
+		select ARCH_SUPPORTS_ENDIAN_LITTLE
+		select ARCH_SUPPORTS_ENDIAN_BIG
+		help
+		  This is support for the SuperH architecture.
+endchoice
+
+#
+# superh
+#
+choice
+	prompt "superh family   "
+	depends on ARCH_SH
+
+	config ARCH_SH_SH3
+		bool "sh3        "
+
+	config ARCH_SH_SH4
+		bool "sh4        "
+endchoice
+
+
+#
+# x86
+#
+choice
+	prompt "x86 optimization"
+	depends on ARCH_X86
+	default ARCH_X86_I586
+
+	config ARCH_X86_I386
+		bool "386        "
+		help
+		  The compiler will generate code for i386 CPUs as default. This code will
+		  run on almost all x86_32 processors.
+
+	config ARCH_X86_I486
+		bool "486        "
+		help
+		  The compiler will generate code for i486 CPUs as default. This code will run
+		  on almost all x86/ia32 processors, but not on i386!
+
+	config ARCH_X86_I586
+		bool "586        "
+		help
+		  The compiler will generate code for i586 class CPUs as default (Pentium).
+		  This code will run on almost all x86/ia32 processors, but not on i386 and i486!
+
+	config ARCH_X86_I686
+		bool "686        "
+		help
+		  The compiler will generate code for i686 class CPUs as default (Pentium Pro).
+		  This code will run on almost all x86/ia32 processors, but not on i386, i486 and pentium!
+
+	config ARCH_X86_P2
+		bool "PII        "
+		help
+		  The compiler will generate code for Pentium II CPUs as default.
+		  This code will run on Pentium II and above CPUs.
+
+  	config ARCH_X86_P3M
+		bool "PIII/M     "
+		help
+		  The compiler will generate code for Pentium III and Pentium M CPUs as default.
+		  This code will run on Pentium III and above CPUs. Note: A Pentium M is a successor
+		  of Pentium III (Pentium 4 is a dead end)
+
+	config ARCH_X86_64
+		select ARCH_LP64
+		bool "x86_64     "
+		help
+		  The compiler will generate code for 64-bit x86_64 CPUs as default.
+
+endchoice
+
+
+#
+# programming model (32 bit, 64 bit)
+#
+config ARCH_LP64
+	bool
+
+
+#
+# endianess
+#
+config ARCH_SUPPORTS_ENDIAN_BIG
+       bool
+
+config ARCH_SUPPORTS_ENDIAN_LITTLE
+       bool
+
+choice
+	prompt "endianess       "
+	default ENDIAN_LITTLE if !ARCH_MICROBLAZE
+	default ENDIAN_BIG if ARCH_MICROBLAZE
+
+	config ENDIAN_BIG
+		bool "big        "
+		depends on ARCH_SUPPORTS_ENDIAN_BIG
+
+	config ENDIAN_LITTLE
+		bool "little     "
+		depends on ARCH_SUPPORTS_ENDIAN_LITTLE
+endchoice
+
+
+#
+# ARM Architecture Version
+#
+config ARCH_ARM_V6
+	bool "arm architecture version >= ARMv6"
+	depends on ARCH_ARM
+	help
+	  This options enables optimisation for ARMv6 cores.
+
+	  Select this if you have an arm processor with an
+	  architecture version of ARMv6 or newer. Which is the case
+	  for the ARM11 and Cortex A Cores.
+
+config ARCH_ARM_IWMMXT
+	bool "support iwmmxt extension"
+	depends on ARCH_ARM
+	help
+	  This enables the iwmmxt extension. This is present on some
+	  but not all pxa processors.
+
+config ARCH_ARM_NEON
+	bool "support NEON extension"
+	depends on ARCH_ARM
+	help
+	  This enables the NEON extension. This is e.g. present on
+	  Cortex A8 processors.
+
+#
+# hardware / software floating point
+#
+config HAS_HARDFLOAT
+	bool
+	prompt "hardware floating point"
+	default y if ARCH_ALPHA
+	default y if ARCH_X86
+	default y if ARCH_SPARC
+	default y if ARCH_ARM64
+	default n
+
+#
+# memory management unit
+#
+config HAS_MMU
+	bool
+
+#
+# sizeof long double
+#
+config SIZEOF_LONG_DOUBLE
+	string
+	default "16" if ARCH_X86_64 || ARCH_ARM64
+	default "12" if ARCH_X86
+	default "8"
+	# FIXME: add more values
+
+#
+# arch string
+#
+config ARCH_STRING
+	string
+	default "arm"			if ARCH_ARM
+	default "arm64"			if ARCH_ARM64
+	default "avr"			if ARCH_AVR
+	default "avr32"			if ARCH_AVR32
+	default "alpha"			if ARCH_ALPHA
+	default "blackfin"		if ARCH_BLACKFIN
+	default "x86_64"		if ARCH_X86_64
+	default "i386"			if ARCH_X86
+	default "i386"			if ARCH_MINGW
+	default "m68k"			if ARCH_M68K
+	default "ppc"			if ARCH_PPC
+	default "sparc"			if ARCH_SPARC
+	default "microblaze"		if ARCH_MICROBLAZE
+	default "mips"			if ARCH_MIPS
+	default "cris"			if ARCH_CRIS
+	default "parisc"		if ARCH_PARISC
+	default "sh"			if ARCH_SH

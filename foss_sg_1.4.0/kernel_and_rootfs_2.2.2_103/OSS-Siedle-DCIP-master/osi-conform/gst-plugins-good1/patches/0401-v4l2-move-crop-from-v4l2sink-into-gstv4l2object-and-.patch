@@ -1,0 +1,537 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 5 Mar 2015 13:10:15 +0100
+Subject: [PATCH] v4l2: move crop from v4l2sink into gstv4l2object and add
+ compose
+
+The V4L2 cropping rectangle can also be useful for capture and mem2mem
+devices. Also switch to use G/S_SELECTION instead of G/S_CROP and add
+the composing rectangle.
+---
+ sys/v4l2/gstv4l2object.c    | 240 ++++++++++++++++++++++++++++++++++++++++++++
+ sys/v4l2/gstv4l2object.h    |  14 ++-
+ sys/v4l2/gstv4l2sink.c      | 104 -------------------
+ sys/v4l2/gstv4l2transform.c |  22 ++++
+ 4 files changed, 275 insertions(+), 105 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index 30435c999a1e..259846e3fa13 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -422,6 +422,39 @@ gst_v4l2_object_install_properties_helper (GObjectClass * gobject_class,
+           "When enabled, the pixel aspect ratio will be enforced", TRUE,
+           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ 
++  g_object_class_install_property (gobject_class, PROP_CROP_TOP,
++      g_param_spec_int ("crop-top", "Crop top",
++          "The topmost (y) coordinate of the video crop; top left corner of image is 0,0",
++          0x80000000, 0x7fffffff, 0, G_PARAM_READWRITE));
++  g_object_class_install_property (gobject_class, PROP_CROP_LEFT,
++      g_param_spec_int ("crop-left", "Crop left",
++          "The leftmost (x) coordinate of the video crop; top left corner of image is 0,0",
++          0x80000000, 0x7fffffff, 0, G_PARAM_READWRITE));
++  g_object_class_install_property (gobject_class, PROP_CROP_WIDTH,
++      g_param_spec_uint ("crop-width", "Crop width",
++          "The width of the video crop; default is equal to negotiated image width",
++          0, 0xffffffff, 0, G_PARAM_READWRITE));
++  g_object_class_install_property (gobject_class, PROP_CROP_HEIGHT,
++      g_param_spec_uint ("crop-height", "Crop height",
++          "The height of the video crop; default is equal to negotiated image height",
++          0, 0xffffffff, 0, G_PARAM_READWRITE));
++
++  g_object_class_install_property (gobject_class, PROP_COMPOSE_TOP,
++      g_param_spec_int ("compose-top", "Compose top",
++          "The topmost (y) coordinate of the video compose; top left corner of image is 0,0",
++          0x80000000, 0x7fffffff, 0, G_PARAM_READWRITE));
++  g_object_class_install_property (gobject_class, PROP_COMPOSE_LEFT,
++      g_param_spec_int ("compose-left", "Compose left",
++          "The leftmost (x) coordinate of the video compose; top left corner of image is 0,0",
++          0x80000000, 0x7fffffff, 0, G_PARAM_READWRITE));
++  g_object_class_install_property (gobject_class, PROP_COMPOSE_WIDTH,
++      g_param_spec_uint ("compose-width", "Compose width",
++          "The width of the video compose; default is equal to negotiated image width",
++          0, 0xffffffff, 0, G_PARAM_READWRITE));
++  g_object_class_install_property (gobject_class, PROP_COMPOSE_HEIGHT,
++      g_param_spec_uint ("compose-height", "Compose height",
++          "The height of the video compose; default is equal to negotiated image height",
++          0, 0xffffffff, 0, G_PARAM_READWRITE));
+ }
+ 
+ void
+@@ -457,6 +490,40 @@ gst_v4l2_object_install_m2m_properties_helper (GObjectClass * gobject_class)
+       g_param_spec_boxed ("extra-controls", "Extra Controls",
+           "Extra v4l2 controls (CIDs) for the device",
+           GST_TYPE_STRUCTURE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
++
++  g_object_class_install_property (gobject_class, PROP_CROP_TOP,
++      g_param_spec_int ("crop-top", "Crop top",
++          "The topmost (y) coordinate of the video crop; top left corner of image is 0,0",
++          0x80000000, 0x7fffffff, 0, G_PARAM_READWRITE));
++  g_object_class_install_property (gobject_class, PROP_CROP_LEFT,
++      g_param_spec_int ("crop-left", "Crop left",
++          "The leftmost (x) coordinate of the video crop; top left corner of image is 0,0",
++          0x80000000, 0x7fffffff, 0, G_PARAM_READWRITE));
++  g_object_class_install_property (gobject_class, PROP_CROP_WIDTH,
++      g_param_spec_uint ("crop-width", "Crop width",
++          "The width of the video crop; default is equal to negotiated image width",
++          0, 0xffffffff, 0, G_PARAM_READWRITE));
++  g_object_class_install_property (gobject_class, PROP_CROP_HEIGHT,
++      g_param_spec_uint ("crop-height", "Crop height",
++          "The height of the video crop; default is equal to negotiated image height",
++          0, 0xffffffff, 0, G_PARAM_READWRITE));
++
++  g_object_class_install_property (gobject_class, PROP_COMPOSE_TOP,
++      g_param_spec_int ("compose-top", "Compose top",
++          "The topmost (y) coordinate of the video compose; top left corner of image is 0,0",
++          0x80000000, 0x7fffffff, 0, G_PARAM_READWRITE));
++  g_object_class_install_property (gobject_class, PROP_COMPOSE_LEFT,
++      g_param_spec_int ("compose-left", "Compose left",
++          "The leftmost (x) coordinate of the video compose; top left corner of image is 0,0",
++          0x80000000, 0x7fffffff, 0, G_PARAM_READWRITE));
++  g_object_class_install_property (gobject_class, PROP_COMPOSE_WIDTH,
++      g_param_spec_uint ("compose-width", "Compose width",
++          "The width of the video compose; default is equal to negotiated image width",
++          0, 0xffffffff, 0, G_PARAM_READWRITE));
++  g_object_class_install_property (gobject_class, PROP_COMPOSE_HEIGHT,
++      g_param_spec_uint ("compose-height", "Compose height",
++          "The height of the video compose; default is equal to negotiated image height",
++          0, 0xffffffff, 0, G_PARAM_READWRITE));
+ }
+ 
+ void
+@@ -519,6 +586,9 @@ gst_v4l2_object_new (GstElement * element,
+ 
+   v4l2object->no_initial_format = FALSE;
+ 
++  v4l2object->crop_fields_set = 0;
++  v4l2object->compose_fields_set = 0;
++
+   return v4l2object;
+ }
+ 
+@@ -580,6 +650,109 @@ gst_v4l2_object_prop_to_cid (guint prop_id)
+   return cid;
+ }
+ 
++/*
++ * flags to indicate which crop/compose properties the user has set (and
++ * therefore which ones should override the defaults from the driver)
++ */
++enum
++{
++  RECT_TOP_SET = 0x01,
++  RECT_LEFT_SET = 0x02,
++  RECT_WIDTH_SET = 0x04,
++  RECT_HEIGHT_SET = 0x08
++};
++
++static void
++gst_v4l2_object_sync_crop_fields (GstV4l2Object * v4l2object)
++{
++  if (!v4l2object->crop_fields_set)
++    return;
++
++  if (GST_V4L2_IS_OPEN (v4l2object)) {
++
++    gint fd = v4l2object->video_fd;
++    struct v4l2_selection sel;
++
++    memset (&sel, 0x00, sizeof (struct v4l2_selection));
++    sel.type = v4l2object->type;
++    sel.target = V4L2_SEL_TGT_CROP;
++
++    if (v4l2_ioctl (fd, VIDIOC_G_SELECTION, &sel) < 0) {
++      GST_WARNING_OBJECT (v4l2object, "VIDIOC_G_SELECTION failed");
++      return;
++    }
++
++    GST_DEBUG_OBJECT (v4l2object,
++        "setting crop: crop_fields_set=0x%02x, top=%d, left=%d, width=%d, height=%d",
++        v4l2object->crop_fields_set,
++        v4l2object->crop.top, v4l2object->crop.left,
++        v4l2object->crop.width, v4l2object->crop.height);
++
++    sel.flags = V4L2_SEL_FLAG_LE;
++    if (v4l2object->crop_fields_set & RECT_TOP_SET)
++      sel.r.top = v4l2object->crop.top;
++    if (v4l2object->crop_fields_set & RECT_LEFT_SET)
++      sel.r.left = v4l2object->crop.left;
++    if (v4l2object->crop_fields_set & RECT_WIDTH_SET)
++      sel.r.width = v4l2object->crop.width;
++    if (v4l2object->crop_fields_set & RECT_HEIGHT_SET)
++      sel.r.height = v4l2object->crop.height;
++
++    if (v4l2_ioctl (fd, VIDIOC_S_SELECTION, &sel) < 0) {
++      GST_WARNING_OBJECT (v4l2object, "VIDIOC_S_SELECTION failed");
++      return;
++    }
++
++    v4l2object->crop_fields_set = 0;
++    v4l2object->crop = sel.r;
++  }
++}
++
++static void
++gst_v4l2_object_sync_compose_fields (GstV4l2Object * v4l2object)
++{
++  if (!v4l2object->compose_fields_set)
++    return;
++
++  if (GST_V4L2_IS_OPEN (v4l2object)) {
++
++    gint fd = v4l2object->video_fd;
++    struct v4l2_selection sel;
++
++    memset (&sel, 0x00, sizeof (struct v4l2_selection));
++    sel.type = v4l2object->type;
++    sel.target = V4L2_SEL_TGT_COMPOSE;
++
++    if (v4l2_ioctl (fd, VIDIOC_G_SELECTION, &sel) < 0) {
++      GST_WARNING_OBJECT (v4l2object, "VIDIOC_G_SELECTION failed");
++      return;
++    }
++
++    GST_DEBUG_OBJECT (v4l2object,
++        "setting compose: compose_fields_set=0x%02x, top=%d, left=%d, width=%d, height=%d",
++        v4l2object->compose_fields_set,
++        v4l2object->compose.top, v4l2object->compose.left,
++        v4l2object->compose.width, v4l2object->compose.height);
++
++    sel.flags = V4L2_SEL_FLAG_LE;
++    if (v4l2object->compose_fields_set & RECT_TOP_SET)
++      sel.r.top = v4l2object->compose.top;
++    if (v4l2object->compose_fields_set & RECT_LEFT_SET)
++      sel.r.left = v4l2object->compose.left;
++    if (v4l2object->compose_fields_set & RECT_WIDTH_SET)
++      sel.r.width = v4l2object->compose.width;
++    if (v4l2object->compose_fields_set & RECT_HEIGHT_SET)
++      sel.r.height = v4l2object->compose.height;
++
++    if (v4l2_ioctl (fd, VIDIOC_S_SELECTION, &sel) < 0) {
++      GST_WARNING_OBJECT (v4l2object, "VIDIOC_S_SELECTION failed");
++      return;
++    }
++
++    v4l2object->compose_fields_set = 0;
++    v4l2object->compose = sel.r;
++  }
++}
+ 
+ gboolean
+ gst_v4l2_object_set_property_helper (GstV4l2Object * v4l2object,
+@@ -681,6 +854,46 @@ gst_v4l2_object_set_property_helper (GstV4l2Object * v4l2object,
+     case PROP_FORCE_ASPECT_RATIO:
+       v4l2object->keep_aspect = g_value_get_boolean (value);
+       break;
++    case PROP_CROP_LEFT:
++      v4l2object->crop.left = g_value_get_int (value);
++      v4l2object->crop_fields_set |= RECT_LEFT_SET;
++      gst_v4l2_object_sync_crop_fields (v4l2object);
++      break;
++    case PROP_CROP_TOP:
++      v4l2object->crop.top = g_value_get_int (value);
++      v4l2object->crop_fields_set |= RECT_TOP_SET;
++      gst_v4l2_object_sync_crop_fields (v4l2object);
++      break;
++    case PROP_CROP_WIDTH:
++      v4l2object->crop.width = g_value_get_uint (value);
++      v4l2object->crop_fields_set |= RECT_WIDTH_SET;
++      gst_v4l2_object_sync_crop_fields (v4l2object);
++      break;
++    case PROP_CROP_HEIGHT:
++      v4l2object->crop.height = g_value_get_uint (value);
++      v4l2object->crop_fields_set |= RECT_HEIGHT_SET;
++      gst_v4l2_object_sync_crop_fields (v4l2object);
++      break;
++    case PROP_COMPOSE_LEFT:
++      v4l2object->compose.left = g_value_get_int (value);
++      v4l2object->compose_fields_set |= RECT_LEFT_SET;
++      gst_v4l2_object_sync_compose_fields (v4l2object);
++      break;
++    case PROP_COMPOSE_TOP:
++      v4l2object->compose.top = g_value_get_int (value);
++      v4l2object->compose_fields_set |= RECT_TOP_SET;
++      gst_v4l2_object_sync_compose_fields (v4l2object);
++      break;
++    case PROP_COMPOSE_WIDTH:
++      v4l2object->compose.width = g_value_get_uint (value);
++      v4l2object->compose_fields_set |= RECT_WIDTH_SET;
++      gst_v4l2_object_sync_compose_fields (v4l2object);
++      break;
++    case PROP_COMPOSE_HEIGHT:
++      v4l2object->compose.height = g_value_get_uint (value);
++      v4l2object->compose_fields_set |= RECT_HEIGHT_SET;
++      gst_v4l2_object_sync_compose_fields (v4l2object);
++      break;
+     default:
+       return FALSE;
+       break;
+@@ -781,6 +994,30 @@ gst_v4l2_object_get_property_helper (GstV4l2Object * v4l2object,
+     case PROP_FORCE_ASPECT_RATIO:
+       g_value_set_boolean (value, v4l2object->keep_aspect);
+       break;
++    case PROP_CROP_LEFT:
++      g_value_set_int (value, v4l2object->crop.left);
++      break;
++    case PROP_CROP_TOP:
++      g_value_set_int (value, v4l2object->crop.top);
++      break;
++    case PROP_CROP_WIDTH:
++      g_value_set_uint (value, v4l2object->crop.width);
++      break;
++    case PROP_CROP_HEIGHT:
++      g_value_set_uint (value, v4l2object->crop.height);
++      break;
++    case PROP_COMPOSE_LEFT:
++      g_value_set_int (value, v4l2object->compose.left);
++      break;
++    case PROP_COMPOSE_TOP:
++      g_value_set_int (value, v4l2object->compose.top);
++      break;
++    case PROP_COMPOSE_WIDTH:
++      g_value_set_uint (value, v4l2object->compose.width);
++      break;
++    case PROP_COMPOSE_HEIGHT:
++      g_value_set_uint (value, v4l2object->compose.height);
++      break;
+     default:
+       return FALSE;
+       break;
+@@ -3521,6 +3758,9 @@ done:
+   if (!gst_v4l2_object_setup_pool (v4l2object, caps))
+     goto pool_failed;
+ 
++  gst_v4l2_object_sync_crop_fields (v4l2object);
++  gst_v4l2_object_sync_compose_fields (v4l2object);
++
+   return TRUE;
+ 
+   /* ERRORS */
+diff --git a/sys/v4l2/gstv4l2object.h b/sys/v4l2/gstv4l2object.h
+index 911bb140749f..a836715808dc 100644
+--- a/sys/v4l2/gstv4l2object.h
++++ b/sys/v4l2/gstv4l2object.h
+@@ -153,6 +153,10 @@ struct _GstV4l2Object {
+   GstStructure *extra_controls;
+   gboolean keep_aspect;
+   GValue *par;
++  struct v4l2_rect crop;
++  guint8 crop_fields_set;
++  struct v4l2_rect compose;
++  guint8 compose_fields_set;
+ 
+   /* X-overlay */
+   GstV4l2Xv *xv;
+@@ -193,7 +197,15 @@ GType gst_v4l2_object_get_type (void);
+     PROP_CAPTURE_IO_MODE,     \
+     PROP_EXTRA_CONTROLS,      \
+     PROP_PIXEL_ASPECT_RATIO,  \
+-    PROP_FORCE_ASPECT_RATIO
++    PROP_FORCE_ASPECT_RATIO,  \
++    PROP_CROP_LEFT,           \
++    PROP_CROP_TOP,            \
++    PROP_CROP_WIDTH,          \
++    PROP_CROP_HEIGHT,         \
++    PROP_COMPOSE_LEFT,        \
++    PROP_COMPOSE_TOP,         \
++    PROP_COMPOSE_WIDTH,       \
++    PROP_COMPOSE_HEIGHT
+ 
+ /* create/destroy */
+ GstV4l2Object*  gst_v4l2_object_new       (GstElement * element,
+diff --git a/sys/v4l2/gstv4l2sink.c b/sys/v4l2/gstv4l2sink.c
+index 470ad41a0571..f182f7b3931e 100644
+--- a/sys/v4l2/gstv4l2sink.c
++++ b/sys/v4l2/gstv4l2sink.c
+@@ -77,10 +77,6 @@ enum
+   PROP_OVERLAY_LEFT,
+   PROP_OVERLAY_WIDTH,
+   PROP_OVERLAY_HEIGHT,
+-  PROP_CROP_TOP,
+-  PROP_CROP_LEFT,
+-  PROP_CROP_WIDTH,
+-  PROP_CROP_HEIGHT,
+ };
+ 
+ 
+@@ -158,23 +154,6 @@ gst_v4l2sink_class_init (GstV4l2SinkClass * klass)
+           "The height of the video overlay; default is equal to negotiated image height",
+           0, G_MAXUINT, 0, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ 
+-  g_object_class_install_property (gobject_class, PROP_CROP_TOP,
+-      g_param_spec_int ("crop-top", "Crop top",
+-          "The topmost (y) coordinate of the video crop; top left corner of image is 0,0",
+-          0x80000000, 0x7fffffff, 0, G_PARAM_READWRITE));
+-  g_object_class_install_property (gobject_class, PROP_CROP_LEFT,
+-      g_param_spec_int ("crop-left", "Crop left",
+-          "The leftmost (x) coordinate of the video crop; top left corner of image is 0,0",
+-          0x80000000, 0x7fffffff, 0, G_PARAM_READWRITE));
+-  g_object_class_install_property (gobject_class, PROP_CROP_WIDTH,
+-      g_param_spec_uint ("crop-width", "Crop width",
+-          "The width of the video crop; default is equal to negotiated image width",
+-          0, 0xffffffff, 0, G_PARAM_READWRITE));
+-  g_object_class_install_property (gobject_class, PROP_CROP_HEIGHT,
+-      g_param_spec_uint ("crop-height", "Crop height",
+-          "The height of the video crop; default is equal to negotiated image height",
+-          0, 0xffffffff, 0, G_PARAM_READWRITE));
+-
+   gst_element_class_set_static_metadata (element_class,
+       "Video (video4linux2) Sink", "Sink/Video",
+       "Displays frames on a video4linux2 device", "Rob Clark <rob@ti.com>,");
+@@ -213,7 +192,6 @@ gst_v4l2sink_init (GstV4l2Sink * v4l2sink)
+   g_object_set (v4l2sink, "device", "/dev/video1", NULL);
+ 
+   v4l2sink->overlay_fields_set = 0;
+-  v4l2sink->crop_fields_set = 0;
+ }
+ 
+ 
+@@ -285,55 +263,6 @@ gst_v4l2sink_sync_overlay_fields (GstV4l2Sink * v4l2sink)
+   }
+ }
+ 
+-static void
+-gst_v4l2sink_sync_crop_fields (GstV4l2Sink * v4l2sink)
+-{
+-  if (!v4l2sink->crop_fields_set)
+-    return;
+-
+-  if (GST_V4L2_IS_OPEN (v4l2sink->v4l2object)) {
+-
+-    gint fd = v4l2sink->v4l2object->video_fd;
+-    struct v4l2_crop crop;
+-
+-    memset (&crop, 0x00, sizeof (struct v4l2_crop));
+-    crop.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+-
+-    if (v4l2_ioctl (fd, VIDIOC_G_CROP, &crop) < 0) {
+-      GST_WARNING_OBJECT (v4l2sink, "VIDIOC_G_CROP failed");
+-      return;
+-    }
+-
+-    GST_DEBUG_OBJECT (v4l2sink,
+-        "setting crop: crop_fields_set=0x%02x, top=%d, left=%d, width=%d, height=%d",
+-        v4l2sink->crop_fields_set,
+-        v4l2sink->crop.top, v4l2sink->crop.left,
+-        v4l2sink->crop.width, v4l2sink->crop.height);
+-
+-    if (v4l2sink->crop_fields_set & RECT_TOP_SET)
+-      crop.c.top = v4l2sink->crop.top;
+-    if (v4l2sink->crop_fields_set & RECT_LEFT_SET)
+-      crop.c.left = v4l2sink->crop.left;
+-    if (v4l2sink->crop_fields_set & RECT_WIDTH_SET)
+-      crop.c.width = v4l2sink->crop.width;
+-    if (v4l2sink->crop_fields_set & RECT_HEIGHT_SET)
+-      crop.c.height = v4l2sink->crop.height;
+-
+-    if (v4l2_ioctl (fd, VIDIOC_S_CROP, &crop) < 0) {
+-      GST_WARNING_OBJECT (v4l2sink, "VIDIOC_S_CROP failed");
+-      return;
+-    }
+-
+-    if (v4l2_ioctl (fd, VIDIOC_G_CROP, &crop) < 0) {
+-      GST_WARNING_OBJECT (v4l2sink, "VIDIOC_G_CROP failed");
+-      return;
+-    }
+-
+-    v4l2sink->crop_fields_set = 0;
+-    v4l2sink->crop = crop.c;
+-  }
+-}
+-
+ 
+ static void
+ gst_v4l2sink_set_property (GObject * object,
+@@ -364,26 +293,6 @@ gst_v4l2sink_set_property (GObject * object,
+         v4l2sink->overlay_fields_set |= RECT_HEIGHT_SET;
+         gst_v4l2sink_sync_overlay_fields (v4l2sink);
+         break;
+-      case PROP_CROP_TOP:
+-        v4l2sink->crop.top = g_value_get_int (value);
+-        v4l2sink->crop_fields_set |= RECT_TOP_SET;
+-        gst_v4l2sink_sync_crop_fields (v4l2sink);
+-        break;
+-      case PROP_CROP_LEFT:
+-        v4l2sink->crop.left = g_value_get_int (value);
+-        v4l2sink->crop_fields_set |= RECT_LEFT_SET;
+-        gst_v4l2sink_sync_crop_fields (v4l2sink);
+-        break;
+-      case PROP_CROP_WIDTH:
+-        v4l2sink->crop.width = g_value_get_uint (value);
+-        v4l2sink->crop_fields_set |= RECT_WIDTH_SET;
+-        gst_v4l2sink_sync_crop_fields (v4l2sink);
+-        break;
+-      case PROP_CROP_HEIGHT:
+-        v4l2sink->crop.height = g_value_get_uint (value);
+-        v4l2sink->crop_fields_set |= RECT_HEIGHT_SET;
+-        gst_v4l2sink_sync_crop_fields (v4l2sink);
+-        break;
+       default:
+         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+         break;
+@@ -413,18 +322,6 @@ gst_v4l2sink_get_property (GObject * object,
+       case PROP_OVERLAY_HEIGHT:
+         g_value_set_uint (value, v4l2sink->overlay.height);
+         break;
+-      case PROP_CROP_TOP:
+-        g_value_set_int (value, v4l2sink->crop.top);
+-        break;
+-      case PROP_CROP_LEFT:
+-        g_value_set_int (value, v4l2sink->crop.left);
+-        break;
+-      case PROP_CROP_WIDTH:
+-        g_value_set_uint (value, v4l2sink->crop.width);
+-        break;
+-      case PROP_CROP_HEIGHT:
+-        g_value_set_uint (value, v4l2sink->crop.height);
+-        break;
+       default:
+         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+         break;
+@@ -515,7 +412,6 @@ gst_v4l2sink_set_caps (GstBaseSink * bsink, GstCaps * caps)
+     goto invalid_format;
+ 
+   gst_v4l2sink_sync_overlay_fields (v4l2sink);
+-  gst_v4l2sink_sync_crop_fields (v4l2sink);
+ 
+   GST_INFO_OBJECT (v4l2sink, "outputting buffers via mode %u", obj->mode);
+ 
+diff --git a/sys/v4l2/gstv4l2transform.c b/sys/v4l2/gstv4l2transform.c
+index bd2cb8d2a1b6..4df8e65635a1 100644
+--- a/sys/v4l2/gstv4l2transform.c
++++ b/sys/v4l2/gstv4l2transform.c
+@@ -76,6 +76,17 @@ gst_v4l2_transform_set_property (GObject * object,
+           pspec);
+       break;
+ 
++      /* Set compose rectangle on capture */
++    case PROP_COMPOSE_LEFT:
++    case PROP_COMPOSE_TOP:
++    case PROP_COMPOSE_WIDTH:
++    case PROP_COMPOSE_HEIGHT:
++      if (!gst_v4l2_object_set_property_helper (self->v4l2capture,
++              prop_id, value, pspec)) {
++        G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
++      }
++      break;
++
+       /* By default, only set on output */
+     default:
+       if (!gst_v4l2_object_set_property_helper (self->v4l2output,
+@@ -102,6 +113,17 @@ gst_v4l2_transform_get_property (GObject * object,
+           pspec);
+       break;
+ 
++      /* Read compose rectangle from capture */
++    case PROP_COMPOSE_LEFT:
++    case PROP_COMPOSE_TOP:
++    case PROP_COMPOSE_WIDTH:
++    case PROP_COMPOSE_HEIGHT:
++      if (!gst_v4l2_object_get_property_helper (self->v4l2capture,
++              prop_id, value, pspec)) {
++        G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
++      }
++      break;
++
+       /* By default read from output */
+     default:
+       if (!gst_v4l2_object_get_property_helper (self->v4l2output,

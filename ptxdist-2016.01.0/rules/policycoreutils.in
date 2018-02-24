@@ -1,0 +1,105 @@
+## SECTION=selinux
+
+menuconfig POLICYCOREUTILS
+	tristate
+	prompt "policycoreutils               "
+	select LIBCAP_NG
+	select LIBCGROUP
+	select LIBSELINUX
+	select LIBSEMANAGE
+	select LIBSEPOL
+	select DBUS_GLIB	if POLICYCOREUTILS_RESTORECOND
+	select SEPOLGEN		if POLICYCOREUTILS_PYTHON
+	select BUSYBOX_FEATURE_FIND_DEPTH	if BUSYBOX_FIND
+	select BUSYBOX_FEATURE_FIND_DELETE	if BUSYBOX_FIND
+	select BUSYBOX_SELINUX			if BUSYBOX_FIND
+	select BUSYBOX_FEATURE_FIND_CONTEXT	if BUSYBOX_FIND
+	help
+	  This package contains the core policy utilities that are required
+	  for basic operation of an SELinux system.  These utilities include
+	  load_policy to load policies, setfiles to label filesystems, newrole
+	  to switch roles, and run_init to run /etc/init.d scripts in the proper
+	  context.
+
+if POLICYCOREUTILS
+
+menuconfig POLICYCOREUTILS_PYTHON
+	bool "python based tools"
+
+if POLICYCOREUTILS_PYTHON
+
+config POLICYCOREUTILS_AUDIT2ALLOW
+	bool "audit2allow"
+
+config POLICYCOREUTILS_SEPOLGEN_IFGEN
+	select POLICYCOREUTILS_AUDIT2ALLOW
+	bool "sepolgen-ifgen"
+
+config POLICYCOREUTILS_AUDIT2WHY
+	select POLICYCOREUTILS_AUDIT2ALLOW
+	bool "audit2why"
+
+config POLICYCOREUTILS_SANDBOX
+	bool "sandbox"
+	depends on BROKEN
+
+config POLICYCOREUTILS_CHCAT
+	select LIBSEMANAGE_PYTHON
+	depends on BROKEN
+	bool "chcat"
+
+config POLICYCOREUTILS_SEMANAGE
+	select LIBSEMANAGE_PYTHON
+	depends on BROKEN
+	bool "semanage"
+
+endif
+
+config POLICYCOREUTILS_LOAD_POLICY
+	bool "load_policy"
+
+config POLICYCOREUTILS_NEWROLE
+	bool "newrole"
+
+config POLICYCOREUTILS_RESTORECOND
+	bool "restorecond"
+	depends on BROKEN
+
+config POLICYCOREUTILS_RUN_INIT
+	bool "run_init/open_init_pty"
+
+config POLICYCOREUTILS_FIXFILES
+	bool "fixfiles"
+
+config POLICYCOREUTILS_GENHOMEDIRCON
+	select POLICYCOREUTILS_SEMODULE
+	bool "genhomedircon"
+
+config POLICYCOREUTILS_SECON
+	bool "secon"
+
+config POLICYCOREUTILS_SEMODULE
+	bool "semodule"
+
+config POLICYCOREUTILS_SEMODULE_DEPS
+	bool "semodule_deps"
+
+config POLICYCOREUTILS_SEMODULE_EXPAND
+	bool "semodule_expand"
+
+config POLICYCOREUTILS_SEMODULE_LINK
+	bool "semodule_link"
+
+config POLICYCOREUTILS_SEMODULE_PACKAGE
+	bool "semodule_package"
+
+config POLICYCOREUTILS_SESTATUS
+	bool "sestatus"
+
+config POLICYCOREUTILS_SETFILES
+	bool "setfiles/restorecon"
+
+config POLICYCOREUTILS_SETSEBOOL
+	bool "setsebool"
+
+endif

@@ -1,0 +1,8 @@
+## SECTION=multimedia_xorg_font_base
+
+config XORG_FONT_MUTT_MISC
+	tristate
+	select XORG_FONTS
+	prompt "Mutt misc"
+	help
+	  This package contains miscellaneous X.Org Mutt fonts.

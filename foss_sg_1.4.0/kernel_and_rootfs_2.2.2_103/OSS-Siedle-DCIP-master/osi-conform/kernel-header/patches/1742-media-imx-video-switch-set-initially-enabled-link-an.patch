@@ -1,0 +1,116 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 27 Jan 2015 11:37:50 +0100
+Subject: [PATCH] [media] imx-video-switch: set initially enabled link and
+ automatically disable old link
+
+Only one input link to the video switch can be enabled at any time. Make
+configuration easier by automatically disabling the currently active link
+when a new link is enabled, if possible. Also the link that corresponds
+to the initial hardware state is set to enabled by default.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-video-switch.c | 45 ++++++++++++++++++++++++---
+ 1 file changed, 41 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-video-switch.c b/drivers/media/platform/imx/imx-video-switch.c
+index 3cb958a64174..d23bbf6197cf 100644
+--- a/drivers/media/platform/imx/imx-video-switch.c
++++ b/drivers/media/platform/imx/imx-video-switch.c
+@@ -69,10 +69,24 @@ static int vidsw_link_setup(struct media_entity *entity,
+ 	}
+ 
+ 	if (vidsw->active >= 0) {
++		struct media_pad *pad;
++
+ 		if (vidsw->active == local->index)
+ 			return 0;
+-		else
+-			return -EBUSY;
++
++		pad = media_entity_remote_pad(&vidsw->pads[vidsw->active]);
++		if (pad) {
++			struct media_link *link;
++			int ret;
++
++			link = media_entity_find_link(pad,
++						&vidsw->pads[vidsw->active]);
++			if (link) {
++				ret = __media_entity_setup_link(link, 0);
++				if (ret)
++					return ret;
++			}
++		}
+ 	}
+ 
+ 	vidsw->active = local->index;
+@@ -91,6 +105,18 @@ static struct media_entity_operations vidsw_ops = {
+ 	.link_setup = vidsw_link_setup,
+ };
+ 
++static bool vidsw_endpoint_disabled(struct device_node *ep)
++{
++	struct device_node *rpp;
++
++	if (!of_device_is_available(ep))
++		return false;
++
++	rpp = of_graph_get_remote_port_parent(ep);
++
++	return of_device_is_available(rpp);
++}
++
+ static int vidsw_async_init(struct vidsw *vidsw, struct device_node *node)
+ {
+ 	struct v4l2_of_endpoint endpoint;
+@@ -113,6 +139,11 @@ static int vidsw_async_init(struct vidsw *vidsw, struct device_node *node)
+ 	vidsw->subdev.entity.ops = &vidsw_ops;
+ 
+ 	for_each_endpoint_of_node(node, ep) {
++		unsigned int flag = 0;
++
++		if (vidsw_endpoint_disabled(node))
++			continue;
++
+ 		v4l2_of_parse_endpoint(ep, &endpoint);
+ 
+ 		portno = endpoint.base.port;
+@@ -121,8 +152,11 @@ static int vidsw_async_init(struct vidsw *vidsw, struct device_node *node)
+ 
+ 		vidsw->endpoint[portno] = endpoint;
+ 
++		if (portno == vidsw->active)
++			flag = MEDIA_LNK_FL_ENABLED;
++
+ 		/* FIXME */
+-		ipu_media_entity_create_link(&vidsw->subdev, portno, ep, 0);
++		ipu_media_entity_create_link(&vidsw->subdev, portno, ep, flag);
+ 	}
+ 
+ 	return 0;
+@@ -302,7 +336,6 @@ static int vidsw_probe(struct platform_device *pdev)
+ 	vidsw->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+ 	vidsw->subdev.dev = &pdev->dev;
+ 	vidsw->dev = &pdev->dev;
+-	vidsw->active = -1;
+ 
+ 	/*
+ 	 * The largest numbered port is the output port. It determines
+@@ -332,6 +365,8 @@ static int vidsw_probe(struct platform_device *pdev)
+ 			dev_err(&pdev->dev, "Failed to allocate regmap field\n");
+ 			return PTR_ERR(vidsw->field);
+ 		}
++
++		regmap_field_read(vidsw->field, &vidsw->active);
+ 	} else {
+ 		if (num_pads > 3) {
+ 			dev_err(&pdev->dev, "Too many ports %d\n", num_pads);
+@@ -348,6 +383,8 @@ static int vidsw_probe(struct platform_device *pdev)
+ 				 vidsw->gpio, ret);
+ 			vidsw->gpio = -1;
+ 		}
++
++		vidsw->active = gpio_get_value(vidsw->gpio) ? 1 : 0;
+ 	}
+ 
+ 	vidsw->num_pads = num_pads;

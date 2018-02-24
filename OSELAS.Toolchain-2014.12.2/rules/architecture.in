@@ -1,0 +1,63 @@
+choice
+	prompt "architecture      "
+
+	config ARCH_ARM
+		bool "arm    "
+
+	config ARCH_ARM64
+		bool "arm64  "
+
+	config ARCH_M68K
+		bool "m68k   "
+
+	config ARCH_MIPS
+		bool "mips   "
+
+	config ARCH_POWERPC
+		bool "powerpc"
+
+	config ARCH_I386
+		bool "i386   "
+
+	config ARCH_X86_64
+		bool "x86_64 "
+
+	config ARCH_AVR
+		bool "AVR-8  "
+
+	config ARCH_AVR32
+		bool "AVR-32 "
+
+	help
+	  This option specifies the toolchain architecture. It corresponds to
+	  the arch/ directory of the Linux kernel.
+
+endchoice
+
+config ARCH
+	string
+	default "arm"		if ARCH_ARM
+	default "arm64"		if ARCH_ARM64
+	default "avr"		if ARCH_AVR
+	default "avr32"		if ARCH_AVR32
+	default "m68k"		if ARCH_M68K
+	default "i386"		if ARCH_I386
+	default "x86_64"	if ARCH_X86_64
+	default "mips"		if ARCH_MIPS
+	default "powerpc"	if ARCH_POWERPC
+
+config GNU_TARGET
+	string
+	prompt "toolchain target"
+	help
+	  The GNU_TARGET specifies which toolchain variant is to be
+	  built.
+
+#
+# sizeof long double
+#
+config SIZEOF_LONG_DOUBLE
+	string
+	default "12" if ARCH_I386
+	default "16" if ARCH_X86_64 || ARCH_ARM64
+	default "8"

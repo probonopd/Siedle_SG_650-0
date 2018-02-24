@@ -1,0 +1,79 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 13 Feb 2015 15:16:17 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: add prepare_stream call for MIPI CSI-2
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 45 ++++++++++++++++++++++++++++++
+ 1 file changed, 45 insertions(+)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 65ff909be09b..5ff6812cb75d 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -66,6 +66,7 @@ struct ipucsi_format {
+ 	unsigned raw:1;
+ };
+ 
++int v4l2_media_subdev_prepare_stream(struct media_entity *entity);
+ int v4l2_media_subdev_s_stream(struct media_entity *entity, int enable);
+ 
+ static struct ipucsi_format ipucsi_formats[] = {
+@@ -944,6 +945,12 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 		ipu_csi_dump(ipucsi->csi);
+ 	}
+ 
++	ret = v4l2_media_subdev_prepare_stream(&ipucsi->subdev.entity);
++	if (ret) {
++		dev_err(dev, "Failed to prepare streaming\n");
++		goto free_irq;
++	}
++
+ 	ret = v4l2_media_subdev_s_stream(&ipucsi->subdev.entity, 1);
+ 	if (ret) {
+ 		dev_err(dev, "Failed to start streaming\n");
+@@ -1396,6 +1403,44 @@ struct media_entity_operations ipucsi_entity_ops = {
+ 	.link_validate = v4l2_subdev_link_validate,
+ };
+ 
++int v4l2_media_subdev_prepare_stream(struct media_entity *entity)
++{
++	struct media_entity_graph graph;
++	struct media_entity *first;
++	struct v4l2_subdev *sd;
++	int ret = 0;
++
++	first = entity;
++
++	media_entity_graph_walk_start(&graph, entity);
++
++	while (!ret && (entity = media_entity_graph_walk_next(&graph))) {
++		if (media_entity_type(entity) == MEDIA_ENT_T_V4L2_SUBDEV) {
++			sd = media_entity_to_v4l2_subdev(entity);
++			ret = v4l2_subdev_call(sd, video, prepare_stream);
++			if (ret == -ENOIOCTLCMD)
++				ret = 0;
++		}
++	}
++
++	if (ret)
++		goto disable;
++
++	return 0;
++
++	media_entity_graph_walk_start(&graph, first);
++
++disable:
++	while ((entity = media_entity_graph_walk_next(&graph)) && first != entity) {
++		if (media_entity_type(entity) == MEDIA_ENT_T_V4L2_SUBDEV) {
++			sd = media_entity_to_v4l2_subdev(entity);
++			v4l2_subdev_call(sd, video, s_stream, 0);
++		}
++	}
++
++	return ret;
++}
++
+ int v4l2_media_subdev_s_stream(struct media_entity *entity, int enable)
+ {
+ 	struct media_entity_graph graph;

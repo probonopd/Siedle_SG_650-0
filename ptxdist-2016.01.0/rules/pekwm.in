@@ -1,0 +1,45 @@
+## SECTION=x_windowmanagers
+
+menuconfig PEKWM
+	tristate
+	select XORG_LIB_SM
+	select XORG_LIB_ICE
+	select XORG_LIB_X11
+	select XORG_LIB_XEXT
+	select XORG_LIB_XPM
+	select XORG_APP_XPROP if PEKWM_INSTALL_SCRIPTS
+	select LIBJPEG
+	select LIBPNG
+	select GCCLIBS_CXX
+	prompt "pekwm                         "
+	help
+	  The Pek Window Manager is written by Claes Nästen, the code
+	  is based on the aewm++ window manager, but it has evolved
+	  enough that it no longer resembles aewm++ at all. It has a
+	  much expanded feature-set, including window grouping
+	  (similar to ion, pwm, or fluxbox), autoproperties, xinerama,
+	  keygrabber that supports keychains, and much more.
+
+if PEKWM
+
+config PEKWM_INSTALL_CONFIG
+	bool
+	prompt "install default config"
+	help
+	  install the default configuration files to /etc/pekwm
+
+config PEKWM_INSTALL_THEME
+	bool
+	prompt "install default theme"
+	help
+	  install the default pekwm theme. Without theme there will be
+	  no menus or titlebar.
+
+config PEKWM_INSTALL_SCRIPTS
+	bool
+	prompt "install default scripts"
+	help
+	  install helper scripts.
+
+endif
+

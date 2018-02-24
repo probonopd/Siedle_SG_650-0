@@ -1,0 +1,8 @@
+## SECTION=multimedia_xorg_font_base
+
+config XORG_FONT_CURSOR_MISC
+	tristate
+	select XORG_FONTS
+	prompt "Cursor misc"
+	help
+	  essential font package, you migh most probably want it.

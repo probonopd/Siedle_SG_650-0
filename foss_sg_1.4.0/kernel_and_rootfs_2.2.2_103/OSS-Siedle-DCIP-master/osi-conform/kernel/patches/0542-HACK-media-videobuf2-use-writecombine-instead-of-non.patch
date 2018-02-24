@@ -1,0 +1,50 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 24 Jul 2012 16:39:51 +0200
+Subject: [PATCH] HACK: media: videobuf2: use writecombine instead of
+ noncached/coherent mappings
+
+both in kernel and userspace.
+This works around a problem that occurs with an optimized thumb2 memcpy
+implementation in libc: unaligned ldr/str accesses to strongly ordered
+and device memory mappings are not supported on ARMv6/ARMv7.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/v4l2-core/videobuf2-dma-contig.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/media/v4l2-core/videobuf2-dma-contig.c b/drivers/media/v4l2-core/videobuf2-dma-contig.c
+index c33127284cfe..d98a5eccf55d 100644
+--- a/drivers/media/v4l2-core/videobuf2-dma-contig.c
++++ b/drivers/media/v4l2-core/videobuf2-dma-contig.c
+@@ -131,7 +131,7 @@ static void vb2_dc_put(void *buf_priv)
+ 		sg_free_table(buf->sgt_base);
+ 		kfree(buf->sgt_base);
+ 	}
+-	dma_free_coherent(buf->dev, buf->size, buf->vaddr, buf->dma_addr);
++	dma_free_writecombine(buf->dev, buf->size, buf->vaddr, buf->dma_addr);
+ 	put_device(buf->dev);
+ 	kfree(buf);
+ }
+@@ -147,10 +147,10 @@ static void *vb2_dc_alloc(void *alloc_ctx, unsigned long size,
+ 	if (!buf)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	buf->vaddr = dma_alloc_coherent(dev, size, &buf->dma_addr,
++	buf->vaddr = dma_alloc_writecombine(dev, size, &buf->dma_addr,
+ 						GFP_KERNEL | gfp_flags);
+ 	if (!buf->vaddr) {
+-		dev_err(dev, "dma_alloc_coherent of size %ld failed\n", size);
++		dev_err(dev, "dma_alloc_writecombine of size %ld failed\n", size);
+ 		kfree(buf);
+ 		return ERR_PTR(-ENOMEM);
+ 	}
+@@ -185,7 +185,7 @@ static int vb2_dc_mmap(void *buf_priv, struct vm_area_struct *vma)
+ 	 */
+ 	vma->vm_pgoff = 0;
+ 
+-	ret = dma_mmap_coherent(buf->dev, vma, buf->vaddr,
++	ret = dma_mmap_writecombine(buf->dev, vma, buf->vaddr,
+ 		buf->dma_addr, buf->size);
+ 
+ 	if (ret) {

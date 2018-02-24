@@ -1,0 +1,71 @@
+## SECTION=multimedia_gstreamer
+
+menuconfig GSTREAMER
+	tristate
+	prompt "gstreamer                     "
+	select LIBC_M
+	select GLIB
+	select LIBXML2		if GSTREAMER_LOADSAVE
+	select LIBXML2_READER	if GSTREAMER_LOADSAVE
+	select LIBXML2_OUTPUT	if GSTREAMER_LOADSAVE
+	select LIBXML2_SAX1	if GSTREAMER_LOADSAVE
+	select HOST_FLEX
+	help
+	  GStreamer is a streaming media framework, based on graphs of
+	  filters which operate on media data. Applications using this
+	  library can do anything from real-time sound processing to
+	  playing videos, and just about anything else
+	  media-related. Its plugin-based architecture means that new
+	  data types or processing capabilities can be added simply by
+	  installing new plug-ins.
+
+if GSTREAMER
+
+	comment "compile options"
+
+	config GSTREAMER_DEBUG
+		bool
+		prompt "debug support"
+
+	config GSTREAMER_LOADSAVE
+		bool
+		prompt "pipleline xml load/save"
+
+	config GSTREAMER_CMDLINEPARSER
+		bool
+		prompt "commandline parser"
+
+	config GSTREAMER_OPTIONPARSING
+		bool
+		prompt "option parsing when gst init"
+
+	config GSTREAMER_NETDIST
+		bool
+		prompt "network distribution"
+
+	comment "install options"
+
+	config GSTREAMER_INSTALL_TYPEFIND
+		bool
+		prompt "install gst-typefind"
+
+	config GSTREAMER_INSTALL_INSPECT
+		bool
+		prompt "install gst-inspect"
+
+	config GSTREAMER_INSTALL_XMLINSPECT
+		bool
+		prompt "install gst-xmlinspect"
+
+	config GSTREAMER_INSTALL_XMLLAUNCH
+		bool
+		depends on GSTREAMER_LOADSAVE
+		prompt "install gst-xmllaunch"
+
+	config GSTREAMER_INSTALL_LAUNCH
+		bool
+		depends on GSTREAMER_CMDLINEPARSER
+		prompt "install gst-launch"
+
+endif
+

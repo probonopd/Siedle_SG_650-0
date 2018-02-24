@@ -1,0 +1,10 @@
+## SECTION=multimedia_xorg_font_100dpi
+
+config XORG_FONT_BH_100DPI
+	tristate
+	select XORG_FONTS
+	depends on XORG_FONT_100DPI
+	prompt "BH 100dpi"
+	help
+	  This package contains BH fonts in the ISO 10646-1,
+	  ISO 8859-1 and ISO 8859-15 encodings

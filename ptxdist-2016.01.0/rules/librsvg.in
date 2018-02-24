@@ -1,0 +1,39 @@
+## SECTION=multimedia_gtk
+
+menuconfig LIBRSVG
+	tristate
+	prompt "librsvg                       "
+	select GTK
+	select LIBXML2
+	select LIBGSF	if LIBRSVG_SVGZ
+	select LIBCROCO	if LIBRSVG_CROCO
+	help
+	  AX-based renderer library for SVG files
+
+	  The rsvg library is an efficient renderer for Scalable
+	  Vector Graphics (SVG) pictures.
+
+if LIBRSVG
+
+config LIBRSVG_PIXBUF_LOADER
+	bool
+	prompt "pixbuf loader support"
+	help
+	  This enables the librsvg-based gdk-pixbuf loader.
+
+config LIBRSVG_SVGZ
+	bool
+	prompt "svgz support"
+	help
+	  Adds support for the ompressed Scalable Vector Graphics
+	  file format (SVGZ)
+
+config LIBRSVG_CROCO
+	bool
+	prompt "libcroco support"
+	help
+	  Libcroco is a general CSS parsing and manipulation library.
+	  It enhances librsvg to provide extra features.
+
+endif
+

@@ -1,0 +1,699 @@
+From: Michael Olbrich <m.olbrich@pengutronix.de>
+Date: Thu, 15 Sep 2011 16:50:56 +0200
+Subject: [PATCH] optimized string functions for NEON from Linaro
+
+Signed-off-by: Michael Olbrich <m.olbrich@pengutronix.de>
+---
+ cortex-strings/sysdeps/arm/armv7/memchr.S | 155 ++++++++++++++++++++++++++++++
+ cortex-strings/sysdeps/arm/armv7/memcpy.S | 152 +++++++++++++++++++++++++++++
+ cortex-strings/sysdeps/arm/armv7/memset.S | 118 +++++++++++++++++++++++
+ cortex-strings/sysdeps/arm/armv7/strchr.S |  76 +++++++++++++++
+ cortex-strings/sysdeps/arm/armv7/strlen.S | 150 +++++++++++++++++++++++++++++
+ 5 files changed, 651 insertions(+)
+ create mode 100644 cortex-strings/sysdeps/arm/armv7/memchr.S
+ create mode 100644 cortex-strings/sysdeps/arm/armv7/memcpy.S
+ create mode 100644 cortex-strings/sysdeps/arm/armv7/memset.S
+ create mode 100644 cortex-strings/sysdeps/arm/armv7/strchr.S
+ create mode 100644 cortex-strings/sysdeps/arm/armv7/strlen.S
+
+diff --git a/cortex-strings/sysdeps/arm/armv7/memchr.S b/cortex-strings/sysdeps/arm/armv7/memchr.S
+new file mode 100644
+index 000000000000..92a2d9f0967d
+--- /dev/null
++++ b/cortex-strings/sysdeps/arm/armv7/memchr.S
+@@ -0,0 +1,155 @@
++/* Copyright (c) 2010-2011, Linaro Limited
++   All rights reserved.
++
++   Redistribution and use in source and binary forms, with or without
++   modification, are permitted provided that the following conditions
++   are met:
++
++      * Redistributions of source code must retain the above copyright
++      notice, this list of conditions and the following disclaimer.
++
++      * Redistributions in binary form must reproduce the above copyright
++      notice, this list of conditions and the following disclaimer in the
++      documentation and/or other materials provided with the distribution.
++
++      * Neither the name of Linaro Limited nor the names of its
++      contributors may be used to endorse or promote products derived
++      from this software without specific prior written permission.
++
++   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++   HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++/*
++   Written by Dave Gilbert <david.gilbert@linaro.org>
++
++   This memchr routine is optimised on a Cortex-A9 and should work on
++   all ARMv7 processors.   It has a fast past for short sizes, and has
++   an optimised path for large data sets; the worst case is finding the
++   match early in a large data set.
++
++ */
++
++@ 2011-02-07 david.gilbert@linaro.org
++@    Extracted from local git a5b438d861
++@ 2011-07-14 david.gilbert@linaro.org
++@    Import endianness fix from local git ea786f1b
++@ 2011-12-07 david.gilbert@linaro.org
++@    Removed unneeded cbz from align loop
++
++	.syntax unified
++	.arch armv7-a
++
++@ this lets us check a flag in a 00/ff byte easily in either endianness
++#ifdef __ARMEB__
++#define CHARTSTMASK(c) 1<<(31-(c*8))
++#else
++#define CHARTSTMASK(c) 1<<(c*8)
++#endif
++	.text
++	.thumb
++
++@ ---------------------------------------------------------------------------
++	.thumb_func
++	.align 2
++	.p2align 4,,15
++	.global memchr
++	.type memchr,%function
++memchr:
++	@ r0 = start of memory to scan
++	@ r1 = character to look for
++	@ r2 = length
++	@ returns r0 = pointer to character or NULL if not found
++	and	r1,r1,#0xff	@ Don't think we can trust the caller to actually pass a char
++
++	cmp	r2,#16		@ If it's short don't bother with anything clever
++	blt	20f 
++
++	tst	r0, #7		@ If it's already aligned skip the next bit
++	beq	10f
++
++	@ Work up to an aligned point
++5:
++	ldrb	r3, [r0],#1
++	subs	r2, r2, #1
++	cmp	r3, r1
++	beq	50f		@ If it matches exit found
++	tst	r0, #7
++	bne	5b		@ If not aligned yet then do next byte
++	
++10:
++	@ At this point, we are aligned, we know we have at least 8 bytes to work with
++	push	{r4,r5,r6,r7}
++	orr	r1, r1, r1, lsl #8	@ expand the match word across to all bytes
++	orr	r1, r1, r1, lsl #16
++	bic	r4, r2, #7	@ Number of double words to work with
++	mvns	r7, #0		@ all F's
++	movs	r3, #0
++	
++15:
++	ldmia	r0!,{r5,r6}
++	subs	r4, r4, #8
++	eor	r5,r5, r1	@ Get it so that r5,r6 have 00's where the bytes match the target
++	eor	r6,r6, r1
++	uadd8	r5, r5, r7	@ Parallel add 0xff - sets the GE bits for anything that wasn't 0
++	sel	r5, r3, r7	@ bytes are 00 for none-00 bytes, or ff for 00 bytes - NOTE INVERSION
++	uadd8	r6, r6, r7	@ Parallel add 0xff - sets the GE bits for anything that wasn't 0
++	sel	r6, r5, r7	@ chained....bytes are 00 for none-00 bytes, or ff for 00 bytes - NOTE INVERSION
++	cbnz	r6, 60f
++	bne	15b		@ (Flags from the subs above) If not run out of bytes then go around again
++
++	pop	{r4,r5,r6,r7}
++	and	r1,r1,#0xff	@ Get r1 back to a single character from the expansion above
++	and	r2,r2,#7	@ Leave the count remaining as the number after the double words have been done
++ 
++20:
++	cbz	r2, 40f		@ 0 length or hit the end already then not found
++
++21:  @ Post aligned section, or just a short call
++	ldrb	r3,[r0],#1
++	subs	r2,r2,#1
++	eor	r3,r3,r1	@ r3 = 0 if match - doesn't break flags from sub
++	cbz	r3, 50f
++	bne	21b		@ on r2 flags
++
++40:
++	movs	r0,#0		@ not found
++	bx	lr
++
++50:
++	subs	r0,r0,#1	@ found
++	bx	lr
++
++60:  @ We're here because the fast path found a hit - now we have to track down exactly which word it was
++	@ r0 points to the start of the double word after the one that was tested
++	@ r5 has the 00/ff pattern for the first word, r6 has the chained value
++	cmp	r5, #0
++	itte	eq
++	moveq	r5, r6		@ the end is in the 2nd word
++	subeq	r0,r0,#3	@ Points to 2nd byte of 2nd word
++	subne	r0,r0,#7	@ or 2nd byte of 1st word
++
++	@ r0 currently points to the 3rd byte of the word containing the hit
++	tst	r5, # CHARTSTMASK(0)	@ 1st character
++	bne	61f
++	adds	r0,r0,#1
++	tst	r5, # CHARTSTMASK(1)	@ 2nd character
++	ittt	eq
++	addeq	r0,r0,#1
++	tsteq	r5, # (3<<15)		@ 2nd & 3rd character
++	@ If not the 3rd must be the last one
++	addeq	r0,r0,#1
++
++61:
++	pop	{r4,r5,r6,r7}
++	subs	r0,r0,#1
++	bx	lr
+diff --git a/cortex-strings/sysdeps/arm/armv7/memcpy.S b/cortex-strings/sysdeps/arm/armv7/memcpy.S
+new file mode 100644
+index 000000000000..3be24cad2c8d
+--- /dev/null
++++ b/cortex-strings/sysdeps/arm/armv7/memcpy.S
+@@ -0,0 +1,152 @@
++/* Copyright (c) 2010-2011, Linaro Limited
++   All rights reserved.
++
++   Redistribution and use in source and binary forms, with or without
++   modification, are permitted provided that the following conditions
++   are met:
++
++      * Redistributions of source code must retain the above copyright
++      notice, this list of conditions and the following disclaimer.
++
++      * Redistributions in binary form must reproduce the above copyright
++      notice, this list of conditions and the following disclaimer in the
++      documentation and/or other materials provided with the distribution.
++
++      * Neither the name of Linaro Limited nor the names of its
++      contributors may be used to endorse or promote products derived
++      from this software without specific prior written permission.
++
++   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++   HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++
++   Written by Dave Gilbert <david.gilbert@linaro.org>
++
++   This memcpy routine is optimised on a Cortex-A9 and should work on
++   all ARMv7 processors with NEON. */
++
++@ 2011-09-01 david.gilbert@linaro.org
++@    Extracted from local git 2f11b436
++
++	.syntax unified
++	.arch armv7-a
++
++@ this lets us check a flag in a 00/ff byte easily in either endianness
++#ifdef __ARMEB__
++#define CHARTSTMASK(c) 1<<(31-(c*8))
++#else
++#define CHARTSTMASK(c) 1<<(c*8)
++#endif
++	.text
++	.thumb
++
++@ ---------------------------------------------------------------------------
++	.thumb_func
++	.align 2
++	.p2align 4,,15
++	.global memcpy
++	.type memcpy,%function
++memcpy:
++	@ r0 = dest
++	@ r1 = source
++	@ r2 = count
++	@ returns dest in r0
++	@ Overlaps of source/dest not allowed according to spec
++	@ Note this routine relies on v7 misaligned loads/stores
++	pld	[r1]
++	mov	r12, r0		@ stash original r0
++	cmp	r2,#32
++	blt	10f		@ take the small copy case separately
++
++	@ test for either source or destination being misaligned
++	@ (We only rely on word align)
++	tst	r0,#3
++	it	eq
++	tsteq	r1,#3
++	bne	30f		@ misaligned case
++
++4:
++	@ at this point we are word (or better) aligned and have at least
++	@ 32 bytes to play with
++
++	@ If it's a huge copy,  try Neon
++	cmp	r2, #128*1024
++	bge	35f		@ Sharing general non-aligned case here, aligned could be faster
++	
++	push	{r3,r4,r5,r6,r7,r8,r10,r11}
++5:
++	ldmia	r1!,{r3,r4,r5,r6,r7,r8,r10,r11}
++	sub	r2,r2,#32
++	pld	[r1,#96]
++	cmp	r2,#32
++	stmia	r0!,{r3,r4,r5,r6,r7,r8,r10,r11}
++	bge	5b
++
++	pop	{r3,r4,r5,r6,r7,r8,r10,r11}
++	@ We are now down to less than 32 bytes
++	cbz	r2,15f		@ quick exit for the case where we copied a multiple of 32
++
++10:  @ small copies (not necessarily aligned - note might be slightly more than 32bytes)
++	cmp	r2,#4
++	blt	12f
++11:
++	sub	r2,r2,#4
++	cmp	r2,#4
++	ldr	r3, [r1],#4
++	str	r3, [r0],#4
++	bge	11b
++12:
++	tst	r2,#2
++	itt	ne
++	ldrhne	r3, [r1],#2
++	strhne	r3, [r0],#2
++	
++	tst	r2,#1
++	itt	ne
++	ldrbne	r3, [r1],#1
++	strbne	r3, [r0],#1
++	
++15:  @ exit
++	mov	r0,r12		@ restore r0
++	bx	lr
++
++	.align 2
++	.p2align 4,,15
++30:  @ non-aligned - at least 32 bytes to play with
++	@ Test for co-misalignment
++	eor	r3, r0, r1
++	tst	r3,#3
++	beq	50f
++
++	@ Use Neon for misaligned
++35:
++	vld1.8	{d0,d1,d2,d3}, [r1]!
++	sub	r2,r2,#32
++	cmp	r2,#32
++	pld	[r1,#96]
++	vst1.8	{d0,d1,d2,d3}, [r0]!
++	bge	35b
++	b	10b		@ TODO: Probably a bad idea to switch to ARM at this point
++
++	.align 2
++	.p2align 4,,15
++50: @ Co-misaligned
++	@ At this point we've got at least 32 bytes
++51:
++	ldrb	r3,[r1],#1
++	sub	r2,r2,#1
++	strb	r3,[r0],#1
++	tst	r0,#7
++	bne	51b
++
++	cmp	r2,#32
++	blt	10b
++	b	4b
+diff --git a/cortex-strings/sysdeps/arm/armv7/memset.S b/cortex-strings/sysdeps/arm/armv7/memset.S
+new file mode 100644
+index 000000000000..921cb7535cc8
+--- /dev/null
++++ b/cortex-strings/sysdeps/arm/armv7/memset.S
+@@ -0,0 +1,118 @@
++/* Copyright (c) 2010-2011, Linaro Limited
++   All rights reserved.
++
++   Redistribution and use in source and binary forms, with or without
++   modification, are permitted provided that the following conditions
++   are met:
++
++      * Redistributions of source code must retain the above copyright
++      notice, this list of conditions and the following disclaimer.
++
++      * Redistributions in binary form must reproduce the above copyright
++      notice, this list of conditions and the following disclaimer in the
++      documentation and/or other materials provided with the distribution.
++
++      * Neither the name of Linaro Limited nor the names of its
++      contributors may be used to endorse or promote products derived
++      from this software without specific prior written permission.
++
++   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++   HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++
++   Written by Dave Gilbert <david.gilbert@linaro.org>
++
++   This memset routine is optimised on a Cortex-A9 and should work on
++   all ARMv7 processors. */
++
++	.syntax unified
++	.arch armv7-a
++
++@ 2011-08-30 david.gilbert@linaro.org
++@    Extracted from local git 2f11b436
++
++@ this lets us check a flag in a 00/ff byte easily in either endianness
++#ifdef __ARMEB__
++#define CHARTSTMASK(c) 1<<(31-(c*8))
++#else
++#define CHARTSTMASK(c) 1<<(c*8)
++#endif
++	.text
++	.thumb
++
++@ ---------------------------------------------------------------------------
++	.thumb_func
++	.align 2
++	.p2align 4,,15
++	.global memset
++	.type memset,%function
++memset: 
++	@ r0 = address
++	@ r1 = character
++	@ r2 = count
++	@ returns original address in r0
++
++	mov	r3, r0		@ Leave r0 alone
++	cbz	r2, 10f		@ Exit if 0 length
++
++	tst	r0, #7
++	beq	2f		@ Already aligned
++
++	@ Ok, so we're misaligned here
++1:
++	strb	r1, [r3], #1
++	subs	r2,r2,#1
++	tst	r3, #7
++	cbz	r2, 10f		@ Exit if we hit the end
++	bne	1b		@ go round again if still misaligned
++
++2:
++	@ OK, so we're aligned
++	push	{r4,r5,r6,r7}
++	bics	r4, r2, #15	@ if less than 16 bytes then need to finish it off
++	beq	5f
++
++3:
++	@ POSIX says that ch is cast to an unsigned char.  A uxtb is one
++	@ byte and takes two cycles, where an AND is four bytes but one
++	@ cycle.
++	and	r1, #0xFF
++	orr	r1, r1, r1, lsl#8	@ Same character into all bytes
++	orr	r1, r1, r1, lsl#16
++	mov	r5,r1
++	mov	r6,r1
++	mov	r7,r1
++
++4:
++	subs	r4,r4,#16
++	stmia	r3!,{r1,r5,r6,r7}
++	bne	4b
++	and	r2,r2,#15
++
++	@ At this point we're still aligned and we have upto align-1 bytes left to right
++	@ we can avoid some of the byte-at-a time now by testing for some big chunks
++	tst	r2,#8
++	itt	ne 
++	subne	r2,r2,#8
++	stmiane	r3!,{r1,r5}
++
++5:
++	pop	{r4,r5,r6,r7}
++	cbz	r2, 10f
++
++	@ Got to do any last < alignment bytes
++6:
++	subs	r2,r2,#1
++	strb	r1,[r3],#1
++	bne	6b
++
++10:
++	bx	lr		@ goodbye
+diff --git a/cortex-strings/sysdeps/arm/armv7/strchr.S b/cortex-strings/sysdeps/arm/armv7/strchr.S
+new file mode 100644
+index 000000000000..8875dbfce6da
+--- /dev/null
++++ b/cortex-strings/sysdeps/arm/armv7/strchr.S
+@@ -0,0 +1,76 @@
++/* Copyright (c) 2010-2011, Linaro Limited
++   All rights reserved.
++
++   Redistribution and use in source and binary forms, with or without
++   modification, are permitted provided that the following conditions
++   are met:
++
++      * Redistributions of source code must retain the above copyright
++      notice, this list of conditions and the following disclaimer.
++
++      * Redistributions in binary form must reproduce the above copyright
++      notice, this list of conditions and the following disclaimer in the
++      documentation and/or other materials provided with the distribution.
++
++      * Neither the name of Linaro Limited nor the names of its
++      contributors may be used to endorse or promote products derived
++      from this software without specific prior written permission.
++
++   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++   HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++
++   Written by Dave Gilbert <david.gilbert@linaro.org>
++
++   A very simple strchr routine, from benchmarks on A9 it's a bit faster than
++   the current version in eglibc (2.12.1-0ubuntu14 package)
++   I don't think doing a word at a time version is worth it since a lot
++    of strchr cases are very short anyway */
++
++@ 2011-02-07 david.gilbert@linaro.org
++@    Extracted from local git a5b438d861
++
++	.syntax unified
++	.arch armv7-a
++
++	.text
++	.thumb
++
++@ ---------------------------------------------------------------------------
++
++	.thumb_func
++	.align 2
++	.p2align 4,,15
++	.global strchr
++	.type strchr,%function
++strchr:
++	@ r0 = start of string
++	@ r1 = character to match
++	@ returns NULL for no match, or a pointer to the match
++	and	r1,r1, #255
++
++1:
++	ldrb	r2,[r0],#1
++	cmp	r2,r1
++	cbz	r2,10f
++	bne	1b
++
++	@ We're here if it matched
++5:
++	subs	r0,r0,#1
++	bx	lr
++
++10:
++	@ We're here if we ran off the end
++	cmp	r1, #0	@ Corner case - you're allowed to search for the nil and get a pointer to it
++	beq	5b	@ A bit messy, if it's common we should branch at the start to a special loop
++	mov	r0,#0
++	bx	lr
+diff --git a/cortex-strings/sysdeps/arm/armv7/strlen.S b/cortex-strings/sysdeps/arm/armv7/strlen.S
+new file mode 100644
+index 000000000000..8efa2356fdd1
+--- /dev/null
++++ b/cortex-strings/sysdeps/arm/armv7/strlen.S
+@@ -0,0 +1,150 @@
++/* Copyright (c) 2010-2011,2013 Linaro Limited
++   All rights reserved.
++
++   Redistribution and use in source and binary forms, with or without
++   modification, are permitted provided that the following conditions
++   are met:
++
++      * Redistributions of source code must retain the above copyright
++      notice, this list of conditions and the following disclaimer.
++
++      * Redistributions in binary form must reproduce the above copyright
++      notice, this list of conditions and the following disclaimer in the
++      documentation and/or other materials provided with the distribution.
++
++      * Neither the name of Linaro Limited nor the names of its
++      contributors may be used to endorse or promote products derived
++      from this software without specific prior written permission.
++
++   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++   HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++/*
++   Assumes:
++   ARMv6T2, AArch32
++
++ */
++
++	.macro def_fn f p2align=0
++	.text
++	.p2align \p2align
++	.global \f
++	.type \f, %function
++\f:
++	.endm
++
++#ifdef __ARMEB__
++#define S2LO		lsl
++#define S2HI		lsr
++#else
++#define S2LO		lsr
++#define S2HI		lsl
++#endif
++
++	/* This code requires Thumb.  */
++	.thumb
++	.syntax unified
++
++/* Parameters and result.  */
++#define srcin		r0
++#define result		r0
++
++/* Internal variables.  */
++#define src		r1
++#define data1a		r2
++#define data1b		r3
++#define const_m1	r12
++#define const_0		r4
++#define tmp1		r4		/* Overlaps const_0  */
++#define tmp2		r5
++
++def_fn	strlen p2align=6
++	pld	[srcin, #0]
++	strd	r4, r5, [sp, #-8]!
++	bic	src, srcin, #7
++	mvn	const_m1, #0
++	ands	tmp1, srcin, #7		/* (8 - bytes) to alignment.  */
++	pld	[src, #32]
++	bne.w	.Lmisaligned8
++	mov	const_0, #0
++	mov	result, #-8
++.Lloop_aligned:
++	/* Bytes 0-7.  */
++	ldrd	data1a, data1b, [src]
++	pld	[src, #64]
++	add	result, result, #8
++.Lstart_realigned:
++	uadd8	data1a, data1a, const_m1	/* Saturating GE<0:3> set.  */
++	sel	data1a, const_0, const_m1	/* Select based on GE<0:3>.  */
++	uadd8	data1b, data1b, const_m1
++	sel	data1b, data1a, const_m1	/* Only used if d1a == 0.  */
++	cbnz	data1b, .Lnull_found
++
++	/* Bytes 8-15.  */
++	ldrd	data1a, data1b, [src, #8]
++	uadd8	data1a, data1a, const_m1	/* Saturating GE<0:3> set.  */
++	add	result, result, #8
++	sel	data1a, const_0, const_m1	/* Select based on GE<0:3>.  */
++	uadd8	data1b, data1b, const_m1
++	sel	data1b, data1a, const_m1	/* Only used if d1a == 0.  */
++	cbnz	data1b, .Lnull_found
++
++	/* Bytes 16-23.  */
++	ldrd	data1a, data1b, [src, #16]
++	uadd8	data1a, data1a, const_m1	/* Saturating GE<0:3> set.  */
++	add	result, result, #8
++	sel	data1a, const_0, const_m1	/* Select based on GE<0:3>.  */
++	uadd8	data1b, data1b, const_m1
++	sel	data1b, data1a, const_m1	/* Only used if d1a == 0.  */
++	cbnz	data1b, .Lnull_found
++
++	/* Bytes 24-31.  */
++	ldrd	data1a, data1b, [src, #24]
++	add	src, src, #32
++	uadd8	data1a, data1a, const_m1	/* Saturating GE<0:3> set.  */
++	add	result, result, #8
++	sel	data1a, const_0, const_m1	/* Select based on GE<0:3>.  */
++	uadd8	data1b, data1b, const_m1
++	sel	data1b, data1a, const_m1	/* Only used if d1a == 0.  */
++	cmp	data1b, #0
++	beq	.Lloop_aligned
++
++.Lnull_found:
++	cmp	data1a, #0
++	itt	eq
++	addeq	result, result, #4
++	moveq	data1a, data1b
++#ifndef __ARMEB__
++	rev	data1a, data1a
++#endif
++	clz	data1a, data1a
++	ldrd	r4, r5, [sp], #8
++	add	result, result, data1a, lsr #3	/* Bits -> Bytes.  */
++	bx	lr
++
++.Lmisaligned8:
++	ldrd	data1a, data1b, [src]
++	and	tmp2, tmp1, #3
++	rsb	result, tmp1, #0
++	lsl	tmp2, tmp2, #3			/* Bytes -> bits.  */
++	tst	tmp1, #4
++	pld	[src, #64]
++	S2HI	tmp2, const_m1, tmp2
++	orn	data1a, data1a, tmp2
++	itt	ne
++	ornne	data1b, data1b, tmp2
++	movne	data1a, const_m1
++	mov	const_0, #0
++	b	.Lstart_realigned
++	.size	strlen, . - strlen
++

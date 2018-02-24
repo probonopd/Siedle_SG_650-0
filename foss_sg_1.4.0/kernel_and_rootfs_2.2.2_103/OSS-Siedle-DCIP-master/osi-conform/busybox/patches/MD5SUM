@@ -1,0 +1,5 @@
+7eecc6d8c6c2385922b2c12e32c15e04  0200-reactivate-check-for-tty.patch
+d1e4844a3298dba8a634027951e886bb  0201-Fix-the-format-warning-when-building-applets-usage_p.patch
+70023625ae627e2300172efc28302fed  0202-build-system-only-pass-real-libs-to-SELINUX_LIBS.patch
+93b21e957cc0f08097df93aed932bd3c  0203-scripts-trylink-honour-SKIP_STRIP-and-don-t-strip-if.patch
+5de397487238a884322adf12c326b203  series

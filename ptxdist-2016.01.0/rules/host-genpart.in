@@ -1,0 +1,10 @@
+## SECTION=hosttools_noprompt
+## SECTION=hosttools_platform
+
+config HOST_GENPART
+	tristate
+	default ALLYES
+	help
+	  Tool to generate a 16 byte partition table entry defined by
+	  command line arguments and dump it to stdout. No CHS magic is
+	  done, only LBA entries are filled out.

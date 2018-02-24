@@ -1,0 +1,119 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 26 Jan 2016 12:39:28 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: use querystd to decide whether capture
+ should be paused
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 65 +++++++++++++++++++++++-------
+ 1 file changed, 50 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index f402c02288ca..0e95d1db26fa 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -412,37 +412,72 @@ int ipucsi_pause_stream(struct ipucsi *ipucsi)
+ 	return 0;
+ }
+ 
++static bool entity_is_source(struct media_entity *entity)
++{
++	int i;
++
++	for (i = 0; i < entity->num_links; i++) {
++		struct media_link *link = &entity->links[i];
++
++		if ((link->flags & MEDIA_LNK_FL_ENABLED) &&
++		    link->sink->entity == entity)
++			return false;
++	}
++
++	return true;
++}
++
++static bool entity_is_csi(struct media_entity *entity)
++{
++	return (strstr(entity->name, "CSI") - entity->name) == 5;
++}
++
+ static void ipucsi_v4l2_dev_notify(struct v4l2_subdev *sd,
+ 				   unsigned int notification, void *arg)
+ {
+ 	if (sd == NULL)
+ 		return;
+ 
+-	if (notification == V4L2_SUBDEV_SYNC_LOCK_NOTIFY) {
++	if (notification == V4L2_DEVICE_NOTIFY_EVENT) {
+ 		struct media_entity_graph graph;
+-		struct media_entity *entity;
+-		struct v4l2_event event;
++		struct media_entity *entity, *src_entity = NULL, *csi_entity = NULL;
+ 		struct ipucsi *ipucsi;
+-		bool lock = *(bool *)arg;
++		v4l2_std_id std;
++		bool lock;
++		int ret;
+ 
+ 		/* Find the CSI (first subdevice entity of the graph) */
+ 		media_entity_graph_walk_start(&graph, &sd->entity);
+-		while ((entity = media_entity_graph_walk_next(&graph)) &&
+-		       ((strstr(entity->name, "CSI") - entity->name) != 5));
+-		if (!entity)
++		while ((entity = media_entity_graph_walk_next(&graph))) {
++			if (entity_is_source(entity))
++				src_entity = entity;
++			if (entity_is_csi(entity))
++				csi_entity = entity;
++		}
++		if (!src_entity || !csi_entity)
+ 			return;
+-		sd = media_entity_to_v4l2_subdev(entity);
++
++		sd = media_entity_to_v4l2_subdev(csi_entity);
+ 		ipucsi = container_of(sd, struct ipucsi, subdev);
+ 
++		sd = media_entity_to_v4l2_subdev(src_entity);
++
++		/*
++		 * If the source subdevice is an analog video decoder, use
++		 * querystd to determine whether the signal is locked.
++		 */
++		ret = v4l2_subdev_call(sd, video, querystd, &std);
++		if (ret < 0)
++			return;
++
++		lock = (std != V4L2_STD_UNKNOWN);
++
+ 		if (lock)
+ 			ipucsi_resume_stream(ipucsi);
+ 		else
+ 			ipucsi_pause_stream(ipucsi);
+ 
+-		memset(&event, 0, sizeof(event));
+-		event.type = V4L2_EVENT_SYNC_LOCK;
+-		((struct v4l2_event_sync_lock *)event.u.data)->lock = lock;
+-		v4l2_event_queue(&ipucsi->vdev, &event);
++		v4l2_event_queue(&ipucsi->vdev, arg);
+ 	}
+ }
+ 
+@@ -926,6 +961,7 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 	}
+ 
+ 	ipucsi->active = NULL;
++	ipucsi->paused = false;
+ 
+ 	/* Point the inactive buffer address to the first buffer */
+ 	buf = list_first_entry(&ipucsi->capture, struct ipucsi_buffer, queue);
+@@ -957,9 +993,8 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 		goto stop_pipe;
+ 	}
+ 
+-	ipu_csi_enable(ipucsi->csi);
+-
+-	ipucsi->paused = false;
++	if (!ipucsi->paused)
++		ipu_csi_enable(ipucsi->csi);
+ 
+ 	return 0;
+ 

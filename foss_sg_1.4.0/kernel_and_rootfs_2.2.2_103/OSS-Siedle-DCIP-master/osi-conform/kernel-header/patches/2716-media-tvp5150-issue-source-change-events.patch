@@ -1,0 +1,58 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Tue, 26 Jan 2016 12:36:37 +0100
+Subject: [PATCH] [media] tvp5150: issue source change events
+
+Issue a V4L2_EVENT_SOURCE_CHANGE notification when the TVP5150 locks
+onto a signal and when it loses the lock.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/i2c/tvp5150.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/media/i2c/tvp5150.c b/drivers/media/i2c/tvp5150.c
+index 912994b2989a..ecec08fa71fc 100644
+--- a/drivers/media/i2c/tvp5150.c
++++ b/drivers/media/i2c/tvp5150.c
+@@ -911,6 +911,11 @@ static int tvp5150_reset(struct v4l2_subdev *sd, u32 val)
+ 	return 0;
+ }
+ 
++static const struct v4l2_event tvp5150_ev_fmt = {
++	.type = V4L2_EVENT_SOURCE_CHANGE,
++	.u.src_change.changes = V4L2_EVENT_SRC_CH_RESOLUTION,
++};
++
+ #define TVP5150_INT_A_LOCK_STATUS	BIT(7)
+ #define TVP5150_INT_A_LOCK		BIT(6)
+ 
+@@ -929,8 +934,8 @@ static void tvp5150_sync_work(struct work_struct *work)
+ 
+ 	v4l2_dbg(1, debug, &decoder->sd, "delayed sync lo%s signal\n",
+ 		 decoder->lock ? "ck" : "ss");
+-	v4l2_subdev_notify(&decoder->sd, V4L2_SUBDEV_SYNC_LOCK_NOTIFY,
+-			   &decoder->lock);
++	v4l2_subdev_notify_event(&decoder->sd, &tvp5150_ev_fmt);
++
+ 	regmap_update_bits(decoder->regmap, TVP5150_MISC_CTL,
+ 			   0xd, decoder->lock ? decoder->oe : 0);
+ }
+@@ -955,9 +960,7 @@ static irqreturn_t tvp5150_isr(int irq, void *dev_id)
+ 				v4l2_dbg(1, debug, &decoder->sd,
+ 					 "sync lo%s signal\n",
+ 					 decoder->lock ? "ck" : "ss");
+-				v4l2_subdev_notify(&decoder->sd,
+-						   V4L2_SUBDEV_SYNC_LOCK_NOTIFY,
+-						   &decoder->lock);
++				v4l2_subdev_notify_event(&decoder->sd, &tvp5150_ev_fmt);
+ 				regmap_update_bits(decoder->regmap, TVP5150_MISC_CTL,
+ 						   0xd, decoder->lock ? decoder->oe : 0);
+ 			} else {
+@@ -1155,6 +1158,7 @@ static int tvp5150_s_stream(struct v4l2_subdev *sd, int enable)
+ 		/* Enable YUV(OUT7:0), (SYNC), clock signal, if locked */
+ 		regmap_update_bits(decoder->regmap, TVP5150_MISC_CTL, 0xd,
+ 				   decoder->lock ? decoder->oe : 0);
++		v4l2_subdev_notify_event(&decoder->sd, &tvp5150_ev_fmt);
+ 		if (decoder->irq) {
+ 			/* Enable lock interrupt */
+ 			regmap_update_bits(decoder->regmap,

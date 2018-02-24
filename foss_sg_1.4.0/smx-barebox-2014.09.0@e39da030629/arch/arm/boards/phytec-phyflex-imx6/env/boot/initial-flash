@@ -1,0 +1,42 @@
+#!/bin/sh
+
+if [ "$1" = menu ]; then
+	boot-menu-add-entry "$0" "initial flash (SD -> SPI,NAND)"
+	exit
+fi
+
+path="/mnt/mmc2"
+barebox_image="${path}/barebox-image"
+rootfs_image="${path}/dcip-ubifs.img"
+
+detect mmc2
+
+# green led off, red led on
+gpio_direction_output 30 0
+gpio_direction_output 63 1
+
+if [ ! -f ${barebox_image} ]; then
+	echo "error: ${barebox_image} not found"
+	exit 1
+fi
+
+echo "Flashing barebox..."
+barebox_update -t spiflash ${barebox_image} -y
+
+echo "Erasing environment..."
+erase /dev/m25p0.barebox-environment
+
+#echo "Flashing root file system..."
+#init-nand -f ${rootfs_image} -y
+
+# green led on, red led off
+gpio_direction_output 30 1
+gpio_direction_output 63 0
+
+echo "Please power off and remove the phyFLEX i.MX6Q module or call"
+echo "init-nand to flash the root file system to NAND:"
+echo "    init-nand -f ${rootfs_image}"
+
+# drop back into the shell
+sh
+reset

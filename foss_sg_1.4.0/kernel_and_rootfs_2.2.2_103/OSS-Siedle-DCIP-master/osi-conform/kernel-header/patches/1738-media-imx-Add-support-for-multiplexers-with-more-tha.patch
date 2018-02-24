@@ -1,0 +1,169 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 3 Jul 2014 12:52:59 +0200
+Subject: [PATCH] [media] imx: Add support for multiplexers with more than two
+ inputs
+
+Use the highest numbered port (output port) to determine the total
+number of pads.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-video-switch.c | 72 ++++++++++++++++-----------
+ 1 file changed, 42 insertions(+), 30 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-video-switch.c b/drivers/media/platform/imx/imx-video-switch.c
+index af6b077430a1..1455838e0629 100644
+--- a/drivers/media/platform/imx/imx-video-switch.c
++++ b/drivers/media/platform/imx/imx-video-switch.c
+@@ -27,19 +27,13 @@
+ 
+ #include <media/imx.h> /* for ipu_media_entity_create_link */
+ 
+-enum {
+-	PAD_INPUT0,
+-	PAD_INPUT1,
+-	PAD_OUTPUT,
+-	PAD_NUM,
+-};
+-
+ struct vidsw {
+ 	struct device *dev;
+ 	struct v4l2_subdev subdev;
+-	struct media_pad pads[PAD_NUM];
+-	struct v4l2_mbus_framefmt format_mbus[PAD_NUM];
+-	struct v4l2_of_endpoint endpoint[PAD_NUM - 1];
++	unsigned int num_pads;
++	struct media_pad *pads;
++	struct v4l2_mbus_framefmt *format_mbus;
++	struct v4l2_of_endpoint *endpoint;
+ 	struct regmap_field *field;
+ 	unsigned int gpio;
+ 	int streaming;
+@@ -95,16 +89,17 @@ static struct media_entity_operations vidsw_ops = {
+ static int vidsw_async_init(struct vidsw *vidsw, struct device_node *node)
+ {
+ 	struct v4l2_of_endpoint endpoint;
+-	struct device_node *rp;
++	struct device_node *ep;
+ 	u32 portno;
+ 	int numports;
+ 	int ret;
++	int i;
+ 
+-	numports = PAD_NUM;
++	numports = vidsw->num_pads;
+ 
+-	vidsw->pads[PAD_INPUT0].flags = MEDIA_PAD_FL_SINK;
+-	vidsw->pads[PAD_INPUT1].flags = MEDIA_PAD_FL_SINK;
+-	vidsw->pads[PAD_OUTPUT].flags = MEDIA_PAD_FL_SOURCE;
++	for (i = 0; i < numports - 1; i++)
++		vidsw->pads[i].flags = MEDIA_PAD_FL_SINK;
++	vidsw->pads[numports - 1].flags = MEDIA_PAD_FL_SOURCE;
+ 
+ 	ret = media_entity_init(&vidsw->subdev.entity, numports, vidsw->pads, 0);
+ 	if (ret < 0)
+@@ -112,24 +107,17 @@ static int vidsw_async_init(struct vidsw *vidsw, struct device_node *node)
+ 
+ 	vidsw->subdev.entity.ops = &vidsw_ops;
+ 
+-	rp = NULL;
+-
+-	while (1) {
+-		rp = of_graph_get_next_endpoint(node, rp);
+-		if (!rp)
+-			break;
+-
+-		v4l2_of_parse_endpoint(rp, &endpoint);
+-		of_node_put(rp);
++	for_each_endpoint_of_node(node, ep) {
++		v4l2_of_parse_endpoint(ep, &endpoint);
+ 
+ 		portno = endpoint.base.port;
+-		if (portno > 1)
+-			break;
++		if (portno == vidsw->num_pads - 1)
++			continue;
+ 
+ 		vidsw->endpoint[portno] = endpoint;
+ 
+ 		/* FIXME */
+-		ipu_media_entity_create_link(&vidsw->subdev, portno, rp, 0);
++		ipu_media_entity_create_link(&vidsw->subdev, portno, ep, 0);
+ 	}
+ 
+ 	return 0;
+@@ -191,7 +179,7 @@ static int vidsw_set_format(struct v4l2_subdev *sd,
+ 	struct vidsw *vidsw = container_of(sd, struct vidsw, subdev);
+ 	struct v4l2_mbus_framefmt *mbusformat;
+ 
+-	if (sdformat->pad >= PAD_NUM)
++	if (sdformat->pad >= vidsw->num_pads)
+ 		return -EINVAL;
+ 
+ 	mbusformat = __vidsw_get_pad_format(sd, cfg, sdformat->pad,
+@@ -200,7 +188,7 @@ static int vidsw_set_format(struct v4l2_subdev *sd,
+ 		return -EINVAL;
+ 
+ 	/* Output pad mirrors active input pad, no limitations on input pads */
+-	if (sdformat->pad == PAD_OUTPUT && vidsw->active >= 0)
++	if (sdformat->pad == (vidsw->num_pads - 1) && vidsw->active >= 0)
+ 		*mbusformat = vidsw->format_mbus[vidsw->active];
+ 	else
+ 		*mbusformat = sdformat->format;
+@@ -249,10 +237,12 @@ static int of_get_reg_field(struct device_node *node, struct reg_field *field)
+ static int vidsw_probe(struct platform_device *pdev)
+ {
+ 	struct device_node *np = pdev->dev.of_node;
++	struct of_endpoint endpoint;
++	struct device_node *ep;
+ 	struct reg_field field;
+ 	struct vidsw *vidsw;
+ 	struct regmap *map;
+-	int num_pads;
++	unsigned int num_pads;
+ 	int ret;
+ 
+ 	vidsw = devm_kzalloc(&pdev->dev, sizeof(*vidsw), GFP_KERNEL);
+@@ -270,6 +260,15 @@ static int vidsw_probe(struct platform_device *pdev)
+ 	vidsw->dev = &pdev->dev;
+ 	vidsw->active = -1;
+ 
++	/*
++	 * The largest numbered port is the output port. It determines
++	 * total number of pads
++	 */
++	for_each_endpoint_of_node(np, ep) {
++		of_graph_parse_endpoint(ep, &endpoint);
++		num_pads = max(num_pads, endpoint.port + 1);
++	}
++
+ 	num_pads = of_get_child_count(np);
+ 	if (num_pads < 2) {
+ 		dev_err(&pdev->dev, "Not enough ports %d\n", num_pads);
+@@ -290,6 +289,11 @@ static int vidsw_probe(struct platform_device *pdev)
+ 			return PTR_ERR(vidsw->field);
+ 		}
+ 	} else {
++		if (num_pads > 3) {
++			dev_err(&pdev->dev, "Too many ports %d\n", num_pads);
++			return -EINVAL;
++		}
++
+ 		vidsw->gpio = of_get_named_gpio_flags(np, "gpios", 0,
+ 						    NULL);
+ 		ret = gpio_request_one(vidsw->gpio,
+@@ -302,6 +306,14 @@ static int vidsw_probe(struct platform_device *pdev)
+ 		}
+ 	}
+ 
++	vidsw->num_pads = num_pads;
++	vidsw->pads = devm_kzalloc(&pdev->dev, sizeof(*vidsw->pads) * num_pads,
++			GFP_KERNEL);
++	vidsw->format_mbus = devm_kzalloc(&pdev->dev,
++			sizeof(*vidsw->format_mbus) * num_pads, GFP_KERNEL);
++	vidsw->endpoint = devm_kzalloc(&pdev->dev,
++			sizeof(*vidsw->endpoint) * (num_pads - 1), GFP_KERNEL);
++
+ 	ret = vidsw_async_init(vidsw, np);
+ 	if (ret)
+ 		return ret;

@@ -1,0 +1,19 @@
+#!/bin/sh
+
+if [ "$1" = menu ]; then
+	boot-menu-add-entry "$0" "mmc (microSD, ext3)"
+	exit
+fi
+
+path="/mnt/mmc3/boot"
+
+detect mmc3
+
+global.bootm.image="${path}/zImage"
+
+oftree="${path}/imx6q-${global.hostname}.dtb"
+if [ -f "${oftree}" ]; then
+        global.bootm.oftree="$oftree"
+fi
+
+global.linux.bootargs.dyn.root="root=PARTUUID=${mmc3.nt_signature}-01 rootwait"

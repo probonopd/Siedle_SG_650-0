@@ -1,0 +1,22 @@
+From: Michael Olbrich <m.olbrich@pengutronix.de>
+Date: Tue, 3 Dec 2013 18:42:13 +0100
+Subject: [PATCH] handle *-eabihf targets correctly
+
+Signed-off-by: Michael Olbrich <m.olbrich@pengutronix.de>
+---
+ libgloss/arm/configure.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libgloss/arm/configure.in b/libgloss/arm/configure.in
+index 970952f..aeba0e2 100644
+--- a/libgloss/arm/configure.in
++++ b/libgloss/arm/configure.in
+@@ -49,7 +49,7 @@ AC_PROG_RANLIB
+ LIB_AM_PROG_AS
+ 
+ case "${target}" in
+-  *-*-elf | *-*-eabi)
++  *-*-elf | *-*-eabi*)
+ 	objtype=elf-
+ 	;;
+   *-*-coff)

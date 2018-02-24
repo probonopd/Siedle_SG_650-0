@@ -1,0 +1,6 @@
+## SECTION=shell_and_console
+config LSUIO
+	tristate
+	prompt "lsuio"
+	help
+	  lists the Userspace IO devices registered in your system.

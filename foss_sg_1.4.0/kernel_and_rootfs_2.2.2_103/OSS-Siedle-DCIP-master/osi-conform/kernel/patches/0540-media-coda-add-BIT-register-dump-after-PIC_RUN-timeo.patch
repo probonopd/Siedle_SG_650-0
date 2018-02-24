@@ -1,0 +1,102 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Mon, 21 Jul 2014 20:00:54 +0200
+Subject: [PATCH] [media] coda: add BIT register dump after PIC_RUN timeout
+
+This patch causes the driver to dump the register space used for
+communication with the BIT processor after a PIC_RUN timeout for
+debugging purposes, but only for BIT processor contexts.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/coda/coda-bit.c    | 40 +++++++++++++++++++++++++++++++
+ drivers/media/platform/coda/coda-common.c | 11 ++++++---
+ drivers/media/platform/coda/coda.h        |  1 +
+ 3 files changed, 49 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/platform/coda/coda-bit.c b/drivers/media/platform/coda/coda-bit.c
+index d4aa031ccd2b..732436ef90bd 100644
+--- a/drivers/media/platform/coda/coda-bit.c
++++ b/drivers/media/platform/coda/coda-bit.c
+@@ -383,6 +383,46 @@ void coda_bit_stream_end_flag(struct coda_ctx *ctx)
+ 	}
+ }
+ 
++static void coda_dump_regs(struct coda_dev *dev)
++{
++	int i;
++	printk("\t000 ");
++	for (i = 0x00; i <= 0x1c; i += 4) {
++		u32 data;
++		data = coda_read(dev, i);
++		printk("%08x ", data);
++		if ((i/4) % 8 == 7 && i != 0x1c) {
++			printk("\n");
++			printk("\t%03x ", i + 4);
++		}
++	}
++	printk("\n");
++	printk("\t100 ");
++	for (i = 0x100; i <= 0x1fc; i += 4) {
++		u32 data;
++		data = coda_read(dev, i);
++		printk("%08x ", data);
++		if ((i/4) % 8 == 7 && i != 0x1fc) {
++			printk("\n");
++			printk("\t%03x ", i + 4);
++		}
++	}
++	printk("\n");
++}
++
++void coda_bit_debug_timeout(struct coda_ctx *ctx)
++{
++	struct device *dev = ctx->fh.vdev->dev_parent;
++
++	dev_err(dev, "bitstream payload: %d\n", coda_get_bitstream_payload(ctx));
++	coda_kfifo_sync_from_device(ctx);
++	dev_err(dev, "bitstream payload: %d\n", coda_get_bitstream_payload(ctx));
++
++	clk_prepare_enable(ctx->dev->clk_per);
++	coda_dump_regs(ctx->dev);
++	clk_disable_unprepare(ctx->dev->clk_per);
++}
++
+ static void coda_parabuf_write(struct coda_ctx *ctx, int index, u32 value)
+ {
+ 	struct coda_dev *dev = ctx->dev;
+diff --git a/drivers/media/platform/coda/coda-common.c b/drivers/media/platform/coda/coda-common.c
+index 9f3ece602cea..b3a1ed6d51ea 100644
+--- a/drivers/media/platform/coda/coda-common.c
++++ b/drivers/media/platform/coda/coda-common.c
+@@ -1092,11 +1092,16 @@ static void coda_pic_run_work(struct work_struct *work)
+ 
+ 	if (!wait_for_completion_timeout(&ctx->completion,
+ 					 msecs_to_jiffies(coda_timeout_msec))) {
+-		dev_err(&dev->plat_dev->dev, "CODA PIC_RUN timeout\n");
++		if (ctx->use_bit) {
++			dev_err(&dev->plat_dev->dev, "CODA PIC_RUN timeout\n");
++			coda_bit_debug_timeout(ctx);
+ 
+-		ctx->hold = true;
++			ctx->hold = true;
+ 
+-		coda_hw_reset(ctx);
++			coda_hw_reset(ctx);
++		} else {
++			dev_err(&dev->plat_dev->dev, "CODA JPEG timeout\n");
++		}
+ 	} else if (!ctx->aborting) {
+ 		ctx->ops->finish_run(ctx);
+ 	}
+diff --git a/drivers/media/platform/coda/coda.h b/drivers/media/platform/coda/coda.h
+index 26cfbd46f8d1..d33e597826d9 100644
+--- a/drivers/media/platform/coda/coda.h
++++ b/drivers/media/platform/coda/coda.h
+@@ -296,6 +296,7 @@ static inline unsigned int coda_get_bitstream_payload(struct coda_ctx *ctx)
+ }
+ 
+ void coda_bit_stream_end_flag(struct coda_ctx *ctx);
++void coda_bit_debug_timeout(struct coda_ctx *ctx);
+ 
+ void coda_m2m_buf_done(struct coda_ctx *ctx, struct vb2_v4l2_buffer *buf,
+ 		       enum vb2_buffer_state state);

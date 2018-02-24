@@ -1,0 +1,36 @@
+From: Matthias Schiffer <mschiffer@universe-factory.net>
+Date: Sun, 8 May 2016 15:53:14 +0200
+Subject: tools: pkg-config: fix build with GCC 6
+
+Fixes the following error:
+
+gdate.c: In function ‘g_date_strftime’:
+gdate.c:2497:7: error: format not a string literal, format string not checked [-Werror=format-nonliteral]
+       tmplen = strftime (tmpbuf, tmpbufsize, locale_format, &tm);
+       ^~~~~~
+
+Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
+---
+ glib/gdate.c |    5 +++++
+ 1 file changed, 5 insertions(+)
+
+Index: b/glib/gdate.c
+===================================================================
+--- a/glib/gdate.c
++++ b/glib/gdate.c
+@@ -2439,6 +2439,9 @@
+  *
+  * Returns: number of characters written to the buffer, or 0 the buffer was too small
+  */
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wformat-nonliteral"
++
+ gsize     
+ g_date_strftime (gchar       *s, 
+                  gsize        slen, 
+@@ -2549,3 +2552,5 @@
+   return retval;
+ #endif
+ }
++
++#pragma GCC diagnostic pop

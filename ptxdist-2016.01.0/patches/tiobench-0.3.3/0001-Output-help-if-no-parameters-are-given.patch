@@ -1,0 +1,26 @@
+From: Juergen Beisert <j.beisert@pengutronix.de>
+Date: Thu, 18 Oct 2012 14:25:03 +0200
+Subject: [PATCH] Output help if no parameters are given
+
+Output a help, if a user omit any parameter instead of silently start the
+job and do something.
+
+Signed-off-by: Juergen Beisert <j.beisert@pengutronix.de>
+---
+ tiotest.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/tiotest.c b/tiotest.c
+index 38f54e7917a0..6407d70252bf 100644
+--- a/tiotest.c
++++ b/tiotest.c
+@@ -112,6 +112,9 @@ void parse_args( ArgumentOptions* args, int argc, char *argv[] )
+ 	int c;
+ 	int once = 0;
+ 
++	if (argc == 1)
++		print_help_and_exit();
++
+ 	while (1)
+ 	{
+ 		c = getopt( argc, argv, "f:b:d:t:r:D:k:o:hLRTWSOc");

@@ -1,0 +1,30 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 3 Dec 2015 12:29:37 +0100
+Subject: [PATCH] [media] imx-ipuv3-csi: clear active buffer when marking it as
+ done
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index ef304d625863..a79a967c62b4 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -615,6 +615,7 @@ static irqreturn_t ipucsi_new_frame_handler(int irq, void *context)
+ 			/* DEBUG: check if buf == EBA(active) */
+ 		} else {
+ 			/* Otherwise, mark buffer as finished */
++			ipucsi->active = NULL;
+ 			list_del_init(&buf->queue);
+ 
+ 			vb2_buffer_done(&vb->vb2_buf, VB2_BUF_STATE_DONE);
+@@ -1204,6 +1205,7 @@ static void ipucsi_videobuf_stop_streaming(struct vb2_queue *vq)
+ 	}
+ 
+ 	spin_lock_irqsave(&ipucsi->lock, flags);
++	ipucsi->active = NULL;
+ 	while (!list_empty(&ipucsi->capture)) {
+ 		struct ipucsi_buffer *buf = list_entry(ipucsi->capture.next,
+ 						 struct ipucsi_buffer, queue);

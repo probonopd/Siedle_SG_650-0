@@ -1,0 +1,10 @@
+# This patchset changes the official kconfig (see $LINUXSRC/scripts/kconfig for
+# details) to work with ptxdist. The sources included in this tree already have
+# this patches applied.
+# This patch series is based on kconfig from linux 2.6.37-rc7
+0001-conf-add-an-option-to-output-the-dependency-informat.patch
+0002-conf-don-t-output-autoconf-stuff.patch
+0003-Revert-kconfig-make-comments-stand-out-in-menuconfig.patch
+0004-Revert-kconfig-ignore-select-of-unknown-symbol.patch
+0005-nconf-remove-special-P_COMMENT-output.patch
+0006-mconf-fix-comment-on-exit.patch

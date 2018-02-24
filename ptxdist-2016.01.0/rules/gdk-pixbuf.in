@@ -1,0 +1,29 @@
+## SECTION=multimedia_gtk
+
+menuconfig GDK_PIXBUF
+	tristate
+	prompt "gdk-pixbuf                    "
+	select GLIB
+	select XORG_LIB_X11	if GDK_PIXBUF_X11
+	select LIBPNG		if GDK_PIXBUF_LOADER_PNG
+	select LIBJPEG		if GDK_PIXBUF_LOADER_JPEG
+	help
+	  GTK helper library for pixel handling.
+
+if GDK_PIXBUF
+
+config GDK_PIXBUF_X11
+	bool
+	prompt "X11 support"
+
+config GDK_PIXBUF_LOADER_PNG
+	bool
+	prompt "png loader"
+	default y
+
+config GDK_PIXBUF_LOADER_JPEG
+	bool
+	prompt "jpeg loader"
+
+endif
+

@@ -1,0 +1,22 @@
+From: Enrico Jorns <ejo@pengutronix.de>
+Date: Tue, 24 Nov 2015 16:29:22 +0100
+Subject: [PATCH] drm/imx: Add missing DRM_FORMAT_RGB565 to ipu_plane_formats
+
+Signed-off-by: Enrico Jorns <ejo@pengutronix.de>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/drm/imx/ipuv3-plane.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/imx/ipuv3-plane.c b/drivers/gpu/drm/imx/ipuv3-plane.c
+index beb741007a44..aef0c2c9c586 100644
+--- a/drivers/gpu/drm/imx/ipuv3-plane.c
++++ b/drivers/gpu/drm/imx/ipuv3-plane.c
+@@ -42,6 +42,7 @@ static const uint32_t ipu_plane_formats[] = {
+ 	DRM_FORMAT_YVYU,
+ 	DRM_FORMAT_YUV420,
+ 	DRM_FORMAT_YVU420,
++	DRM_FORMAT_RGB565,
+ };
+ 
+ int ipu_plane_irq(struct ipu_plane *ipu_plane)

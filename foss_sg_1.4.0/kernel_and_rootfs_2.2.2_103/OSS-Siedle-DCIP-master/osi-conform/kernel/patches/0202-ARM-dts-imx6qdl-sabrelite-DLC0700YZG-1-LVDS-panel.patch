@@ -1,0 +1,82 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 7 Aug 2015 14:34:03 +0200
+Subject: [PATCH] ARM: dts: imx6qdl-sabrelite: DLC0700YZG-1 LVDS panel
+
+Disable parallel display and HDMI support (so we don't need
+to load the drivers) and enable the DLC0700YZG-1 LVDS panel.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ arch/arm/boot/dts/imx6qdl-sabrelite.dtsi | 46 ++------------------------------
+ 1 file changed, 2 insertions(+), 44 deletions(-)
+
+diff --git a/arch/arm/boot/dts/imx6qdl-sabrelite.dtsi b/arch/arm/boot/dts/imx6qdl-sabrelite.dtsi
+index 2606bd80057b..181c0c7b92f6 100644
+--- a/arch/arm/boot/dts/imx6qdl-sabrelite.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-sabrelite.dtsi
+@@ -171,46 +171,8 @@
+ 		status = "okay";
+ 	};
+ 
+-	lcd_display: display@di0 {
+-		compatible = "fsl,imx-parallel-display";
+-		#address-cells = <1>;
+-		#size-cells = <0>;
+-		interface-pix-fmt = "bgr666";
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&pinctrl_j15>;
+-		status = "okay";
+-
+-		port@0 {
+-			reg = <0>;
+-
+-			lcd_display_in: endpoint {
+-				remote-endpoint = <&ipu1_di0_disp0>;
+-			};
+-		};
+-
+-		port@1 {
+-			reg = <1>;
+-
+-			lcd_display_out: endpoint {
+-				remote-endpoint = <&lcd_panel_in>;
+-			};
+-		};
+-	};
+-
+-	lcd_panel {
+-		compatible = "okaya,rs800480t-7x0gp";
+-		backlight = <&backlight_lcd>;
+-
+-		port {
+-			lcd_panel_in: endpoint {
+-				remote-endpoint = <&lcd_display_out>;
+-			};
+-		};
+-	};
+-
+ 	panel {
+-		compatible = "hannstar,hsd100pxn1";
+-		backlight = <&backlight_lvds>;
++		compatible = "dlc,dlc0700yzg-1", "simple-panel";
+ 
+ 		port {
+ 			panel_in: endpoint {
+@@ -516,16 +478,12 @@
+ 	};
+ };
+ 
+-&ipu1_di0_disp0 {
+-	remote-endpoint = <&lcd_display_in>;
+-};
+-
+ &ldb {
+ 	status = "okay";
+ 
+ 	lvds-channel@0 {
+ 		fsl,data-mapping = "spwg";
+-		fsl,data-width = <18>;
++		fsl,data-width = <24>;
+ 		status = "okay";
+ 
+ 		port@4 {

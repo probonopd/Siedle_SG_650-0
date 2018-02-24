@@ -1,0 +1,6 @@
+338d2a239b08f6f75e8ca4b0f2c3ddcd  0001-merge-core-armv7-improved-armv6-support.patch
+eab627e1836f732dfe0855841a75461f  0002-merge-make-armv7-support.patch
+da4c55a45aff02488693365334bd7f83  0003-merge-armv7-inform-the-assembler-about-thumb.patch
+774e2ef216cea6fa941c626e137b3b3c  0004-arm7-no-strict-aliasing.patch
+20275e3a45227cd8d5d85f4986952b31  0005-arm7-broaden-gcc-detection-for-above-gcc-4-5.patch
+e64cb6ffeadbac54c8bcaf1dc437ae6c  series

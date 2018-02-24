@@ -1,0 +1,52 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Fri, 15 Jul 2016 12:46:11 +0200
+Subject: [PATCH] [media] imx-ipuv3-csi: fix frame rate reduction
+
+Avoid overflows by using u64 values. Calculate with frametime
+in microseconds.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 18 +++++++++++++-----
+ 1 file changed, 13 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 59de01f8e727..2ac027cf2749 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -1385,8 +1385,9 @@ static int ipucsi_s_frame_interval(struct v4l2_subdev *subdev,
+ 	struct ipucsi *ipucsi = container_of(subdev, struct ipucsi, subdev);
+ 	const struct ipucsi_skip_desc *skip;
+ 	struct v4l2_fract *want, *in;
+-	int err, min_err = INT_MAX;
++	u32 min_err = UINT_MAX;
+ 	int i, best_i = 0;
++	u64 want_us;
+ 
+ 	if (fi->pad > 4)
+ 		return -EINVAL;
+@@ -1409,13 +1410,20 @@ static int ipucsi_s_frame_interval(struct v4l2_subdev *subdev,
+ 		return 0;
+ 	}
+ 
++	want_us = 1000000ULL * want->numerator;
++	do_div(want_us, want->denominator);
++
+ 	/* Find the reduction closest to the requested timeperframe */
+ 	for (i = 0; i < ARRAY_SIZE(ipucsi_skip); i++) {
++		u64 tmp;
++		u32 err;
++
+ 		skip = &ipucsi_skip[i];
+-		err = 1000 * in->numerator * skip->max_ratio * want->denominator
+-		      / (in->denominator * skip->keep * want->numerator) - 1000;
+-		if (abs(err) < min_err) {
+-			min_err = abs(err);
++		tmp = 1000000ULL * in->numerator * skip->max_ratio;
++		do_div(tmp, in->denominator * skip->keep);
++		err = (tmp > want_us) ? (tmp - want_us) : (want_us - tmp);
++		if (err < min_err) {
++			min_err = err;
+ 			best_i = i;
+ 		}
+ 	}

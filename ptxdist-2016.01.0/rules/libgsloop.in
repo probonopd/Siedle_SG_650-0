@@ -1,0 +1,8 @@
+## SECTION=system_libraries
+config LIBGSLOOP
+	tristate
+	prompt "libgsloop"
+	select LIBRN
+	help
+	  FIXME: This item needs to be documented
+

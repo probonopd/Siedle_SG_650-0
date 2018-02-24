@@ -1,0 +1,39 @@
+From: Philipp Zabel <philipp.zabel@gmail.com>
+Date: Fri, 10 Jun 2016 13:16:26 +0200
+Subject: [PATCH] v4l2videoenc: remove unused variables
+
+---
+ sys/v4l2/gstv4l2videoenc.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2videoenc.c b/sys/v4l2/gstv4l2videoenc.c
+index abd2ca4cfbd3..4a397aa114be 100644
+--- a/sys/v4l2/gstv4l2videoenc.c
++++ b/sys/v4l2/gstv4l2videoenc.c
+@@ -236,7 +236,6 @@ gst_v4l2_video_enc_set_format (GstVideoEncoder * encoder,
+ {
+   gboolean ret = TRUE;
+   GstV4l2VideoEnc *self = GST_V4L2_VIDEO_ENC (encoder);
+-  GstStructure *structure;
+ 
+   GST_DEBUG_OBJECT (self, "Setting format: %" GST_PTR_FORMAT, state->caps);
+ 
+@@ -301,7 +300,6 @@ gst_v4l2_video_enc_finish (GstVideoEncoder * encoder)
+ {
+   GstV4l2VideoEnc *self = GST_V4L2_VIDEO_ENC (encoder);
+   GstFlowReturn ret = GST_FLOW_OK;
+-  GstBuffer *buffer;
+ 
+   if (!g_atomic_int_get (&self->processing))
+     return ret;
+@@ -446,10 +444,8 @@ gst_v4l2_video_enc_handle_frame (GstVideoEncoder * encoder,
+ {
+   GstV4l2VideoEnc *self = GST_V4L2_VIDEO_ENC (encoder);
+   GstFlowReturn ret = GST_FLOW_OK;
+-  GstStructure *structure;
+   GstVideoCodecState *output_state;
+   GstCaps *tcaps, *outcaps;
+-  GstCaps *intersect;
+ 
+   if (G_UNLIKELY (!g_atomic_int_get (&self->active)))
+     goto flushing;

@@ -1,0 +1,21 @@
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Fri, 4 Jul 2014 10:09:01 +0200
+Subject: [PATCH] [media] imx-ipuv3-csi: hook up create bufs ioctl
+
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index 49e0914f62d0..62847cf230b2 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -1480,6 +1480,7 @@ static const struct v4l2_ioctl_ops ipucsi_capture_ioctl_ops = {
+ 	.vidioc_s_fmt_vid_cap		= ipucsi_s_fmt,
+ 	.vidioc_g_fmt_vid_cap		= ipucsi_g_fmt,
+ 
++	.vidioc_create_bufs		= vb2_ioctl_create_bufs,
+ 	.vidioc_reqbufs			= vb2_ioctl_reqbufs,
+ 	.vidioc_querybuf		= vb2_ioctl_querybuf,
+ 

@@ -1,0 +1,69 @@
+## SECTION=multimedia_xorg
+
+menu "options                       "
+
+# disabled, its incomplete
+#
+#choice
+#	prompt "Select type of X environment"
+#config XORG_NO_PREFERENCE
+#	bool
+#	prompt "No preference"
+#	help
+#	  Select this, if you want to combine X serrver's features by your own
+#
+#config XORG_SMALL_TERMINAL
+#	bool
+#	prompt "A tiny terminal X"
+#	help
+#	  Select this if you want an X environment for small terminals only.
+#	  This server type does only the presentation of data, the clients are
+#	  running on other machines.
+#	  It does not support 3D features, and if the X extensions are enabled
+#	  there is no need for any local font rendering, nor for local fonts.
+#
+#config XORG_FULL_BLOWN
+#	bool
+#	prompt "A full blown X"
+#	help
+#	  Select this type if you want to run a full blown X server on a
+#	  powerful target. For this type of target the X server and the X
+#	  clients are running on the same machine. This type supports 3D
+#	  features, but needs all the nice libraries to fontrendering, TTF
+#	  support, fonts et all.
+#
+#endchoice
+
+config XORG_KEYBOARD_MAPPING_SUPPORT
+	bool
+	prompt "support keyboard mappings"
+	select XORG_DRIVER_INPUT
+	select XORG_DRIVER_INPUT_KEYBOARD
+	select XORG_APP_XKBCOMP
+	help
+	  If you like to use a keyboard with your X server (mostly wanted)
+	  enable this entry. Its required when you want to configure specific
+	  keyboard layouts and key settings. Mostly needed on non-US keyboards.
+	  Note: A german keyboard does not support the '@¤\[]{}|' keys when
+	  disabled!
+
+config XORG_OPTIONS_TRANS_UNIX
+	bool
+	prompt "unix domain socket transport"
+	depends on XORG_LIB_X11
+	default y
+	help
+	  UNIX domain socket transport. You will need this feature if your
+	  X server and all X clients are running on the same host.
+
+config XORG_OPTIONS_TRANS_TCP
+	bool
+	prompt "tcp socket transport"
+	depends on XORG_LIB_X11
+	default y
+	help
+	 TCP socket transport. You will need this feature if your X server
+	 runs on one host and at least one X client on another host.
+
+endmenu
+

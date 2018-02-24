@@ -1,0 +1,516 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 31 Jul 2014 12:17:42 +0200
+Subject: [PATCH] gpu: ipu-v3: Add deinterlacing support to IC via VDIC
+
+This patch adds support for deinterlacing using the VDIC to the
+image converter.
+The deinterlacer supports mem2mem deinterlacing of SEQ_TB and
+INTERLACED_TB frames via the viewfinder IC task. Tiling is used
+to handle frames larger than 1024 pixels in either dimension.
+
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-common.c |   3 +-
+ drivers/gpu/ipu-v3/ipu-ic.c     | 330 +++++++++++++++++++++++++++++++++++++++-
+ drivers/gpu/ipu-v3/ipu-prv.h    |   3 +-
+ include/video/imx-ipu-v3.h      |   3 +
+ 4 files changed, 335 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-common.c b/drivers/gpu/ipu-v3/ipu-common.c
+index 2f3f0f31e4e9..1f04056a7928 100644
+--- a/drivers/gpu/ipu-v3/ipu-common.c
++++ b/drivers/gpu/ipu-v3/ipu-common.c
+@@ -834,7 +834,8 @@ static int ipu_submodules_init(struct ipu_soc *ipu,
+ 
+ 	ret = ipu_ic_init(ipu, dev,
+ 			  ipu_base + devtype->ic_ofs,
+-			  ipu_base + devtype->tpm_ofs);
++			  ipu_base + devtype->tpm_ofs,
++			  ipu_base + devtype->vdi_ofs);
+ 	if (ret) {
+ 		unit = "ic";
+ 		goto err_ic;
+diff --git a/drivers/gpu/ipu-v3/ipu-ic.c b/drivers/gpu/ipu-v3/ipu-ic.c
+index 4d57b074f1f9..48531a68d57d 100644
+--- a/drivers/gpu/ipu-v3/ipu-ic.c
++++ b/drivers/gpu/ipu-v3/ipu-ic.c
+@@ -17,8 +17,11 @@
+ #include <linux/bitrev.h>
+ #include <linux/interrupt.h>
+ #include <linux/io.h>
++#include <linux/kernel.h>
++#include <linux/delay.h>
+ #include <linux/err.h>
+ #include "ipu-prv.h"
++#include <media/v4l2-common.h>
+ 
+ /* IC Register Offsets */
+ #define IC_CONF                 0x0000
+@@ -175,6 +178,9 @@ struct image_convert_ctx {
+ 
+ 	void *freep;
+ 
++	bool deinterlace:1;
++	bool first_deinterlace_frame:1;
++
+ 	u32 rsc;
+ };
+ 
+@@ -210,9 +216,11 @@ struct ipu_ic {
+ struct ipu_ic_priv {
+ 	void __iomem *base;
+ 	void __iomem *tpmem_base;
++	void __iomem *vdi_base;
+ 	spinlock_t lock;
+ 	struct ipu_soc *ipu;
+ 	int use_count;
++	int vdi_usecount;
+ 	struct ipu_ic task[IC_NUM_TASKS];
+ };
+ 
+@@ -227,6 +235,16 @@ static inline void ipu_ic_write(struct ipu_ic *ic, u32 value,
+ 	writel(value, ic->priv->base + offset);
+ }
+ 
++static inline u32 ipu_vdi_read(struct ipu_ic *ic, unsigned offset)
++{
++	return readl(ic->priv->vdi_base + offset);
++}
++
++static inline void ipu_vdi_write(struct ipu_ic *ic, u32 value, unsigned offset)
++{
++	writel(value, ic->priv->vdi_base + offset);
++}
++
+ struct ic_csc_params {
+ 	s16 coeff[3][3];	/* signed 9-bit integer coefficients */
+ 	s16 offset[3];		/* signed 11+2-bit fixed point offset */
+@@ -686,6 +704,87 @@ unlock:
+ }
+ EXPORT_SYMBOL_GPL(ipu_ic_task_idma_init);
+ 
++#define VDI_FSIZE	0x0
++#define VDI_C		0x4
++
++#define VDI_C_CH_420		0x00000000
++#define VDI_C_CH_422		0x00000002
++#define VDI_C_MOT_SEL_FULL	0x00000008
++#define VDI_C_MOT_SEL_LOW	0x00000004
++#define VDI_C_MOT_SEL_MED	0x00000000
++#define VDI_C_BURST_SIZE1_4	0x00000030
++#define VDI_C_BURST_SIZE2_4	0x00000300
++#define VDI_C_BURST_SIZE3_4	0x00003000
++#define VDI_C_VWM1_CLR_2	0x00080000
++#define VDI_C_VWM3_CLR_2	0x02000000
++#define VDI_C_TOP_FIELD_MAN_1	0x40000000
++#define VDI_C_TOP_FIELD_AUTO_1	0x80000000
++
++static void ipu_vdi_init(struct ipu_ic *ic, u32 pixelfmt,
++			 int xres, int yres, u32 field)
++{
++	uint32_t reg;
++	uint32_t pixel_fmt;
++
++	reg = ((yres - 1) << 16) | (xres - 1);
++	ipu_vdi_write(ic, reg, VDI_FSIZE);
++
++	/*
++	 * Full motion, only vertical filter is used
++	 * Burst size is 4 accesses
++	 */
++	if (pixelfmt == V4L2_PIX_FMT_UYVY || pixelfmt == V4L2_PIX_FMT_YUYV)
++		pixel_fmt = VDI_C_CH_422;
++	else
++		pixel_fmt = VDI_C_CH_420;
++
++	reg = ipu_vdi_read(ic, VDI_C);
++
++	reg |= pixel_fmt;
++	reg |= VDI_C_BURST_SIZE2_4;
++	reg |= VDI_C_BURST_SIZE1_4 | VDI_C_VWM1_CLR_2;
++	reg |= VDI_C_BURST_SIZE3_4 | VDI_C_VWM3_CLR_2;
++
++	if (field == V4L2_FIELD_INTERLACED_TB || field == V4L2_FIELD_SEQ_TB)
++		reg |= VDI_C_TOP_FIELD_MAN_1;
++
++	reg |= VDI_C_MOT_SEL_LOW;
++
++	ipu_vdi_write(ic, reg, VDI_C);
++}
++
++static void ipu_vdi_enable(struct ipu_ic_priv *priv)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->lock, flags);
++
++	if (!priv->vdi_usecount) {
++		ipu_set_ic_src_mux(priv->ipu, 0, true); /* Set IC input to VDI */
++		ipu_module_enable(priv->ipu, IPU_CONF_VDI_EN);
++	}
++
++	priv->vdi_usecount++;
++
++	spin_unlock_irqrestore(&priv->lock, flags);
++}
++
++static void ipu_vdi_disable(struct ipu_ic_priv *priv)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->lock, flags);
++
++	priv->vdi_usecount--;
++
++	BUG_ON(priv->vdi_usecount < 0);
++
++	if (!priv->vdi_usecount)
++		ipu_module_disable(priv->ipu, IPU_CONF_VDI_EN);
++
++	spin_unlock_irqrestore(&priv->lock, flags);
++}
++
+ static struct image_convert_ctx *ipu_image_convert_next(struct ipu_ic *ic)
+ {
+ 	struct ipu_ic_priv *priv = ic->priv;
+@@ -724,6 +823,13 @@ static struct image_convert_ctx *ipu_image_convert_next(struct ipu_ic *ic)
+ 	inburst = in->rect.width & 0xf ? 8 : 16;
+ 	outburst = out->rect.width & 0xf ? 8 : 16;
+ 
++	if (ctx->deinterlace) {
++		ipu_vdi_enable(priv);
++
++		ipu_vdi_init(ic, in->pix.pixelformat, in->pix.width,
++			     in->pix.height * 2, in->pix.field);
++	}
++
+ 	ipu_ic_enable(ic);
+ 
+ 	ipu_ic_task_idma_init(ic, ic->input_channel, in->rect.width,
+@@ -761,6 +867,9 @@ static struct image_convert_ctx *ipu_image_convert_next(struct ipu_ic *ic)
+ 
+ 		ipu_cpmem_set_burstsize(ch_in_p, inburst);
+ 		ipu_cpmem_set_burstsize(ch_in_n, inburst);
++
++		ipu_vdi_init(ic, in->pix.pixelformat, in->rect.width, in->rect.height * 2,
++			     in->pix.field);
+ 	}
+ 
+ 
+@@ -788,17 +897,38 @@ static struct image_convert_ctx *ipu_image_convert_next(struct ipu_ic *ic)
+ 			ctx->rsc);
+ 	if (ret) {
+ 		ipu_ic_disable(ic);
++		if (ctx->deinterlace)
++			ipu_vdi_disable(priv);
+ 		return ERR_PTR(ret);
+ 	}
+ 
+ 	ipu_idmac_enable_channel(ic->input_channel);
++	if (ctx->deinterlace) {
++		ipu_idmac_enable_channel(ic->input_channel_n);
++		ipu_idmac_enable_channel(ic->input_channel_p);
++	}
+ 	ipu_idmac_enable_channel(ic->output_channel);
+ 
+ 	ipu_ic_task_enable(ic);
+ 
+ 	ipu_idmac_select_buffer(ic->input_channel, 0);
++	if (ctx->deinterlace) {
++		ipu_idmac_select_buffer(ic->input_channel_n, 0);
++		ipu_idmac_select_buffer(ic->input_channel_p, 0);
++	}
+ 	ipu_idmac_select_buffer(ic->output_channel, 0);
+ 
++	if (ctx->deinterlace && ctx->first_deinterlace_frame) {
++		/*
++		* With the very first frame we have to trigger the vdic input
++		* channel twice. I have no idea why. This may be a bug in the
++		* IPU or in the code.
++		*/
++		mdelay(5);
++		ipu_idmac_select_buffer(ic->input_channel, 0);
++		ctx->first_deinterlace_frame = 0;
++	}
++
+ 	return ctx;
+ }
+ 
+@@ -834,6 +964,8 @@ static void ipu_image_convert_work(struct work_struct *work)
+ 
+ 		ipu_ic_task_disable(ic);
+ 		ipu_ic_disable(ic);
++		if (ctx->deinterlace)
++			ipu_vdi_disable(priv);
+ 
+ 		mutex_unlock(&ic->mutex);
+ 
+@@ -852,7 +984,6 @@ static irqreturn_t ipu_image_convert_handler(int irq, void *context)
+ 	return IRQ_HANDLED;
+ }
+ 
+-
+ /*
+  * IDMAC base addresses are 8-byte aligned
+  */
+@@ -911,6 +1042,168 @@ static int ipu_image_valign(u32 pixfmt)
+ 	}
+ }
+ 
++int ipu_image_deinterlace_convert(struct ipu_soc *ipu, struct ipu_image *in_p,
++		struct ipu_image *in, struct ipu_image *in_n,
++		struct ipu_image *out, void (*complete)(void *ctx, int err),
++		void *complete_context)
++{
++	struct ipu_ic_priv *priv = ipu->ic_priv;
++	struct ipu_ic *ic = &ipu->ic_priv->task[IC_TASK_VIEWFINDER];
++	u32 v_downsize_coeff = 0;
++	u32 v_resize_coeff = 8192;
++	u32 h_downsize_coeff = 0;
++	u32 h_resize_coeff = 8192;
++	int valign, halign;
++	int htile_width, vtile_height;
++	int htiles, vtiles;
++	int x, y, i;
++	struct image_convert_ctx *ctx, *c;
++	unsigned long flags;
++
++	htiles = DIV_ROUND_UP(out->rect.width, 1024);
++	vtiles = DIV_ROUND_UP(out->rect.height, 1024);
++
++	valign = max(ipu_image_valign(in->pix.pixelformat),
++			ipu_image_valign(out->pix.pixelformat));
++	halign = max(ipu_image_halign(in->pix.pixelformat),
++			ipu_image_halign(out->pix.pixelformat));
++
++	if (valign < 0 || halign < 0) {
++		dev_err(priv->ipu->dev, "unsupported format\n");
++		return -EINVAL;
++	}
++
++	ctx = kcalloc(htiles * vtiles, sizeof(*ctx), GFP_KERNEL);
++	if (!ctx)
++		return -ENOMEM;
++
++	c = ctx;
++
++	/* approximate width and height */
++	htile_width = in->rect.width / htiles;
++	vtile_height = in->rect.height / vtiles;
++
++	for (x = htiles - 1; x >= 0; x--) {
++		int in_right;
++
++		/* Now determine the right edge of this tile column */
++		if (x == htiles - 1) {
++			in_right = in->rect.left + in->rect.width;
++		} else {
++			struct image_convert_ctx *c_right = c - vtiles;
++
++			in_right = c_right->in.rect.left;
++		}
++
++		/* Now determine the left edge of this tile column */
++		if (x == 0) {
++			c->in.rect.left = in->rect.left;
++		} else {
++			/* determine left edge of the column */
++			c->in.rect.left = max(round_up(in_right - 1024, halign),
++				round_down(in_right - htile_width, halign));
++		}
++
++		/* Determine tile width from left and right edges */
++		c->in.rect.width = in_right - c->in.rect.left;
++		/*
++		 * With the scaling factor known, round up
++		 * input height to IDMAC limitations
++		 */
++		c->in.rect.width = round_up(c->in.rect.width, halign);
++
++		for (y = vtiles - 1; y >= 0; y--) {
++			int in_bottom;
++
++			/* Now determine the bottom edge of this tile row */
++			if (y == vtiles - 1) {
++				in_bottom = in->rect.top + in->rect.height;
++			} else {
++				struct image_convert_ctx *c_below = c - 1;
++				in_bottom = c_below->in.rect.top;
++
++				/*
++				 * Copy horizontal parameters from the
++				 * tile below
++				 */
++				c->in.rect.left = c_below->in.rect.left;
++				c->in.rect.width = c_below->in.rect.width;
++			}
++
++			/* Now determine the top edge of this tile row */
++			if (y == 0) {
++				c->in.rect.top = in->rect.top;
++			} else {
++				/* determine top edge of the row */
++				c->in.rect.top = max(round_up(in_bottom - 1024, valign),
++					round_down(in_bottom - vtile_height, valign));
++			}
++
++			/* Determine tile height from top and bottom edges */
++			c->in.rect.height = in_bottom - c->in.rect.top;
++			/*
++			 * With the scaling factor known, round up
++			 * output height to IDMAC limitations
++			 */
++			c->in.rect.height = round_up(c->in.rect.height, valign);
++
++			c->deinterlace = 1;
++
++			memcpy(&c->in_p.rect, &c->in.rect, sizeof(struct v4l2_rect));
++			memcpy(&c->out.rect, &c->in.rect, sizeof(struct v4l2_rect));
++			memcpy(&c->in_n.rect, &c->in.rect, sizeof(struct v4l2_rect));
++
++			if (c->in_p.pix.field == V4L2_FIELD_SEQ_TB) {
++				/*
++				 * We have to move the top offsets for the
++				 * previous and next image according to the
++				 * image position.
++				 */
++				c->in_p.rect.top += in->pix.height / 2;
++				c->in_n.rect.top += in->pix.height / 2;
++			}
++
++			c->out.rect.height *= 2;
++			c->out.rect.top *= 2;
++
++			memcpy(&c->in_p.pix, &in_p->pix, sizeof(struct v4l2_pix_format));
++			memcpy(&c->in.pix, &in->pix, sizeof(struct v4l2_pix_format));
++			memcpy(&c->in_n.pix, &in_n->pix, sizeof(struct v4l2_pix_format));
++			memcpy(&c->out.pix, &out->pix, sizeof(struct v4l2_pix_format));
++
++			c->in_p.phys0 = in_p->phys0;
++			c->in.phys0 = in->phys0;
++			c->in_n.phys0 = in_n->phys0;
++			c->out.phys0 = out->phys0;
++
++			c->rsc = (v_downsize_coeff << 30) | (v_resize_coeff << 16) |
++				   (h_downsize_coeff << 14) | h_resize_coeff;
++
++			c++;
++		}
++	}
++
++	ctx[htiles * vtiles - 1].complete = complete;
++	ctx[htiles * vtiles - 1].complete_context = complete_context;
++	ctx[htiles * vtiles - 1].freep = ctx;
++
++	ipu_set_ic_src_mux(ipu, 0, true); /* Set IC input to VDI */
++	ipu_module_enable(ipu, IPU_CONF_VDI_EN);
++
++	spin_lock_irqsave(&ipu->ic_priv->lock, flags);
++
++	for (i = 0; i < htiles * vtiles; i++)
++		list_add_tail(&ctx[i].list, &ic->image_list);
++
++	queue_work(ic->workqueue, &ic->work);
++
++	spin_unlock_irqrestore(&ipu->ic_priv->lock, flags);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(ipu_image_deinterlace_convert);
++
++
+ #define round_closest(x, y) round_down((x) + (y)/2, (y))
+ 
+ struct image_convert_ctx *ipu_image_convert_prepare(struct ipu_soc *ipu,
+@@ -1370,6 +1663,34 @@ int ipu_image_convert_run(struct ipu_soc *ipu, struct ipu_image *in,
+ }
+ EXPORT_SYMBOL_GPL(ipu_image_convert_run);
+ 
++static int ipu_image_deinterlace_init(struct device *dev, struct ipu_soc *ipu,
++		struct ipu_ic_priv *priv)
++{
++	int ret;
++	struct ipu_ic *ic = ipu_ic_get(ipu, IC_TASK_VIEWFINDER);
++	int irq = ipu_idmac_channel_irq(ipu, ic->output_channel,
++					IPU_IRQ_EOF);
++
++	mutex_init(&ic->mutex);
++
++	ic->workqueue = create_singlethread_workqueue(dev_name(ipu->dev));
++	if (!ic->workqueue)
++		return -ENOMEM;
++	INIT_WORK(&ic->work, ipu_image_convert_work);
++	init_completion(&ic->complete);
++
++	ret = devm_request_threaded_irq(dev, irq, NULL,
++				ipu_image_convert_handler,
++				IRQF_ONESHOT, "IC VF", ic);
++	if (ret)
++		goto err;
++
++	return 0;
++err:
++	destroy_workqueue(ic->workqueue);
++	return ret;
++}
++
+ static int ipu_image_convert_init(struct device *dev, struct ipu_soc *ipu,
+ 		struct ipu_ic_priv *priv)
+ {
+@@ -1482,7 +1803,8 @@ void ipu_ic_put(struct ipu_ic *ic)
+ EXPORT_SYMBOL_GPL(ipu_ic_put);
+ 
+ int ipu_ic_init(struct ipu_soc *ipu, struct device *dev,
+-		unsigned long base, unsigned long tpmem_base)
++		unsigned long base, unsigned long tpmem_base,
++		unsigned long vdi_base)
+ {
+ 	struct ipu_ic_priv *priv;
+ 	int i;
+@@ -1500,6 +1822,9 @@ int ipu_ic_init(struct ipu_soc *ipu, struct device *dev,
+ 	priv->tpmem_base = devm_ioremap(dev, tpmem_base, SZ_64K);
+ 	if (!priv->tpmem_base)
+ 		return -ENOMEM;
++	priv->vdi_base = devm_ioremap(dev, vdi_base, SZ_64K);
++	if (!priv->vdi_base)
++		return -ENOMEM;
+ 
+ 	dev_dbg(dev, "IC base: 0x%08lx remapped to %p\n", base, priv->base);
+ 
+@@ -1524,6 +1849,7 @@ int ipu_ic_init(struct ipu_soc *ipu, struct device *dev,
+ 		}
+ 	}
+ 
++	ipu_image_deinterlace_init(dev, ipu, priv);
+ 	ipu_image_convert_init(dev, ipu, priv);
+ 
+ 	return 0;
+diff --git a/drivers/gpu/ipu-v3/ipu-prv.h b/drivers/gpu/ipu-v3/ipu-prv.h
+index 859c3f2138de..931acf68dfb5 100644
+--- a/drivers/gpu/ipu-v3/ipu-prv.h
++++ b/drivers/gpu/ipu-v3/ipu-prv.h
+@@ -405,7 +405,8 @@ int ipu_csi_init(struct ipu_soc *ipu, struct device *dev, int id,
+ void ipu_csi_exit(struct ipu_soc *ipu, int id);
+ 
+ int ipu_ic_init(struct ipu_soc *ipu, struct device *dev,
+-		unsigned long base, unsigned long tpmem_base);
++		unsigned long base, unsigned long tpmem_base,
++		unsigned long vdi_base);
+ void ipu_ic_exit(struct ipu_soc *ipu);
+ 
+ int ipu_di_init(struct ipu_soc *ipu, struct device *dev, int id,
+diff --git a/include/video/imx-ipu-v3.h b/include/video/imx-ipu-v3.h
+index af5ea16a256d..5e8fc8bb7c49 100644
+--- a/include/video/imx-ipu-v3.h
++++ b/include/video/imx-ipu-v3.h
+@@ -417,5 +417,8 @@ static inline int ipu_image_convert(struct ipu_soc *ipu, struct ipu_image *in,
+ 	return ipu_image_convert_run(ipu, in, out, ctx, num_tiles, complete,
+ 				     complete_context, true);
+ }
++int ipu_image_deinterlace_convert(struct ipu_soc *ipu, struct ipu_image *in_p,
++		struct ipu_image *in, struct ipu_image *in_n, struct ipu_image *out,
++		void (*complete)(void *ctx, int err), void *complete_context);
+ 
+ #endif /* __DRM_IPU_H__ */

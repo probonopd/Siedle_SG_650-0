@@ -1,0 +1,51 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 15 Jan 2015 16:19:04 +0100
+Subject: [PATCH] [media] imx-video-switch: mirror input entity mbus config on
+ the output side
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-video-switch.c | 29 +++++++++++++++++++++------
+ 1 file changed, 23 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/media/platform/imx/imx-video-switch.c b/drivers/media/platform/imx/imx-video-switch.c
+index e406c31213a3..3cb958a64174 100644
+--- a/drivers/media/platform/imx/imx-video-switch.c
++++ b/drivers/media/platform/imx/imx-video-switch.c
+@@ -136,13 +136,30 @@ static int vidsw_registered(struct v4l2_subdev *sd)
+ int vidsw_g_mbus_config(struct v4l2_subdev *sd, struct v4l2_mbus_config *cfg)
+ {
+ 	struct vidsw *vidsw = container_of(sd, struct vidsw, subdev);
++	struct media_pad *pad;
++	int ret;
+ 
+-	dev_dbg(vidsw->dev, "reporting configration %d\n", vidsw->active);
+-
+-	/* Mirror the input side on the output side */
+-	cfg->type = vidsw->endpoint[vidsw->active].bus_type;
+-	if (cfg->type == V4L2_MBUS_PARALLEL || cfg->type == V4L2_MBUS_BT656)
+-		cfg->flags = vidsw->endpoint[vidsw->active].bus.parallel.flags;
++	/*
++	 * Retrieve media bus configuration from the entity connected to the
++	 * active input
++	 */
++	pad = media_entity_remote_pad(&vidsw->pads[vidsw->active]);
++	if (pad) {
++		sd = media_entity_to_v4l2_subdev(pad->entity);
++		ret = v4l2_subdev_call(sd, video, g_mbus_config, cfg);
++		if (ret == -ENOIOCTLCMD)
++			pad = NULL;
++		else if (ret < 0) {
++			dev_err(vidsw->dev, "failed to get source configuration\n");
++			return ret;
++		}
++	}
++	if (!pad) {
++		/* Mirror the input side on the output side */
++		cfg->type = vidsw->endpoint[vidsw->active].bus_type;
++		if (cfg->type == V4L2_MBUS_PARALLEL || cfg->type == V4L2_MBUS_BT656)
++			cfg->flags = vidsw->endpoint[vidsw->active].bus.parallel.flags;
++	}
+ 
+ 	return 0;
+ }

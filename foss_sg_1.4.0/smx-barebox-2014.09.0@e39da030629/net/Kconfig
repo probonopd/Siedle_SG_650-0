@@ -1,0 +1,25 @@
+menuconfig NET
+	bool "Networking Support"
+
+if NET
+
+config NET_NFS
+	bool
+	prompt "nfs support"
+
+config NET_NETCONSOLE
+	bool
+	depends on !CONSOLE_NONE
+	prompt "network console support"
+	help
+	  This option adds support for a simple udp based network console.
+
+config NET_RESOLV
+	bool
+	prompt "dns support"
+
+config NET_IFUP
+	default y
+	bool
+
+endif

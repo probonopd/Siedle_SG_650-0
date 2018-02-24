@@ -1,0 +1,15 @@
+## SECTION=system_libraries
+config LIBXMLCONFIG
+	tristate
+	prompt "libxmlconfig"
+	select LIBXML2
+	select LIBXML2_XPATH
+	select LIBXML2_SAX1
+	select LIBLIST
+	help
+	  libxmlconfig is a helper library which lets you pull config
+	  information out of XML files by using XPath queries. For more
+	  details see the project web site:
+
+	  	http://www.pengutronix.de/software/libxmlconfig/
+

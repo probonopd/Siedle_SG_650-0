@@ -1,0 +1,8 @@
+## SECTION=multimedia_xorg_font_cyrillic
+
+config XORG_FONT_WINITZKI_CYRILLIC
+	bool
+	select XORG_FONTS
+	prompt "Winitzki cyrillic"
+	help
+	  FIXME

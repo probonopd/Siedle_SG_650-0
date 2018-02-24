@@ -1,0 +1,20 @@
+From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Sureau?= <frederic.sureau@vodalys.com>
+Date: Wed, 24 Dec 2014 14:01:32 +0100
+Subject: [PATCH] v4l2: fix deadlock in encoder
+
+---
+ sys/v4l2/gstv4l2videoenc.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/sys/v4l2/gstv4l2videoenc.c b/sys/v4l2/gstv4l2videoenc.c
+index 04782893c8dd..e3cbd29df199 100644
+--- a/sys/v4l2/gstv4l2videoenc.c
++++ b/sys/v4l2/gstv4l2videoenc.c
+@@ -317,7 +317,6 @@ gst_v4l2_video_enc_finish (GstVideoEncoder * encoder)
+         (self->v4l2output->pool), &buffer);
+     gst_buffer_unref (buffer);
+   }
+-  GST_VIDEO_ENCODER_STREAM_LOCK (encoder);
+ 
+   /* and ensure the processing thread has stopped in case another error
+    * occured. */

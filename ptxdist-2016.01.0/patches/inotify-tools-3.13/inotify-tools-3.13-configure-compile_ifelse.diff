@@ -1,0 +1,27 @@
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: use AC_COMPILE_IFELSE instead of AC_RUN_IFELSE to check for sys/inotify.h
+
+Without this patch cross compiling inotify-tools doesn't work
+out of the box, because running a cross compiled programm is not
+possible. This patch uses the AC_COMPILE_IFELSE instead.
+
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+# 20091228 rsc: mailed to radu.voicilas@gmail.com
+
+ configure.ac |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: inotify-tools-3.13/configure.ac
+===================================================================
+--- inotify-tools-3.13.orig/configure.ac
++++ inotify-tools-3.13/configure.ac
+@@ -45,7 +45,7 @@ AM_CONDITIONAL([DOXYGEN_ENABLE], test x$
+ AC_CHECK_HEADERS([sys/inotify.h mcheck.h])
+ AC_LANG(C)
+ AC_MSG_CHECKING([whether sys/inotify.h actually works])
+-AC_RUN_IFELSE(
++AC_COMPILE_IFELSE(
+   AC_LANG_PROGRAM([[#include <sys/inotify.h>]],
+                   [[return (-1 == inotify_init());]]
+   ),

@@ -1,0 +1,45 @@
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Sun, 13 Feb 2011 19:59:43 +0100
+Subject: [PATCH] Add ${SYSROOT} capability
+
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+
+# rsc: https://savannah.gnu.org/patch/index.php?6971
+---
+ src/ccgnu2-config.in |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/ccgnu2-config.in b/src/ccgnu2-config.in
+index 9fcafc9..9da0366 100755
+--- a/src/ccgnu2-config.in
++++ b/src/ccgnu2-config.in
+@@ -18,7 +18,7 @@ ccload="@DYN_LOADER@"
+ ccstd="@SSL_LIBS@ @ZSTREAM_LIBS@"
+ prefix="@prefix@"
+ exec_prefix="@exec_prefix@"
+-libdir="-L@libdir@"
++libdir="-L${SYSROOT}@libdir@"
+ 
+ includedir="@includedir@"
+ 
+@@ -66,7 +66,7 @@ while test $# -gt 0 ; do
+ 		libdir="-L$sysroot@libdir@"
+ 		;;
+ 	--prefix)
+-		echo @prefix@
++		echo ${SYSROOT}@prefix@
+ 		;;
+ 	--exec-prefix=*)
+ 		exec_prefix=$optarg
+@@ -97,7 +97,7 @@ while test $# -gt 0 ; do
+ 		echo -lccext2 $ccstd
+ 		;;
+ 	--includes)
+-		echo -I$includedir 
++		echo -I${SYSROOT}$includedir
+ 		;;
+ 	--dyn | --dso)
+ 		echo $ost_cv_dynloader
+-- 
+1.7.2.3
+

@@ -1,0 +1,74 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 16 Jul 2015 09:39:03 +0200
+Subject: [PATCH] gpu: ipu-v3: Add rotator channels to mem2mem image conversion
+ support in IC
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/gpu/ipu-v3/ipu-ic.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/drivers/gpu/ipu-v3/ipu-ic.c b/drivers/gpu/ipu-v3/ipu-ic.c
+index 48531a68d57d..947180a6b344 100644
+--- a/drivers/gpu/ipu-v3/ipu-ic.c
++++ b/drivers/gpu/ipu-v3/ipu-ic.c
+@@ -103,6 +103,8 @@ struct ic_task_bitfields {
+ struct ic_task_channels {
+ 	u8 in;
+ 	u8 out;
++	u8 rot_in;
++	u8 rot_out;
+ 	u8 in_prev;
+ 	u8 in_next;
+ };
+@@ -153,16 +155,22 @@ static const struct ic_task_channels ic_task_ch[IC_NUM_TASKS] = {
+ 	[IC_TASK_ENCODER] = {
+ 		.in = IPUV3_CHANNEL_MEM_IC_PRP_VF,
+ 		.out = IPUV3_CHANNEL_IC_PRP_ENC_MEM,
++		.rot_in = IPUV3_CHANNEL_MEM_ROT_ENC,
++		.rot_out = IPUV3_CHANNEL_ROT_ENC_MEM,
+ 	},
+ 	[IC_TASK_VIEWFINDER] = {
+ 		.in = IPUV3_CHANNEL_MEM_VDI_CUR,
+ 		.out = IPUV3_CHANNEL_IC_PRP_VF_MEM,
++		.rot_in = IPUV3_CHANNEL_MEM_ROT_VF,
++		.rot_out = IPUV3_CHANNEL_ROT_VF_MEM,
+ 		.in_prev = IPUV3_CHANNEL_MEM_VDI_PREV,
+ 		.in_next = IPUV3_CHANNEL_MEM_VDI_NEXT,
+ 	},
+ 	[IC_TASK_POST_PROCESSOR] = {
+ 		.in = IPUV3_CHANNEL_MEM_IC_PP,
+ 		.out = IPUV3_CHANNEL_IC_PP_MEM,
++		.rot_in = IPUV3_CHANNEL_MEM_ROT_PP,
++		.rot_out = IPUV3_CHANNEL_ROT_PP_MEM,
+ 	},
+ };
+ 
+@@ -178,6 +186,7 @@ struct image_convert_ctx {
+ 
+ 	void *freep;
+ 
++	bool rotate:1;
+ 	bool deinterlace:1;
+ 	bool first_deinterlace_frame:1;
+ 
+@@ -204,6 +213,8 @@ struct ipu_ic {
+ 	struct ipuv3_channel *input_channel;
+ 	struct ipuv3_channel *input_channel_n;
+ 	struct ipuv3_channel *output_channel;
++	struct ipuv3_channel *rotation_input_channel;
++	struct ipuv3_channel *rotation_output_channel;
+ 
+ 	struct list_head image_list;
+ 
+@@ -1841,6 +1852,10 @@ int ipu_ic_init(struct ipu_soc *ipu, struct device *dev,
+ 							ic_task_ch[i].in);
+ 		priv->task[i].output_channel = ipu_idmac_get(ipu,
+ 							ic_task_ch[i].out);
++		priv->task[i].rotation_input_channel = ipu_idmac_get(ipu,
++							ic_task_ch[i].rot_in);
++		priv->task[i].rotation_output_channel = ipu_idmac_get(ipu,
++							ic_task_ch[i].rot_out);
+ 		if (ic_task_ch[i].in_prev) {
+ 			priv->task[i].input_channel_p = ipu_idmac_get(ipu,
+ 							ic_task_ch[i].in_prev);

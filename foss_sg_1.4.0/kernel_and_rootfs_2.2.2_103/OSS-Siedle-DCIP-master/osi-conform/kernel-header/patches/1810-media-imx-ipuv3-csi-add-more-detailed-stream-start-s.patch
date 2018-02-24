@@ -1,0 +1,66 @@
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 28 Jul 2016 13:52:37 +0200
+Subject: [PATCH] [media] imx-ipuv3-csi: add more detailed stream start/stop
+ debug info
+
+Add information about the beginning of start/stop_streaming and resource
+acquisition and release to the debug logs to get a more useful timeline
+together with the sync lock / lock loss events.
+
+Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+---
+ drivers/media/platform/imx/imx-ipuv3-csi.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/imx/imx-ipuv3-csi.c b/drivers/media/platform/imx/imx-ipuv3-csi.c
+index ef6faff54873..d998361a8b43 100644
+--- a/drivers/media/platform/imx/imx-ipuv3-csi.c
++++ b/drivers/media/platform/imx/imx-ipuv3-csi.c
+@@ -458,8 +458,10 @@ int ipucsi_pause_stream(struct ipucsi *ipucsi)
+ 
+ 	lockdep_assert_held(&ipucsi->resource_lock);
+ 
+-	if (ipucsi->paused)
++	if (ipucsi->paused) {
++		v4l2_dbg(1, debug, ipucsi->v4l2_dev, "already paused\n");
+ 		return 0;
++	}
+ 
+ 	if (!ipucsi->ipuch) {
+ 		v4l2_dbg(1, debug, ipucsi->v4l2_dev,
+@@ -945,6 +947,8 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 	const char *irq_name[2] = { "CSI0", "CSI1" };
+ 	struct v4l2_rect window;
+ 
++	v4l2_dbg(1, debug, ipucsi->v4l2_dev, "start streaming\n");
++
+ 	ret = ipucsi_get_resources(ipucsi);
+ 	if (ret < 0) {
+ 		dev_err(ipucsi->dev, "Failed to get resources: %d\n", ret);
+@@ -1001,6 +1005,8 @@ static int ipucsi_videobuf_start_streaming(struct vb2_queue *vq, unsigned int co
+ 		goto free_pupe;
+ 	}
+ 
++	v4l2_dbg(1, debug, ipucsi->v4l2_dev, "resources acquired\n");
++
+ 	/*
+ 	 * TODO:
+ 	 * replace set_resolution, set_stride, set_fmt_*, set_yuv_*, set_buffer
+@@ -1222,6 +1228,8 @@ static void ipucsi_videobuf_stop_streaming(struct vb2_queue *vq)
+ 	int nfack_irq = ipu_idmac_channel_irq(ipucsi->ipu, ipucsi->ipuch,
+ 				IPU_IRQ_NFACK);
+ 
++	v4l2_dbg(1, debug, ipucsi->v4l2_dev, "stop streaming\n");
++
+ 	free_irq(ipucsi->frm_lost_irq, ipucsi);
+ 	free_irq(ipucsi->pupe_irq, ipucsi);
+ 	free_irq(ipucsi->nfb4eof_irq, ipucsi);
+@@ -1261,6 +1269,8 @@ static void ipucsi_videobuf_stop_streaming(struct vb2_queue *vq)
+ 	v4l2_media_subdev_s_stream(&ipucsi->subdev.entity, 0);
+ 
+ 	ipucsi_put_resources(ipucsi);
++
++	v4l2_dbg(1, debug, ipucsi->v4l2_dev, "resources freed\n");
+ }
+ 
+ static void ipucsi_lock(struct vb2_queue *vq)

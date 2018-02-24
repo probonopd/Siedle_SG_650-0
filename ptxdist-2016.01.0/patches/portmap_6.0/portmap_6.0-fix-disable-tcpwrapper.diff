@@ -1,0 +1,22 @@
+From: Robert Schwebel <r.schwebel@pengutronix.de>
+Subject: Include tcpd.h only if HOST_ACCESS is selected
+
+Signed-off-by: Robert Schwebel <r.schwebel@pengutronix.de>
+---
+ pmap_check.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+Index: b/pmap_check.c
+===================================================================
+--- a/pmap_check.c
++++ b/pmap_check.c
+@@ -44,7 +44,9 @@
+ #include <netinet/in.h>
+ #include <rpc/rpcent.h>
+ #endif
++#ifdef HOSTS_ACCESS
+ #include <tcpd.h>
++#endif
+ #include <arpa/inet.h>
+ #include <grp.h>
+ 
